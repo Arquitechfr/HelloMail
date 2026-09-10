@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/mail/RichTextEditor";
+import { ContactAutocomplete } from "@/components/mail/ContactAutocomplete";
 import { Loader2, Send, ChevronDown, ChevronUp, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import type { SendEmailInput } from "@/lib/api-types";
@@ -195,7 +196,7 @@ export function ComposeForm({
             Cc / Cci
           </Button>
         </div>
-        <Input id="to" value={to} onChange={handleChange(setTo)} placeholder="destinataire@exemple.com" required />
+        <ContactAutocomplete id="to" value={to} onChange={setTo} placeholder="destinataire@exemple.com" required />
       </div>
 
       {/* Cc / Cci (conditionnels) */}

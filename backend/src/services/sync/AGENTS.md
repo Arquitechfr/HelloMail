@@ -47,11 +47,13 @@ au format JSON.
 ### Séparation des responsabilités
 
 Une classe/fonction par responsabilité, pas de logique éparpillée :
-- `SyncManager` — cycle de vie d'un compte (connect, sync, idle, reconnexion)
+- `SyncManager` — cycle de vie d'un compte (connect, sync, idle, reconnexion, polling multi-dossiers Phase 6)
 - `accountRegistry` — découverte des comptes actifs (polling)
 - `initialSync` — fetch des 50 derniers messages, upsert idempotent
-- `idleLoop` — boucle IDLE + handlers exists/expunge/flags
+- `idleLoop` — boucle IDLE + handlers exists/expunge/flags (INBOX uniquement)
+- `pollingSync` — polling des dossiers spéciaux via 2e connexion IMAP (Phase 6)
 - `reconcileFolder` — reconciliation bornée sur expunge sans UID
+- `reconcileAllFolders` — reconciliation multi-dossiers au démarrage (INBOX + dossiers spéciaux)
 - `messageMapper` — transformation pure FetchMessageObject → MessageInput
 
 Garder cette séparation pour faciliter l'extraction future (Redis/BullMQ,
@@ -111,3 +113,41 @@ Cette discipline est cohérente avec la règle de logs ci-dessus.
 La publication est best-effort : `publishEvent` catch ses propres erreurs et
 n'interrompt jamais la synchronisation. Une panne Redis ne doit pas stopper
 le worker. En mode test, aucune connexion Redis n'est établie (bypass).
+
+## Polling multi-dossiers (Phase 6)
+
+L'IDLE reste sur INBOX uniquement (une seule mailbox sélectionnée à la fois
+en IMAP). Pour détecter les changements sur les dossiers spéciaux (Sent,
+Drafts, Trash, Junk, Archive), `pollingSync.ts` ouvre une **seconde connexion
+IMAP dédiée** au polling périodique de ces dossiers.
+
+### Architecture
+
+- `SyncManager` gère désormais **2 connexions IMAP** par compte actif :
+  1. Connexion principale : IDLE INBOX (read-write, auto-IDLE ImapFlow).
+  2. Connexion polling : `pollingSync` (read-write, polling périodique).
+- Les deux connexions sont indépendantes (pas de conflit de sélection de
+  mailbox). Elles partagent le même `AbortSignal` pour l'arrêt propre.
+- `pollingSync` démarre après `runInitialSyncAll` + `reconcileAllFolders`.
+
+### Polling
+
+- Intervalle configurable via `POLLING_INTERVAL_MS` (défaut 60s).
+- Pour chaque dossier spécial, fetch les UID récents (depuis le dernier UID
+  connu en base) et upsert les nouveaux messages.
+- Reconnexion avec backoff exponentiel en cas d'erreur IMAP.
+- Arrêt propre via `AbortSignal` (intégré dans `syncManager.stop()`).
+
+### Discipline PEEK maintenue
+
+Le polling fetch uniquement `envelope`, `flags`, `bodyStructure`, `size` —
+jamais `BODY[]` ni `RFC822` sans PEEK. La discipline PEEK de la connexion
+principale s'applique identiquement à la connexion de polling.
+
+### OAuth Google XOAUTH2 (Phase 6)
+
+Si le compte a `provider: 'google_oauth'`, le `SyncManager` authentifie
+IMAP via XOAUTH2 (access token à la place du mot de passe). L'access token
+est renouvelé automatiquement via `oauthService.getValidGoogleAccessToken`
+(qui utilise le refresh token chiffré stocké en base). La connexion de
+polling utilise le même mécanisme d'authentification XOAUTH2.

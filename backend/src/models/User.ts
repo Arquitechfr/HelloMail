@@ -1,11 +1,38 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface WebAuthnCredential {
+  id: string;
+  publicKey: string;
+  counter: number;
+  deviceType?: string;
+  transports?: string[];
+  createdAt: Date;
+}
+
 export interface IUserDocument extends Document {
   email: string;
   passwordHash: string;
+  // --- 2FA (Phase 6) ---
+  twoFactorEnabled: boolean;
+  twoFactorSecret?: string; // chiffré (AES-256-GCM)
+  twoFactorBackupCodes?: string[]; // hachés (bcrypt)
+  webauthnCredentials?: WebAuthnCredential[];
+  currentWebauthnChallenge?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const webauthnCredentialSchema = new Schema<WebAuthnCredential>(
+  {
+    id: { type: String, required: true },
+    publicKey: { type: String, required: true },
+    counter: { type: Number, required: true, default: 0 },
+    deviceType: { type: String },
+    transports: { type: [String], default: [] },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
 
 const userSchema = new Schema<IUserDocument>(
   {
@@ -21,6 +48,28 @@ const userSchema = new Schema<IUserDocument>(
       required: true,
       select: false,
     },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    twoFactorSecret: {
+      type: String,
+      select: false,
+    },
+    twoFactorBackupCodes: {
+      type: [String],
+      select: false,
+      default: [],
+    },
+    webauthnCredentials: {
+      type: [webauthnCredentialSchema],
+      select: false,
+      default: [],
+    },
+    currentWebauthnChallenge: {
+      type: String,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -30,6 +79,10 @@ const userSchema = new Schema<IUserDocument>(
         delete ret._id;
         delete ret.__v;
         delete ret.passwordHash;
+        delete ret.twoFactorSecret;
+        delete ret.twoFactorBackupCodes;
+        delete ret.webauthnCredentials;
+        delete ret.currentWebauthnChallenge;
         return ret;
       },
     },

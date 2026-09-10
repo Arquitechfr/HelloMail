@@ -20,6 +20,8 @@ interface MessageReaderProps {
 export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const { data: message, isLoading } = useMessageDetail(accountId, folder, uid);
   const updateFlags = useUpdateFlags(accountId, folder);
+  // `mutate` est stable en React Query v5 — ne change pas de référence entre les renders.
+  const markAsSeen = updateFlags.mutate;
   const deleteMessage = useDeleteMessage(accountId, folder);
   const moveMessage = useMoveMessage(accountId, folder);
   const markAsJunk = useMarkAsJunk(accountId, folder);
@@ -29,9 +31,9 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   // Marquer comme lu à l'ouverture si non lu.
   useEffect(() => {
     if (message && !message.flags.seen && uid !== null) {
-      updateFlags.mutate({ uid, flags: { seen: true } });
+      markAsSeen({ uid, flags: { seen: true } });
     }
-  }, [message, uid, updateFlags]);
+  }, [message, uid, markAsSeen]);
 
   if (uid === null) {
     return (

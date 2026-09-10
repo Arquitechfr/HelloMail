@@ -1,6 +1,6 @@
 # Audit HelloMail — État du projet et prochaines étapes
 
-> Date : 2026-09-10 (mis à jour 2026-09-11 — Phase 4 + Phase 5 + sync multi-dossiers livrées)
+> Date : 2026-09-10 (mis à jour 2026-09-12 — Phase 6 livrée : sync multi-dossiers + pagination + OAuth Google + 2FA + contacts + observabilité)
 > Auteur : Devin (audit automatisé)
 > Périmètre : monorepo `HelloMail/` (backend + frontend)
 
@@ -32,10 +32,11 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 4** | Frontend Next.js 16 App Router + TypeScript strict + Tailwind v4 + shadcn/ui (Base UI) + Zustand + TanStack Query + framer-motion. Design glassmorphism centralisé (globals.css). Auth (login/register + guard + bootstrap session + Route Handler refresh). Comptes (CRUD + toggle). Dossiers (arborescence + compteurs). Liste messages virtualisée (@tanstack/react-virtual). Lecteur (iframe sandbox + PJ + actions flags/delete/move/junk). Compose/reply/forward + brouillons auto-save (debounce 5s + DOMPurify). Recherche (opérateurs backend). SSE temps réel (EventSource + backoff + invalidation TanStack Query). Thèmes clair/sombre. CSP stricte. | — | ~3 800 |
 | **Phase 5** | Sécurité backend (Helmet, pino + redaction, express-rate-limit global, JWT HS256 pinning, graceful shutdown API, fix validate ZodError) + recherche messages (index textuel MongoDB + parser d'opérateurs) + brouillons (IMAP Drafts via messageAppend) + temps réel SSE (Redis Pub/Sub worker→API) + 40 nouveaux tests (227 total, coverage 88.92% lignes) | — | ~3 200 |
 | **Post-Phase 5** | Sync multi-dossiers initiale (INBOX + Sent/Drafts/Trash/Junk/Archive via `runInitialSyncAll`) + miroir Sent dans MongoDB (`saveToSent` upsert après append IMAP) + reconciliation multi-dossiers au démarrage (`reconcileAllFolders` — nettoyage messages fantômes) + migration `reconcileFolder` vers logger pino + 23 nouveaux tests (250 total, coverage 89.05% lignes) | — | ~600 |
+| **Phase 6** | Sync multi-dossiers temps réel (polling dossiers spéciaux via 2e connexion IMAP parallèle à l'IDLE INBOX) + pagination arrière (`fetchMoreService` — fetch IMAP des messages plus anciens par UID range) + OAuth Google XOAUTH2 (service OAuth + callback + refresh token chiffré + renouvellement auto + intégration IMAP/SMTP + bouton frontend) + 2FA TOTP + WebAuthn (secret chiffré AES-256-GCM, codes de secours bcrypt, passkeys `@simplewebauthn/server`, flux login challenge → verify → tokens) + contacts (modèle Contact + index textuel + CRUD + recherche/autocomplétion + intégration compose) + observabilité (métriques Prometheus `prom-client` + health check enrichi + middleware instrumentation) + page réglages (2FA + contacts) + 73 nouveaux tests (323 total, 31 fichiers) | — | ~4 200 |
 
-**Verdict :** HelloMail est désormais un webmail complet et utilisable end-to-end. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est sécurisé et testé (250 tests, 89.05% coverage). Le frontend (Next.js + shadcn/ui + glassmorphism) consomme l'API REST via proxy Next.js rewrites + Route Handler pour le refresh. Le typecheck, le build, les 250 tests backend et la couverture passent sans erreur.
+**Verdict :** HelloMail est désormais un webmail complet, sécurisé et observable, prêt pour la production. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est sécurisé et testé (323 tests, 31 fichiers). Le frontend (Next.js + shadcn/ui + glassmorphism) consomme l'API REST via proxy Next.js rewrites + Route Handler pour le refresh. La Phase 6 ajoute l'OAuth Google, la 2FA (TOTP + WebAuthn), les contacts avec autocomplétion, l'observabilité Prometheus et la sync multi-dossiers temps réel. Le typecheck, le build, les 323 tests backend et les builds frontend passent sans erreur.
 
-**Ce qu'il reste :** L'OAuth, la 2FA, les contacts, l'observabilité, et l'extension de la sync multi-dossiers. L'audit ci-dessous détaille les prochaines étapes par ordre de priorité.
+**Ce qu'il reste :** L'OAuth Microsoft (structure présente, non implémenté), la signature d'email, l'autoconfig Mozilla/MS, le QRESYNC avancé (delta sync via modseq), et le passage du rate limit store vers Redis pour le scaling horizontal. L'audit ci-dessous détaille l'état actuel et les améliorations possibles.
 
 ---
 
@@ -62,22 +63,27 @@ backend/src/
 │   ├── requestLogger.ts    # pino-http wrapper (Phase 5)
 │   └── validate.ts         # Factory Zod body/params/query (ZodError laissée au errorHandler)
 ├── models/
-│   ├── User.ts             # email + passwordHash (minimal)
+│   ├── User.ts             # email + passwordHash + 2FA (totpSecret chiffré, backupCodes bcrypt, webauthnCredentials) (Phase 6)
 │   ├── RefreshToken.ts    # Rotation + TTL index + détection de réutilisation
-│   ├── Account.ts          # Multi-provider (imap, google_oauth, microsoft_oauth)
-│   └── Message.ts          # accountId, folder, uid, envelope, flags, size + index textuel
+│   ├── Account.ts          # Multi-provider (imap, google_oauth, microsoft_oauth) + oauthConfig (Phase 6: OAuth Google XOAUTH2)
+│   ├── Message.ts          # accountId, folder, uid, envelope, flags, size + index textuel
+│   └── Contact.ts          # userId, name, email, phone, notes + index textuel + unique (userId, email) (Phase 6)
 ├── schemas/
 │   ├── commonSchemas.ts    # emailSchema, passwordSchema, objectIdParamSchema
-│   ├── authSchemas.ts      # registerSchema, loginSchema
+│   ├── authSchemas.ts      # registerSchema, loginSchema, verify2FASchema (Phase 6)
 │   ├── accountSchemas.ts   # createImapAccountSchema, toggleAccountActiveSchema
-│   ├── messageSchemas.ts   # list/send/flags/move/batch/search schemas
+│   ├── messageSchemas.ts   # list/send/flags/move/batch/search/fetchMore schemas
 │   ├── folderSchemas.ts    # create/rename folder schemas
-│   └── draftSchemas.ts     # create/update/delete draft schemas (Phase 5)
+│   ├── draftSchemas.ts     # create/update/delete draft schemas (Phase 5)
+│   └── contactSchemas.ts   # create/update/search contact schemas (Phase 6)
 ├── services/
 │   ├── security/
 │   │   └── encryptionService.ts   # AES-256-GCM (encrypt/decrypt)
 │   ├── auth/
-│   │   └── authService.ts         # register, login, refreshTokens, logout
+│   │   ├── authService.ts         # register, login, refreshTokens, logout + 2FA challenge (Phase 6)
+│   │   ├── twoFactorService.ts    # TOTP (otplib) + codes de secours (bcrypt) + verify2FALogin (Phase 6)
+│   │   ├── webauthnService.ts     # WebAuthn passkeys (@simplewebauthn/server) (Phase 6)
+│   │   └── oauthService.ts       # OAuth Google XOAUTH2 (URL, callback, refresh, cache) (Phase 6)
 │   ├── accounts/
 │   │   └── accountService.ts      # createImapAccount, list, delete, toggle
 │   ├── email/
@@ -91,32 +97,48 @@ backend/src/
 │   │   ├── specialFolders.ts      # Détection dossiers spéciaux (specialUse + fallbacks + cache)
 │   │   ├── messageActionService.ts # Flags, delete, move, batch, markAsJunk
 │   │   ├── searchService.ts       # Recherche MongoDB + parser d'opérateurs (Phase 5)
-│   │   └── draftService.ts        # Brouillons IMAP (messageAppend + flag \Draft) (Phase 5)
+│   │   ├── draftService.ts        # Brouillons IMAP (messageAppend + flag \Draft) (Phase 5)
+│   │   └── fetchMoreService.ts    # Pagination arrière (fetch IMAP UID range décroissant) (Phase 6)
+│   ├── contacts/
+│   │   └── contactService.ts      # CRUD contacts + recherche/autocomplétion (Phase 6)
+│   ├── observability/
+│   │   └── metricsService.ts      # Métriques Prometheus (prom-client) (Phase 6)
 │   ├── realtime/
 │   │   ├── eventPublisher.ts      # Publisher Redis Pub/Sub (worker→API) (Phase 5)
 │   │   └── eventSubscriber.ts     # Subscriber Redis + filtrage par userId (Phase 5)
-│   └── sync/
-│       ├── syncManager.ts         # Cycle de vie d'un compte (connect, sync, idle, reconnex)
+│   ├── sync/
+│       ├── syncManager.ts         # Cycle de vie d'un compte (connect, sync, idle, reconnex) + polling multi-dossiers (Phase 6)
 │       ├── accountRegistry.ts     # Polling des comptes actifs → SyncManager
 │       ├── initialSync.ts         # Sync 50 derniers messages (INBOX + dossiers spéciaux via runInitialSyncAll)
 │       ├── idleLoop.ts            # Listeners exists/expunge/flags + IDLE + publishEvent
+│       ├── pollingSync.ts         # Polling dossiers spéciaux (2e connexion IMAP parallèle IDLE) (Phase 6)
 │       ├── reconcileFolder.ts     # Reconciliation bornée (expunge sans UID)
 │       ├── reconcileAllFolders.ts # Reconciliation multi-dossiers au démarrage (INBOX + dossiers spéciaux)
 │       └── messageMapper.ts       # FetchMessageObject → MessageInput (pur)
 ├── controllers/
 │   ├── authController.ts
+│   ├── twoFactorController.ts    # 2FA setup/enable/disable/verify/status (Phase 6)
+│   ├── oauthController.ts        # OAuth Google redirect + callback (Phase 6)
 │   ├── accountsController.ts
-│   ├── messagesController.ts     # list, search, getOne, getAttachment, send, flags, delete, move, junk, batch
+│   ├── messagesController.ts     # list, search, getOne, getAttachment, send, flags, delete, move, junk, batch, fetchMore (Phase 6)
 │   ├── foldersController.ts      # list, create, status, rename, delete
 │   ├── draftsController.ts       # create, update, remove (Phase 5)
+│   ├── contactsController.ts     # CRUD + search contacts (Phase 6)
+│   ├── healthController.ts       # Health check enrichi + endpoint metrics Prometheus (Phase 6)
 │   └── eventsController.ts       # SSE stream (Phase 5)
 ├── routes/
-│   ├── authRoutes.ts             # /api/auth/*
+│   ├── authRoutes.ts             # /api/auth/* + /api/auth/2fa/* (Phase 6)
+│   ├── twoFactorRoutes.ts        # /api/auth/2fa/* (Phase 6)
 │   ├── accountsRoutes.ts         # /api/accounts/*
-│   ├── messagesRoutes.ts         # /api/accounts/:accountId/messages + send + search
+│   ├── messagesRoutes.ts         # /api/accounts/:accountId/messages + send + search + fetchMore (Phase 6)
 │   ├── foldersRoutes.ts          # /api/accounts/:accountId/folders
 │   ├── draftsRoutes.ts           # /api/accounts/:accountId/drafts (Phase 5)
+│   ├── oauthRoutes.ts            # /api/accounts/oauth/* (Phase 6)
+│   ├── contactsRoutes.ts         # /api/contacts/* (Phase 6)
 │   └── eventsRoutes.ts           # /api/events (SSE) (Phase 5)
+├── middleware/
+│   ├── metricsMiddleware.ts      # Instrumentation Prometheus (compteur + histogramme) (Phase 6)
+│   └── ... (existants)
 ├── app.ts                        # Bootstrap Express + Mongoose + Helmet + pino + graceful shutdown
 └── worker.ts                     # Process séparé pour le sync worker
 ```
@@ -153,17 +175,37 @@ backend/src/
 | `PATCH` | `/api/accounts/:accountId/drafts/:uid` | JWT | Modifier un brouillon (delete + append) |
 | `DELETE` | `/api/accounts/:accountId/drafts/:uid` | JWT | Supprimer un brouillon |
 | `GET` | `/api/events` | JWT (query param) | Connexion SSE pour notifications temps réel |
-| `GET` | `/api/health` | — | Health check |
+| `GET` | `/api/health` | — | Health check enrichi (status, uptime, version, MongoDB, Redis) (Phase 6) |
+| `GET` | `/api/metrics` | — | Métriques Prometheus (format text/plain) (Phase 6) |
+| `GET` | `/api/accounts/oauth/google` | — | Redirige vers Google OAuth (Phase 6) |
+| `GET` | `/api/accounts/oauth/google/callback` | — | Callback OAuth Google → crée compte + redirect frontend (Phase 6) |
+| `POST` | `/api/auth/2fa/totp/setup` | JWT | Génère secret TOTP + QR code (Phase 6) |
+| `POST` | `/api/auth/2fa/totp/enable` | JWT | Vérifie code TOTP + active 2FA + retourne codes de secours (Phase 6) |
+| `POST` | `/api/auth/2fa/disable` | JWT | Désactive 2FA (vérification mot de passe) (Phase 6) |
+| `GET` | `/api/auth/2fa/status` | JWT | État 2FA (enabled, webauthnCredentialsCount) (Phase 6) |
+| `POST` | `/api/auth/verify-2fa` | temp token | Vérifie code TOTP/backup → émet tokens complets (Phase 6) |
+| `POST` | `/api/auth/2fa/webauthn/registration/start` | JWT | Démarre enregistrement passkey WebAuthn (Phase 6) |
+| `POST` | `/api/auth/2fa/webauthn/registration/finish` | JWT | Finalise enregistrement passkey WebAuthn (Phase 6) |
+| `POST` | `/api/auth/2fa/webauthn/login/start` | — | Démarre login WebAuthn (Phase 6) |
+| `POST` | `/api/auth/2fa/webauthn/login/finish` | — | Finalise login WebAuthn (Phase 6) |
+| `GET` | `/api/contacts` | JWT | Liste les contacts de l'utilisateur (Phase 6) |
+| `POST` | `/api/contacts` | JWT | Crée un contact (Phase 6) |
+| `PATCH` | `/api/contacts/:id` | JWT | Met à jour un contact (Phase 6) |
+| `DELETE` | `/api/contacts/:id` | JWT | Supprime un contact (Phase 6) |
+| `GET` | `/api/contacts/search?q=...` | JWT | Recherche/autocomplétion contacts (Phase 6) |
+| `POST` | `/api/accounts/:accountId/messages/fetch-more` | JWT | Pagination arrière — fetch IMAP messages plus anciens (Phase 6) |
 
 ### 2.3 Modèles de données
 
-**User** — `email` (unique) + `passwordHash` (select: false). Minimal, pas de firstName/lastName/role.
+**User** — `email` (unique) + `passwordHash` (select: false) + 2FA (Phase 6) : `twoFactorEnabled` (boolean), `twoFactorSecret` (chiffré AES-256-GCM, select: false), `twoFactorBackupCodes` (hashés bcrypt), `webauthnCredentials` (tableau de credentials passkey). Minimal, pas de firstName/lastName/role.
 
 **RefreshToken** — `user` (ref) + `tokenHash` (sha256) + `expiresAt` (TTL index) + `revoked` + `userAgent` + `ip`. Rotation à chaque refresh, détection de réutilisation → révocation globale.
 
 **Account** — `userId` + `provider` (imap / google_oauth / microsoft_oauth) + `emailAddress` (unique par user) + `imapConfig` (host, port, secure, smtp*, username, encryptedPassword) + `oauthConfig` (encryptedRefreshToken, accessTokenExpiresAt, scope) + `isActive` + `lastSyncedAt` + `lastSyncError`. Hook `pre('validate')` pour cohérence provider ↔ config.
 
 **Message** — `accountId` + `folder` + `uid` (unique composé) + `messageId` + `subject` + `from` + `to` + `date` + `flags` (seen, answered, flagged) + `hasAttachments` + `size`. Index sur `{accountId, date: -1}` pour le tri.
+
+**Contact** (Phase 6) — `userId` + `name` + `email` + `phone?` + `notes?` + timestamps. Index textuel `{name: 'text', email: 'text'}` + index unique `{userId, email}` pour éviter les doublons par utilisateur.
 
 ### 2.4 Sync worker
 
@@ -173,12 +215,13 @@ Process Node séparé (`worker.ts`) démarré via PM2. Architecture :
 AccountRegistry (polling 30s)
   └── SyncManager (1 par compte actif)
         ├── runLoop()
-        │   ├── decrypt password
+        │   ├── decrypt password / OAuth token (Phase 6)
         │   ├── ImapFlow connect (qresync: true, autoIdle)
         │   ├── runInitialSyncAll (50 derniers INBOX + dossiers spéciaux, idempotent)
         │   ├── reconcileAllFolders (nettoyage messages fantômes multi-dossiers)
         │   ├── startStableTimer (reset compteur échecs après 3 min stable)
-        │   ├── runIdleLoop (exists, expunge, flags, close, error)
+        │   ├── runIdleLoop (exists, expunge, flags, close, error) — INBOX
+        │   ├── startPollingSync (Phase 6) — 2e connexion IMAP pour polling dossiers spéciaux
         │   └── backoff exponentiel (1s → 5 min, désactivation après 10 échecs)
         └── stop() (abort + logout + cleanup)
 ```
@@ -259,6 +302,20 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Qualité :** Sécurité renforcée sans breaking change fonctionnel. Logger structuré avec redaction — aucun secret dans les logs. Rate limit global + limiters existants migrés vers une lib maintenu. Recherche performante via index textuel MongoDB. Brouillons cohérents multi-client (stockés sur le serveur IMAP). SSE simple et unidirectionnel, Redis prépare le scaling horizontal. Discipline PEEK maintenue. Les événements temps réel ne fuient jamais de données sensibles.
 
+### Phase 6 — Sync multi-dossiers + Pagination + OAuth Google + 2FA + Contacts + Observabilité
+
+**Livrés :**
+
+- [x] **Sync multi-dossiers temps réel** : `pollingSync.ts` — seconde connexion IMAP dédiée au polling des dossiers spéciaux (Sent, Drafts, Trash, Junk, Archive) en parallèle de l'IDLE INBOX. Polling périodique avec intervalle configurable, reconnexion avec backoff, arrêt propre via `AbortSignal`. Intégration dans `syncManager` (démarrage/arrêt du polling en parallèle de l'IDLE). Le worker gère désormais 2 connexions IMAP par compte actif (1 IDLE INBOX + 1 polling dossiers spéciaux).
+- [x] **Pagination arrière** : `fetchMoreService.ts` — fetch IMAP des messages plus anciens par UID range décroissant (au-delà des 50 initiaux). Endpoint `POST /api/accounts/:accountId/messages/fetch-more` avec validation Zod. Stockage en base au fur et à mesure. Intégration frontend avec scroll de la liste virtualisée.
+- [x] **OAuth Google XOAUTH2** : `oauthService.ts` — génération URL d'autorisation, échange du code d'autorisation contre access + refresh token, refresh token chiffré AES-256-GCM stocké dans `oauthConfig.encryptedRefreshToken`, renouvellement automatique de l'access token (cache + TTL). `oauthController.ts` + `oauthRoutes.ts` — endpoints redirect + callback. Adaptation du `syncManager` et `imapPool` pour authentifier IMAP via XOAUTH2 (access token à la place du mot de passe). Adaptation de `sendService` pour SMTP via XOAUTH2 (Nodemailer OAuth2). Bouton "Continuer avec Google" dans `AddAccountDialog.tsx` + gestion du retour OAuth côté `/mail`. Variables d'env : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
+- [x] **2FA TOTP + WebAuthn** : `twoFactorService.ts` (otplib) — génération secret TOTP, QR code (qrcode), vérification code TOTP, codes de secours (10 codes à usage unique, hashés bcrypt), activation/désactivation. `webauthnService.ts` (@simplewebauthn/server v11) — enregistrement et vérification de passkeys (credentials WebAuthn). Flux de login modifié : si 2FA activée, retour `{ requiresTwoFactor: true, twoFactorTempToken }` au lieu des tokens complets. Token temporaire court signé JWT pour le flux verify. Endpoint `POST /api/auth/verify-2fa` valide le code TOTP ou un code de secours et émet les tokens complets. Endpoints setup/enable/disable/status + WebAuthn registration/login. Frontend : `LoginForm` adapté (étape vérification 2FA), `TwoFactorSettings` (activation QR + codes de secours + désactivation), page `/mail/settings`.
+- [x] **Contacts** : Modèle `Contact` (userId, name, email, phone, notes) + index textuel + index unique (userId, email). `contactService.ts` — CRUD complet + recherche/autocomplétion (regex sur name + email). `contactsController.ts` + `contactsRoutes.ts` + `contactSchemas.ts` (Zod). Frontend : `ContactAutocomplete` (autocomplétion dans le compose form avec navigation clavier), `ContactsManager` (CRUD dans la page réglages), `useContacts`/`useSearchContacts`/`useCreateContact`/`useUpdateContact`/`useDeleteContact` (TanStack Query).
+- [x] **Observabilité** : `metricsService.ts` (prom-client v15) — registry Prometheus personnalisé, métriques par défaut Node.js (GC, event loop, memory), compteur de requêtes HTTP (`hellomail_http_requests_total`), histogramme de durée (`hellomail_http_request_duration_seconds`), jauges MongoDB/Redis. `metricsMiddleware.ts` — instrumentation de chaque requête avec normalisation des routes (remplacement ObjectId/IDs par `:id` pour éviter la cardinalité excessive). `healthController.ts` — health check enrichi (status, uptime, version, Node, état MongoDB + Redis, HTTP 503 si dégradé) + endpoint `/api/metrics` au format Prometheus.
+- [x] **Tests** : 73 nouveaux tests (323 total, 31 fichiers). Tests unitaires (twoFactorService, oauthService, fetchMoreService, pollingSync) + tests d'intégration (auth2FA, contacts, health/metrics). Tous les tests passent sans erreur.
+
+**Qualité :** Phase 6 livrée sans breaking change fonctionnel. L'OAuth Google utilise XOAUTH2 (standard Gmail) avec refresh token chiffré. La 2FA combine TOTP (otplib) + WebAuthn (passkeys) avec codes de secours hashés. Les contacts bénéficient d'un index textuel et d'une autocomplétion dans le compose. L'observabilité expose des métriques Prometheus prêtes pour Grafana. Le polling multi-dossiers utilise une seconde connexion IMAP dédiée (pas de conflit avec l'IDLE INBOX). Discipline PEEK maintenue. 323 tests backend passent.
+
 ---
 
 ## 4. Analyse de la dette technique et risques
@@ -271,8 +328,8 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 | D2 | **Rate limit in-memory** | ⚠️ Partiellement résolu (Phase 5) | `middleware/rateLimit.ts` | Migration vers `express-rate-limit` v7 (store in-memory par défaut, headers draft-7). Le store reste en mémoire (Map) — migration vers Redis prévue pour le scaling horizontal. |
 | D3 | **Logging console.log** | ✅ Résolue (Phase 5) | `config/logger.ts`, `middleware/requestLogger.ts` | Logger structuré `pino` + `pino-http` avec redaction automatique des champs sensibles. Tous les `console.log`/`console.error` remplacés par `logger.info`/`logger.error`. Logs JSON en production, prettifiés en dev. |
 | D4 | **Pas de Helmet** | ✅ Résolue (Phase 5) | `app.ts` | `helmet()` activé avec `contentSecurityPolicy: false` (API REST, pas de HTML rendu côté serveur) et `crossOriginEmbedderPolicy: false` (compatibilité pièces jointes). |
-| D5 | **Sync INBOX uniquement** → ✅ Partiellement résolu (sync multi-dossiers initiale + miroir Sent) | 🟡 Faible (reste) | `syncManager.ts`, `initialSync.ts`, `sendService.ts` | La sync initiale couvre désormais INBOX + Sent/Drafts/Trash/Junk/Archive (`runInitialSyncAll`). `saveToSent` fait miroir dans MongoDB après l'append IMAP. Reconciliation multi-dossiers au démarrage (`reconcileAllFolders`) nettoie les messages fantômes. **Reste** : l'IDLE reste sur INBOX uniquement — les changements distants sur Sent/Trash/etc. ne sont pas temps réel (rattrapés à la reconnexion). |
-| D6 | **InitialSync limitée à 50 messages** | 🟡 Faible | `initialSync.ts`, `constants.ts` | Seuls les 50 derniers messages sont fetchés à la sync initiale. Pas de pagination arrière pour récupérer l'historique. |
+| D5 | **Sync INBOX uniquement** → ✅ Résolu (Phase 6 — polling multi-dossiers) | ✅ Résolue | `syncManager.ts`, `pollingSync.ts` | La sync initiale couvre INBOX + Sent/Drafts/Trash/Junk/Archive (`runInitialSyncAll`). `saveToSent` fait miroir dans MongoDB. Reconciliation multi-dossiers au démarrage. **Phase 6** : `pollingSync.ts` ajoute le polling temps réel des dossiers spéciaux via une 2e connexion IMAP en parallèle de l'IDLE INBOX. Les changements distants sur Sent/Trash/etc. sont maintenant rattrapés périodiquement (pas seulement à la reconnexion). |
+| D6 | **InitialSync limitée à 50 messages** → ✅ Résolu (Phase 6 — pagination arrière) | ✅ Résolue | `initialSync.ts`, `fetchMoreService.ts` | **Phase 6** : `fetchMoreService` permet de récupérer les messages plus anciens par UID range décroissant quand l'utilisateur scroll au-delà des 50 initiaux. Stockage en base au fur et à mesure. |
 | D7 | **Pas de validation `algorithm` sur JWT verify** | ✅ Résolue (Phase 5) | `authService.ts`, `auth.ts` | `jwt.verify` avec `{ algorithms: ['HS256'] }` — épinglage de l'algorithme pour empêcher l'algorithme confusion (RS256 → HS256). |
 | D8 | **`validate` middleware perd les détails Zod** | ✅ Résolue (Phase 5) | `validate.ts` | La `ZodError` est maintenant laissée passer au `errorHandler` centralisé (qui la gère avec `err.flatten().fieldErrors`) — les détails Zod sont retournés au client. |
 | D9 | **Pas de gestion des graceful shutdown côté API** | ✅ Résolue (Phase 5) | `app.ts` | Handler `SIGTERM`/`SIGINT` : `server.close()` + `imapPool.closeAll()` + `mongoose.disconnect()` avec safety net de 10s. |
@@ -663,7 +720,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 11 — OAuth Google / Microsoft 🟡 SECONDaire
+### Étape 11 — OAuth Google / Microsoft ✅ LIVRÉ (Phase 6 — Google uniquement)
 
 **Pourquoi :** Le modèle `Account` a déjà la structure `oauthConfig` mais aucun flux n'est implémenté. L'OAuth permet de connecter Gmail/Outlook sans mot de passe d'application.
 
@@ -694,7 +751,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 12 — 2FA / TOTP 🟡 SECONDaire
+### Étape 12 — 2FA / TOTP ✅ LIVRÉ (Phase 6)
 
 **Pourquoi :** Un webmail centralise l'accès à tous les comptes email. Le vol de mot de passe est critique.
 
@@ -718,7 +775,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 13 — Contacts / carnet d'adresses 🟡 SECONDaire
+### Étape 13 — Contacts / carnet d'adresses ✅ LIVRÉ (Phase 6)
 
 **Pourquoi :** L'auto-complétion des adresses email dans le compose form est un must-have UX.
 
@@ -734,7 +791,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 14 — Logging structuré et observabilité 🟡 SECONDaire
+### Étape 14 — Logging structuré et observabilité ✅ LIVRÉ (Phase 6)
 
 **Pourquoi :** En production, `console.log` n'est pas suffisant. Il faut des logs structurés, des métriques et du tracing.
 
@@ -753,7 +810,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 15 — Améliorations de la sync (multi-dossiers IDLE, pagination arrière, QRESYNC) 🟡 SECONDaire
+### Étape 15 — Améliorations de la sync (multi-dossiers IDLE, pagination arrière, QRESYNC) ✅ LIVRÉ (Phase 6 — polling + pagination)
 
 **Pourquoi :** La sync initiale couvre désormais INBOX + dossiers spéciaux (Post-Phase 5), mais l'IDLE reste sur INBOX uniquement. Pour un webmail complet, il faut le temps réel sur tous les dossiers et la récupération de l'historique.
 
@@ -804,17 +861,17 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Le produit est prêt pour une bêta. ✅ Atteint.
 
-### Phase 6 — OAuth + 2FA + Contacts + Polish
+### Phase 6 — OAuth + 2FA + Contacts + Observabilité + Sync multi-dossiers ✅ LIVRÉ
 
-| Étape | Priorité | Effort estimé |
-|-------|----------|---------------|
-| 11. OAuth Google / Microsoft | 🟡 SECONDaire | Élevé |
-| 12. 2FA / TOTP | 🟡 SECONDaire | Moyen |
-| 13. Contacts / carnet d'adresses | 🟡 SECONDaire | Faible |
-| 14. Logging + observabilité | 🟡 SECONDaire | Faible |
-| 15. Sync multi-dossiers + pagination arrière | 🟡 SECONDaire | Élevé |
+| Étape | Priorité | Effort estimé | État |
+|-------|----------|---------------|------|
+| 11. OAuth Google (XOAUTH2) | 🟡 SECONDaire | Élevé | ✅ Livré (Google uniquement — Microsoft non implémenté) |
+| 12. 2FA / TOTP + WebAuthn | 🟡 SECONDaire | Moyen | ✅ Livré |
+| 13. Contacts / carnet d'adresses | 🟡 SECONDaire | Faible | ✅ Livré |
+| 14. Logging + observabilité | 🟡 SECONDaire | Faible | ✅ Livré (Prometheus + health enrichi) |
+| 15. Sync multi-dossiers + pagination arrière | 🟡 SECONDaire | Élevé | ✅ Livré (polling dossiers spéciaux + fetchMore) |
 
-**Objectif :** Le produit est prêt pour la production.
+**Objectif :** Le produit est prêt pour la production. ✅ Atteint.
 
 ---
 
@@ -829,9 +886,9 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Refresh token | ✅ | Phase 1 | Rotation + détection de réutilisation |
 | Logout | ✅ | Phase 1 | Révocation du refresh token |
 | Profil (me) | ✅ | Phase 1 | — |
-| 2FA / TOTP | ❌ | Phase 6 | Non implémenté |
-| OAuth Google | ❌ | Phase 6 | Structure seule dans le modèle |
-| OAuth Microsoft | ❌ | Phase 6 | Structure seule dans le modèle |
+| 2FA / TOTP | ✅ | Phase 6 | TOTP (otplib) + codes de secours (bcrypt) + WebAuthn passkeys |
+| OAuth Google | ✅ | Phase 6 | XOAUTH2 — service OAuth + callback + refresh chiffré + IMAP/SMTP |
+| OAuth Microsoft | ❌ | Phase 6 | Structure présente dans le modèle, non implémenté |
 | **Comptes** | | | |
 | Créer un compte IMAP | ✅ | Phase 1 | Test IMAP+SMTP avant persistance |
 | Lister ses comptes | ✅ | Phase 1 | Projection safe (pas de secrets) |
@@ -846,8 +903,8 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Reconciliation multi-dossiers | ✅ | Post-Phase 5 | reconcileAllFolders au démarrage (nettoyage fantômes) |
 | Miroir Sent dans MongoDB | ✅ | Post-Phase 5 | saveToSent upsert après append IMAP |
 | Backoff + désactivation auto | ✅ | Phase 2 | 10 échecs, backoff exponentiel |
-| Sync multi-dossiers IDLE | ❌ | Phase 6 | IDLE reste sur INBOX uniquement |
-| Pagination arrière | ❌ | Phase 6 | 50 messages max |
+| Sync multi-dossiers IDLE | ⚠️ | Phase 6 | Polling dossiers spéciaux via 2e connexion (pas IDLE — polling périodique) |
+| Pagination arrière | ✅ | Phase 6 | fetchMoreService — fetch IMAP UID range décroissant |
 | QRESYNC avancé (modseq) | ⚠️ | Phase 2 | Activé mais pas exploité pour delta sync |
 | **Messages** | | | |
 | Liste paginée par dossier | ✅ | Phase 2 | Tri par date, filtre par dossier |
@@ -889,13 +946,22 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | **Temps réel** | | | |
 | Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | **Tests** | | | |
-| Tests unitaires | ✅ | Phase 3 + 5 + Post-5 | 250 tests, coverage 89.05% lignes |
-| Tests d'intégration | ✅ | Phase 3 | Supertest + mongodb-memory-server |
+| Tests unitaires | ✅ | Phase 3 + 5 + 6 | 323 tests, 31 fichiers |
+| Tests d'intégration | ✅ | Phase 3 + 6 | Supertest + mongodb-memory-server |
 | **Frontend** | | | |
-| Interface web | ✅ | Phase 4 | Next.js 16 + shadcn/ui + glassmorphism, auth, comptes, dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward, brouillons auto-save, recherche, SSE temps réel |
+| Interface web | ✅ | Phase 4 + 6 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts), brouillons auto-save, recherche, SSE temps réel, page réglages (2FA + contacts) |
 | **Observabilité** | | | |
-| Health check | ✅ | Phase 1 | Basique ({ status: 'ok' }) |
-| Métriques Prometheus | ❌ | Phase 6 | Non implémenté |
+| Health check | ✅ | Phase 6 | Enrichi (status, uptime, version, MongoDB, Redis, HTTP 503 si dégradé) |
+| Métriques Prometheus | ✅ | Phase 6 | prom-client — compteur requêtes, histogramme durée, jauges MongoDB/Redis |
+| **Contacts** | | | |
+| Carnet d'adresses (CRUD) | ✅ | Phase 6 | Modèle Contact + service + controller + routes + index textuel + unique |
+| Autocomplétion compose | ✅ | Phase 6 | ContactAutocomplete (navigation clavier, regex name+email) |
+| **2FA** | | | |
+| TOTP (app authenticator) | ✅ | Phase 6 | otplib + QR code + secret chiffré AES-256-GCM |
+| Codes de secours | ✅ | Phase 6 | 10 codes à usage unique, hashés bcrypt |
+| WebAuthn (passkeys) | ✅ | Phase 6 | @simplewebauthn/server v11 — registration + login |
+| **OAuth** | | | |
+| OAuth Google XOAUTH2 | ✅ | Phase 6 | Service OAuth + callback + refresh chiffré + IMAP/SMTP XOAUTH2 |
 
 ---
 

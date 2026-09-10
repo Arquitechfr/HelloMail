@@ -91,8 +91,32 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-strong max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Ajouter un compte IMAP</DialogTitle>
+          <DialogTitle>Ajouter un compte</DialogTitle>
         </DialogHeader>
+
+        {/* Connexion Google OAuth */}
+        <div className="flex flex-col gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              // Redirection full-page vers le backend OAuth (nécessite window.location pour le redirect Google).
+              // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+              window.location.href = "/api/accounts/oauth/google";
+            }}
+          >
+            Continuer avec Google
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Connexion sécurisée via OAuth 2.0 (Gmail).
+          </p>
+        </div>
+
+        <div className="my-2 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">ou</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">

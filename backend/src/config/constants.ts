@@ -36,6 +36,11 @@ export const INITIAL_SYNC_MESSAGE_COUNT = 50;
 /** Délai de connexion stable avant reset du compteur d'échecs consécutifs (ms). */
 export const STABLE_CONNECTION_RESET_MS = 3 * 60 * 1000;
 
+// --- Polling multi-dossiers (Phase 6) ---
+
+/** Intervalle de polling des dossiers spéciaux via la 2e connexion read-only (ms). */
+export const POLLING_INTERVAL_MS = 60_000;
+
 // --- Pool IMAP côté API (Phase 3) ---
 
 /** Durée d'inactivité avant fermeture d'une connexion du pool (ms). */

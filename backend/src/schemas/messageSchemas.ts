@@ -153,3 +153,12 @@ export const searchQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
+
+/**
+ * Schéma pour la pagination arrière (fetch-more).
+ * `folder` : dossier à étendre. `count` : nombre de messages à fetch (default 50, max 100).
+ */
+export const fetchMoreSchema = z.object({
+  folder: z.string().min(1, 'Dossier requis').max(255, 'Dossier trop long').default('INBOX'),
+  count: z.coerce.number().int().min(1).max(100).default(50),
+});

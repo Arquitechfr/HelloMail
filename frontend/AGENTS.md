@@ -47,16 +47,16 @@ frontend/src/
 │   ├── page.tsx            # Redirect → /login ou /mail
 │   ├── api/auth/refresh/   # Route Handler server-side (forward cookie → backend refresh)
 │   ├── (auth)/             # login, register
-│   └── (mail)/             # layout authentifié + [accountId]/[[...folder]]
+│   └── (mail)/             # layout authentifié + [accountId]/[[...folder]] + settings (Phase 6)
 ├── components/
 │   ├── ui/                 # composants shadcn (button, input, dialog, etc.)
-│   ├── auth/               # LoginForm, RegisterForm
-│   ├── accounts/           # AccountList, AddAccountDialog, AccountItem
-│   └── mail/               # GlassPanel, AccountSidebar, FolderTree, MessageList, MessageReader, EmailIframe, etc.
+│   ├── auth/               # LoginForm (2FA verify Phase 6), RegisterForm, TwoFactorSettings (Phase 6), ContactsManager (Phase 6)
+│   ├── accounts/           # AccountList, AddAccountDialog (Google OAuth Phase 6), AccountItem
+│   └── mail/               # GlassPanel, AccountSidebar, FolderTree, MessageList, MessageReader, EmailIframe, ContactAutocomplete (Phase 6), etc.
 ├── lib/
 │   ├── api.ts              # fetch wrapper + interceptor 401 → refresh (lock en vol)
-│   ├── api-types.ts        # types API (Account, Message, Folder, etc.)
-│   ├── queries/            # hooks TanStack Query (auth, accounts, folders, messages, drafts)
+│   ├── api-types.ts        # types API (Account, Message, Folder, Contact Phase 6, 2FA Phase 6, etc.)
+│   ├── queries/            # hooks TanStack Query (auth + 2FA Phase 6, accounts, folders, messages, drafts, contacts Phase 6)
 │   ├── stores/             # authStore (token en mémoire), uiStore (sélection persistée)
 │   └── utils.ts            # cn(), formatDate, formatSize, downloadBlob, getInitials
 ├── hooks/
@@ -88,6 +88,14 @@ frontend/src/
 - **Zustand** : UI state (compte/dossier/message sélectionnés, compose). `uiStore` persisté partiellement (compte/dossier) via localStorage (pas de secrets).
 - **iframe sandbox** : `sandbox="allow-same-origin"` sans `allow-scripts` ni `allow-forms` ni `allow-popups`. `srcDoc` uniquement. Auto-resize via `ResizeObserver` sur `contentDocument.body`.
 - **SSE** : `EventSource` `/api/events?token=<accessToken>`. Reconnexion backoff exponentiel (1s → 30s), max 10, toast après dépassement. Cleanup au unmount.
+
+## Patterns Phase 6
+
+- **2FA login** : `useLogin` retourne une réponse union — si `requiresTwoFactor`, le `LoginForm` bascule en mode vérification (saisie code TOTP ou code de secours). `useVerify2FA` finalise l'authentification via `POST /api/auth/verify-2fa` avec le `twoFactorTempToken`. Tokens conservés en mémoire (Zustand) uniquement.
+- **2FA settings** : `TwoFactorSettings` gère l'activation TOTP (QR code + secret + vérification), l'affichage des codes de secours, et la désactivation (dialog avec mot de passe). Utilise `use2FAStatus`, `useSetupTOTP`, `useEnableTOTP`, `useDisable2FA`.
+- **Contacts** : `ContactsManager` (CRUD dans la page réglages) + `ContactAutocomplete` (autocomplétion dans le compose form avec navigation clavier flèches + Enter + Escape). `useSearchContacts` activé seulement si `q.length >= 2`.
+- **OAuth Google** : bouton "Continuer avec Google" dans `AddAccountDialog` → `window.location.href = "/api/accounts/oauth/google"` (redirection full-page, pas `router.push` car c'est une navigation sortante vers le backend). Gestion du retour OAuth côté `/mail` (paramètres `?oauth=success` ou `?oauth=error`).
+- **Page réglages** : `/mail/settings` — sections Sécurité (2FA) et Contacts. Bouton réglages dans `AccountSidebar` (icône Settings).
 
 ## Sécurité
 

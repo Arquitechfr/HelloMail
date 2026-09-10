@@ -22,6 +22,10 @@ vi.mock('../security/encryptionService.js', () => ({
   decrypt: vi.fn().mockReturnValue('fake-password'),
 }));
 
+vi.mock('../auth/oauthService.js', () => ({
+  getSmtpAuth: vi.fn().mockResolvedValue({ user: 'user@test.com', pass: 'fake-password' }),
+}));
+
 // Mock de specialFolders.findSentFolder.
 const mockFindSentFolder = vi.fn().mockResolvedValue('Sent');
 

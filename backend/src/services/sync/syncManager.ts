@@ -7,11 +7,12 @@ import {
   STABLE_CONNECTION_RESET_MS,
 } from '../../config/constants.js';
 import { AccountModel, type IAccountDocument } from '../../models/Account.js';
-import { decrypt } from '../security/encryptionService.js';
 import { runInitialSyncAll } from './initialSync.js';
 import { reconcileAllFolders } from './reconcileAllFolders.js';
 import { runIdleLoop } from './idleLoop.js';
+import { startPollingSync } from './pollingSync.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
+import { getImapAuth } from '../auth/oauthService.js';
 
 /**
  * Gère le cycle de vie de synchronisation d'un compte IMAP :
@@ -25,6 +26,7 @@ export class SyncManager {
   private readonly account: IAccountDocument;
   private client: ImapFlow | null = null;
   private abortController: AbortController | null = null;
+  private pollingAbortController: AbortController | null = null;
   private consecutiveFailures = 0;
   private stableTimer: NodeJS.Timeout | null = null;
   private running = false;
@@ -56,6 +58,10 @@ export class SyncManager {
       this.abortController.abort();
     }
 
+    if (this.pollingAbortController) {
+      this.pollingAbortController.abort();
+    }
+
     // Ferme la connexion IMAP proprement (interrompt un fetch en cours).
     if (this.client) {
       try {
@@ -82,21 +88,18 @@ export class SyncManager {
       this.abortController = new AbortController();
 
       try {
-        // 1. Déchiffre le mot de passe IMAP.
-        if (!this.account.imapConfig?.encryptedPassword) {
+        // 1. Résout l'authentification (password IMAP ou XOAUTH2 Google).
+        if (!this.account.imapConfig?.host) {
           throw new Error('Configuration IMAP manquante pour ce compte');
         }
-        const password = decrypt(this.account.imapConfig.encryptedPassword);
+        const auth = await getImapAuth(this.account);
 
         // 2. Crée et connecte le client ImapFlow.
         this.client = new ImapFlow({
           host: this.account.imapConfig.host,
           port: this.account.imapConfig.port,
           secure: this.account.imapConfig.secure,
-          auth: {
-            user: this.account.imapConfig.username,
-            pass: password,
-          },
+          auth,
           logger: false,
           qresync: true,
           disableAutoIdle: false,
@@ -149,8 +152,12 @@ export class SyncManager {
         // 4. Démarre le timer de connexion stable (reset du compteur d'échecs).
         this.startStableTimer();
 
-        // 5. Boucle IDLE (bloque tant que la connexion est active).
-        await runIdleLoop(
+        // 5. Lance l'IDLE INBOX (connexion principale) et le polling multi-dossiers
+        //    (2e connexion read-only) en parallèle. Quand l'un se termine,
+        //    on aborte l'autre pour un shutdown propre, puis on l'attend.
+        this.pollingAbortController = new AbortController();
+
+        const idlePromise = runIdleLoop(
           this.client,
           accountId,
           String(this.account.userId),
@@ -158,7 +165,26 @@ export class SyncManager {
           this.abortController.signal,
         );
 
-        // 6. La boucle IDLE s'est terminée (close/error/abort).
+        const pollingPromise = startPollingSync(
+          this.account,
+          this.pollingAbortController.signal,
+        );
+
+        // Le premier qui termine déclenche l'abort de l'autre.
+        await Promise.race([idlePromise, pollingPromise]);
+
+        // Abort l'autre boucle (si pas déjà fait par stop()).
+        if (!this.abortController.signal.aborted) {
+          this.abortController.abort();
+        }
+        if (!this.pollingAbortController.signal.aborted) {
+          this.pollingAbortController.abort();
+        }
+
+        // Attend que les deux soient terminées proprement.
+        await Promise.allSettled([idlePromise, pollingPromise]);
+
+        // 6. Les boucles se sont terminées (close/error/abort).
         this.clearStableTimer();
 
         if (this.abortController.signal.aborted) {
@@ -167,7 +193,7 @@ export class SyncManager {
         }
 
         // Connexion perdue involontairement → on retentera.
-        throw new Error('Boucle IDLE terminée sans stop volontaire');
+        throw new Error('Boucle IDLE/polling terminée sans stop volontaire');
       } catch (error) {
         this.clearStableTimer();
 

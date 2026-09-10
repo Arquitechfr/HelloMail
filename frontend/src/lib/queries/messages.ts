@@ -8,6 +8,7 @@ import type {
   BatchActionInput,
   SendEmailInput,
   SendResult,
+  FetchMoreResult,
 } from "@/lib/api-types";
 
 export const messageKeys = {
@@ -77,9 +78,11 @@ export function useUpdateFlags(accountId: string, folder: string) {
         `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/flags`,
         { method: "PATCH", body: JSON.stringify(flags) },
       ),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["messages", accountId, folder] });
       qc.invalidateQueries({ queryKey: ["folders", accountId] });
+      // Invalide aussi le détail pour que le frontend reflète le changement de flags.
+      qc.invalidateQueries({ queryKey: ["message", accountId, folder, variables.uid] });
     },
   });
 }
@@ -156,6 +159,21 @@ export function useSendEmail(accountId: string) {
         method: "POST",
         body: JSON.stringify(input),
       }),
+  });
+}
+
+/** POST /api/accounts/:accountId/messages/fetch-more — pagination arrière. */
+export function useFetchMore(accountId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ folder, count }: { folder: string; count?: number }) =>
+      apiFetch<FetchMoreResult>(`/api/accounts/${accountId}/messages/fetch-more`, {
+        method: "POST",
+        body: JSON.stringify({ folder, count }),
+      }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["messages", accountId, variables.folder] });
+    },
   });
 }
 

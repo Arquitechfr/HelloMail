@@ -8,6 +8,7 @@ import { fetchMessageDetail } from '../services/email/messageFetchService.js';
 import { fetchAttachmentStream } from '../services/email/attachmentService.js';
 import { sendEmail } from '../services/email/sendService.js';
 import { searchMessages } from '../services/email/searchService.js';
+import { fetchMoreMessages } from '../services/email/fetchMoreService.js';
 import {
   updateFlags as updateMessageFlags,
   deleteMessage,
@@ -173,5 +174,17 @@ export const batch = asyncHandler(async (req: AuthenticatedRequest, res: Respons
     req.body.action,
     req.body.destination,
   );
+  res.status(200).json(result);
+});
+
+export const fetchMore = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const result = await fetchMoreMessages(account, req.body.folder, req.body.count);
   res.status(200).json(result);
 });

@@ -5,11 +5,11 @@ import type { IAccountDocument } from '../../models/Account.js';
 import { MessageModel } from '../../models/Message.js';
 import { AppError } from '../../utils/AppError.js';
 import { logger } from '../../config/logger.js';
-import { decrypt } from '../security/encryptionService.js';
 import { imapPool } from './imapPool.js';
 import { findSentFolder } from './specialFolders.js';
 import { mapFetchResultToMessage } from '../sync/messageMapper.js';
 import { SMTP_TIMEOUT_MS } from '../../config/constants.js';
+import { getSmtpAuth } from '../auth/oauthService.js';
 
 export interface SendEmailInput {
   to: string[];
@@ -82,12 +82,14 @@ export async function sendEmail(
   account: IAccountDocument,
   input: SendEmailInput,
 ): Promise<SendResult> {
-  if (!account.imapConfig?.encryptedPassword) {
+  if (!account.imapConfig?.smtpHost) {
     throw AppError.badRequest('Configuration IMAP/SMTP manquante pour ce compte');
   }
 
-  const password = decrypt(account.imapConfig.encryptedPassword);
   const accountId = String(account._id);
+
+  // Résout l'authentification SMTP (password ou XOAUTH2 Google).
+  const auth = await getSmtpAuth(account);
 
   // Construit le raw MIME pour la sauvegarde Sent (avant l'envoi).
   const rawMime = await buildRawMime(input, account.emailAddress);
@@ -97,10 +99,7 @@ export async function sendEmail(
     host: account.imapConfig.smtpHost,
     port: account.imapConfig.smtpPort,
     secure: account.imapConfig.smtpSecure,
-    auth: {
-      user: account.imapConfig.username,
-      pass: password,
-    },
+    auth: auth as never,
     connectionTimeout: SMTP_TIMEOUT_MS,
     greetingTimeout: SMTP_TIMEOUT_MS,
     socketTimeout: SMTP_TIMEOUT_MS,

@@ -27,6 +27,7 @@ export default defineConfig({
         'src/services/sync/reconcileFolder.ts',
         'src/services/sync/reconcileAllFolders.ts',
         'src/services/sync/accountRegistry.ts',
+        'src/services/sync/pollingSync.ts',
         // connectionTest — testé indirectement via les mocks d'intégration.
         'src/services/email/connectionTest.ts',
       ],

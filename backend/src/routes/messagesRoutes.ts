@@ -16,6 +16,7 @@ import {
   messageActionParamsSchema,
   searchParamsSchema,
   searchQuerySchema,
+  fetchMoreSchema,
 } from '../schemas/messageSchemas.js';
 
 const router = Router();
@@ -37,6 +38,14 @@ router.post(
   requireAuth,
   validate({ body: batchActionSchema }),
   messagesController.batch,
+);
+
+// Pagination arrière : fetch les messages plus anciens depuis IMAP.
+router.post(
+  '/:accountId/messages/fetch-more',
+  requireAuth,
+  validate({ params: listMessagesParamsSchema, body: fetchMoreSchema }),
+  messagesController.fetchMore,
 );
 
 // Mise à jour des flags d'un message.

@@ -5,11 +5,18 @@ import { env } from '../../config/env.js';
 import { AppError } from '../../utils/AppError.js';
 import { UserModel, IUserDocument } from '../../models/User.js';
 import { RefreshTokenModel } from '../../models/RefreshToken.js';
+import { verify2FALogin, is2FAEnabled } from './twoFactorService.js';
 
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
   user: { id: string; email: string };
+}
+
+export interface LoginResult {
+  requiresTwoFactor?: boolean;
+  twoFactorTempToken?: string;
+  tokenPair?: TokenPair;
 }
 
 export class AuthService {
@@ -25,8 +32,8 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  static async login(email: string, password: string): Promise<TokenPair> {
-    const user = await UserModel.findOne({ email }).select('+passwordHash');
+  static async login(email: string, password: string): Promise<LoginResult> {
+    const user = await UserModel.findOne({ email }).select('+passwordHash +twoFactorEnabled +twoFactorSecret +twoFactorBackupCodes');
 
     if (!user || !user.passwordHash) {
       throw AppError.unauthorized('Identifiants invalides');
@@ -35,6 +42,35 @@ export class AuthService {
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
       throw AppError.unauthorized('Identifiants invalides');
+    }
+
+    // Si la 2FA est activée, retourne un jeton temporaire au lieu des tokens complets.
+    if (is2FAEnabled(user)) {
+      const twoFactorTempToken = this.generateTwoFactorTempToken(user);
+      return { requiresTwoFactor: true, twoFactorTempToken };
+    }
+
+    return { tokenPair: await this.generateTokens(user) };
+  }
+
+  /**
+   * Vérifie la 2FA (TOTP ou code de secours) et retourne les tokens complets.
+   */
+  static async verifyTwoFactor(twoFactorTempToken: string, code: string): Promise<TokenPair> {
+    const userId = this.verifyTwoFactorTempToken(twoFactorTempToken);
+
+    const user = await UserModel.findById(userId).select('+twoFactorEnabled +twoFactorSecret +twoFactorBackupCodes');
+    if (!user) {
+      throw AppError.unauthorized('Utilisateur introuvable');
+    }
+
+    if (!is2FAEnabled(user)) {
+      throw AppError.badRequest('2FA non activée pour cet utilisateur');
+    }
+
+    const isValid = await verify2FALogin(user, code);
+    if (!isValid) {
+      throw AppError.unauthorized('Code 2FA invalide');
     }
 
     return this.generateTokens(user);
@@ -78,6 +114,36 @@ export class AuthService {
     if (!rawRefreshToken) return;
     const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
     await RefreshTokenModel.updateOne({ tokenHash }, { revoked: true });
+  }
+
+  /**
+   * Génère un jeton temporaire (5min) pour la vérification 2FA.
+   * Contient uniquement l'userId — pas d'accès aux ressources.
+   */
+  private static generateTwoFactorTempToken(user: IUserDocument): string {
+    return jwt.sign(
+      { sub: user._id.toString(), action: '2fa_verify' },
+      env.JWT_ACCESS_SECRET,
+      { expiresIn: '5m', algorithm: 'HS256' },
+    );
+  }
+
+  /**
+   * Vérifie un jeton temporaire 2FA et retourne l'userId.
+   */
+  private static verifyTwoFactorTempToken(token: string): string {
+    try {
+      const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as {
+        sub: string;
+        action: string;
+      };
+      if (decoded.action !== '2fa_verify') {
+        throw new Error('Action invalide');
+      }
+      return decoded.sub;
+    } catch {
+      throw AppError.unauthorized('Jeton 2FA invalide ou expiré');
+    }
   }
 
   private static async generateTokens(user: IUserDocument): Promise<TokenPair> {

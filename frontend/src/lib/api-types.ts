@@ -15,6 +15,41 @@ export interface AuthResponse {
   user: User;
 }
 
+// --- 2FA ---
+
+export interface LoginResponse {
+  requiresTwoFactor?: boolean;
+  twoFactorTempToken?: string;
+  accessToken?: string;
+  user?: User;
+}
+
+export interface TwoFAStatus {
+  twoFactorEnabled: boolean;
+  webauthnCredentialsCount: number;
+}
+
+export interface TOTPSetupResponse {
+  qrCodeUrl: string;
+  secret: string;
+}
+
+export interface EnableTOTPResponse {
+  backupCodes: string[];
+}
+
+// --- Contacts ---
+
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- Comptes ---
 
 export type AccountProvider = "imap" | "google_oauth" | "microsoft_oauth";
@@ -143,6 +178,12 @@ export interface SendResult {
   messageId: string;
   accepted: string[];
   rejected: string[];
+}
+
+// --- Pagination arrière ---
+
+export interface FetchMoreResult {
+  fetched: number;
 }
 
 // --- Flags / Actions ---

@@ -94,3 +94,10 @@ export async function closeSubscriber(): Promise<void> {
     userCallbacks.clear();
   }
 }
+
+/**
+ * Indique si le subscriber Redis est connecté (pour le health check).
+ */
+export function isSubscriberConnected(): boolean {
+  return subscriber !== null && subscriber.status === 'ready';
+}

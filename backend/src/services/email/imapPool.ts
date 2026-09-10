@@ -1,8 +1,8 @@
 import { ImapFlow } from 'imapflow';
 import type { IAccountDocument } from '../../models/Account.js';
-import { decrypt } from '../security/encryptionService.js';
 import { AppError } from '../../utils/AppError.js';
 import { IMAP_POOL_IDLE_TTL_MS } from '../../config/constants.js';
+import { getImapAuth } from '../auth/oauthService.js';
 
 interface PooledConnection {
   client: ImapFlow;
@@ -90,20 +90,17 @@ class ImapConnectionPool {
   private async initConnection(account: IAccountDocument): Promise<ImapFlow> {
     const accountId = String(account._id);
 
-    if (!account.imapConfig?.encryptedPassword) {
+    if (!account.imapConfig?.host) {
       throw AppError.badRequest('Configuration IMAP manquante pour ce compte');
     }
 
-    const password = decrypt(account.imapConfig.encryptedPassword);
+    const auth = await getImapAuth(account);
 
     const client = new ImapFlow({
       host: account.imapConfig.host,
       port: account.imapConfig.port,
       secure: account.imapConfig.secure,
-      auth: {
-        user: account.imapConfig.username,
-        pass: password,
-      },
+      auth,
       logger: false,
       // Pas de qresync ni autoIdle côté API : on ne fait pas d'IDLE ici.
       disableAutoIdle: true,

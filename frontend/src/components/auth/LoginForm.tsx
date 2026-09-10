@@ -3,41 +3,114 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useLogin } from "@/lib/queries/auth";
+import { useLogin, useVerify2FA } from "@/lib/queries/auth";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlassPanel } from "@/components/mail/GlassPanel";
-import { Mail, Loader2 } from "lucide-react";
+import { Mail, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export function LoginForm() {
   const router = useRouter();
   const login = useLogin();
+  const verify2FA = useVerify2FA();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [twoFactorTempToken, setTwoFactorTempToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     login.mutate(
       { email, password },
       {
-        onSuccess: () => {
-          toast.success("Connexion réussie");
-          router.replace("/mail");
+        onSuccess: (data) => {
+          if (data.requiresTwoFactor && data.twoFactorTempToken) {
+            setTwoFactorTempToken(data.twoFactorTempToken);
+          } else {
+            toast.success("Connexion réussie");
+            router.replace("/mail");
+          }
         },
         onError: (err) => {
-          if (err instanceof ApiError) {
-            toast.error(err.message);
-          } else {
-            toast.error("Erreur de connexion");
-          }
+          if (err instanceof ApiError) toast.error(err.message);
+          else toast.error("Erreur de connexion");
         },
       },
     );
   };
 
+  const handleVerify2FA = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorTempToken) return;
+    verify2FA.mutate(
+      { twoFactorTempToken, code },
+      {
+        onSuccess: () => {
+          toast.success("Connexion réussie");
+          router.replace("/mail");
+        },
+        onError: (err) => {
+          if (err instanceof ApiError) toast.error(err.message);
+          else toast.error("Code 2FA invalide");
+        },
+      },
+    );
+  };
+
+  // Étape 2 : vérification 2FA.
+  if (twoFactorTempToken) {
+    return (
+      <GlassPanel variant="strong" className="w-full max-w-md p-8">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <ShieldCheck className="size-6" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Vérification 2FA</h1>
+          <p className="text-sm text-muted-foreground">
+            {"Saisissez le code de votre application d'authentification"}
+          </p>
+        </div>
+
+        <form onSubmit={handleVerify2FA} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="code">Code à 6 chiffres</Label>
+            <Input
+              id="code"
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="123456"
+              required
+              autoComplete="one-time-code"
+              maxLength={8}
+              inputMode="numeric"
+            />
+          </div>
+
+          <Button type="submit" disabled={verify2FA.isPending} className="mt-2 h-10">
+            {verify2FA.isPending ? <Loader2 className="size-4 animate-spin" /> : "Vérifier"}
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setTwoFactorTempToken(null);
+              setCode("");
+            }}
+            className="mt-1"
+          >
+            Retour
+          </Button>
+        </form>
+      </GlassPanel>
+    );
+  }
+
+  // Étape 1 : login classique.
   return (
     <GlassPanel variant="strong" className="w-full max-w-md p-8">
       <div className="mb-8 flex flex-col items-center gap-3">

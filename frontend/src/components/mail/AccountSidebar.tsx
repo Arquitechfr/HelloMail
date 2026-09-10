@@ -10,7 +10,7 @@ import { FolderTree } from "@/components/mail/FolderTree";
 import { GlassPanel } from "@/components/mail/GlassPanel";
 import { Button } from "@/components/ui/button";
 import { useLogout } from "@/lib/queries/auth";
-import { Plus, LogOut, Mail, Loader2 } from "lucide-react";
+import { Plus, LogOut, Mail, Loader2, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/mail/ThemeToggle";
 
 export function AccountSidebar() {
@@ -50,6 +50,13 @@ export function AccountSidebar() {
         </div>
         <div className="flex items-center gap-1">
           <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => router.push("/mail/settings")}
+          >
+            <Settings className="size-4" />
+          </Button>
           <Button variant="ghost" size="icon-sm" onClick={handleLogout} disabled={logout.isPending}>
             {logout.isPending ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
           </Button>

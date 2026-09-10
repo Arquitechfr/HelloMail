@@ -19,6 +19,13 @@ const envSchema = z.object({
   REDIS_HOST: z.string().min(1, 'REDIS_HOST est requis'),
   REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
   REDIS_PASSWORD: z.string().optional(),
+  // --- OAuth Google (Phase 6) — optionnel, requis uniquement si OAuth activé ---
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z
+    .string()
+    .url('GOOGLE_REDIRECT_URI doit être une URL valide')
+    .default('http://localhost:4000/api/accounts/oauth/google/callback'),
 });
 
 const parsed = envSchema.safeParse(process.env);

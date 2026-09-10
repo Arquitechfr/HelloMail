@@ -6,12 +6,17 @@ import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { metricsMiddleware } from './middleware/metricsMiddleware.js';
+import { healthCheck, metricsEndpoint } from './controllers/healthController.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { accountsRoutes } from './routes/accountsRoutes.js';
 import { messagesRoutes } from './routes/messagesRoutes.js';
 import { foldersRoutes } from './routes/foldersRoutes.js';
 import { draftsRoutes } from './routes/draftsRoutes.js';
 import { eventsRoutes } from './routes/eventsRoutes.js';
+import { oauthRoutes } from './routes/oauthRoutes.js';
+import { twoFactorRoutes } from './routes/twoFactorRoutes.js';
+import { contactsRoutes } from './routes/contactsRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
@@ -44,16 +49,19 @@ async function bootstrap(): Promise<void> {
 
   // Rate limit global sur l'API (100 req/15 min/IP). Bypass en mode test.
   app.use('/api', globalRateLimit);
+  app.use(metricsMiddleware);
 
-  app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok' });
-  });
+  app.get('/api/health', healthCheck);
+  app.get('/api/metrics', metricsEndpoint);
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/auth', twoFactorRoutes);
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/accounts', messagesRoutes);
   app.use('/api/accounts', foldersRoutes);
   app.use('/api/accounts', draftsRoutes);
+  app.use('/api/accounts/oauth', oauthRoutes);
+  app.use('/api/contacts', contactsRoutes);
   app.use('/api', eventsRoutes);
 
   app.use(notFound);

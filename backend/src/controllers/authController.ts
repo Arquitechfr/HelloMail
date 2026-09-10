@@ -18,6 +18,27 @@ export const register = asyncHandler(async (req: Request, res: Response, _next: 
 
 export const login = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const result = await AuthService.login(req.body.email, req.body.password);
+
+  // Si la 2FA est activée, retourne un jeton temporaire au lieu des tokens complets.
+  if (result.requiresTwoFactor) {
+    res.status(200).json({
+      requiresTwoFactor: true,
+      twoFactorTempToken: result.twoFactorTempToken,
+    });
+    return;
+  }
+
+  const tokenPair = result.tokenPair!;
+  setRefreshCookie(res, tokenPair.refreshToken);
+  res.status(200).json({
+    accessToken: tokenPair.accessToken,
+    user: tokenPair.user,
+  });
+});
+
+/** Vérifie la 2FA (TOTP ou code de secours) lors du login. */
+export const verifyTwoFactor = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  const result = await AuthService.verifyTwoFactor(req.body.twoFactorTempToken, req.body.code);
   setRefreshCookie(res, result.refreshToken);
   res.status(200).json({
     accessToken: result.accessToken,

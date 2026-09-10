@@ -22,6 +22,11 @@ vi.mock('../security/encryptionService.js', () => ({
   decrypt: vi.fn().mockReturnValue('fake-password'),
 }));
 
+// Mock de oauthService.getImapAuth — les tests existants utilisent des comptes IMAP.
+vi.mock('../auth/oauthService.js', () => ({
+  getImapAuth: vi.fn().mockResolvedValue({ user: 'user@test.com', pass: 'fake-password' }),
+}));
+
 // Import après les mocks.
 const { imapPool } = await import('./imapPool.js');
 
