@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { useUIStore } from "@/lib/stores/uiStore";
+import { playNotificationSound, showDesktopNotification } from "@/lib/notifications";
 import { toast } from "sonner";
 import type { RealtimeEvent } from "@/lib/api-types";
 
@@ -46,6 +48,27 @@ export function useSSE(enabled: boolean) {
         // refetchType: 'active' force le refetch même si la query est stale.
         qc.invalidateQueries({ queryKey: ["messages", event.accountId], refetchType: "active" });
         qc.invalidateQueries({ queryKey: ["folders", event.accountId], refetchType: "active" });
+
+        const uiState = useUIStore.getState();
+        if (uiState.notificationSoundEnabled) {
+          playNotificationSound();
+        }
+
+        const payload = event.payload as { folder?: string; uid?: number } | undefined;
+        const targetFolder = payload?.folder || "INBOX";
+        const targetUid = payload?.uid;
+
+        if (uiState.desktopNotificationsEnabled) {
+          showDesktopNotification({
+            title: "HelloMail — Nouveau message",
+            body: `Nouveau message reçu dans ${targetFolder}`,
+            onClick: () => {
+              uiState.setSelectedAccount(event.accountId);
+              uiState.setSelectedFolder(targetFolder);
+              if (targetUid) uiState.setSelectedUid(targetUid);
+            },
+          });
+        }
       });
 
       es.addEventListener("message:deleted", (e) => {

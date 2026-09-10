@@ -104,6 +104,14 @@ router.get(
   messagesController.getThread,
 );
 
+// Envoi d'un accusé de réception de lecture (MDN RFC 3798).
+router.post(
+  '/:accountId/messages/:folder/:uid/receipt',
+  requireAuth,
+  validate({ params: getOneParamsSchema }),
+  messagesController.sendReceipt,
+);
+
 // Lecture d'un message complet (corps + headers + structure PJ).
 router.get(
   '/:accountId/messages/:folder/:uid',

@@ -164,6 +164,7 @@ export interface MessageDetail {
   flags: MessageFlags;
   size: number;
   attachments: AttachmentInfo[];
+  readReceiptRequestedTo?: string;
 }
 
 export interface ThreadItem {
@@ -199,6 +200,7 @@ export interface SendEmailInput {
   attachments?: { filename: string; content: string; contentType?: string }[];
   inReplyTo?: string;
   references?: string[];
+  requestReadReceipt?: boolean;
 }
 
 export interface SendResult {
@@ -277,3 +279,50 @@ export interface ApiErrorBody {
   message: string;
   fieldErrors?: Record<string, string[]>;
 }
+
+// --- Règles de tri automatique ---
+
+export type RuleConditionField = "from" | "to" | "subject" | "hasAttachments";
+export type RuleConditionOperator = "contains" | "notContains" | "equals" | "startsWith" | "endsWith";
+export type RuleConditionMatch = "all" | "any";
+
+export interface RuleCondition {
+  field: RuleConditionField;
+  operator: RuleConditionOperator;
+  value: string;
+}
+
+export type RuleActionType = "moveToFolder" | "markAsRead" | "markAsFlagged" | "markAsJunk" | "delete";
+
+export interface RuleAction {
+  type: RuleActionType;
+  folderName?: string;
+}
+
+export interface MailRule {
+  _id: string;
+  userId: string;
+  accountId?: string;
+  name: string;
+  order: number;
+  isActive: boolean;
+  conditionMatch: RuleConditionMatch;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+  stopProcessing: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRuleInput {
+  name: string;
+  accountId?: string;
+  isActive?: boolean;
+  conditionMatch?: RuleConditionMatch;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+  stopProcessing?: boolean;
+}
+
+export type UpdateRuleInput = Partial<CreateRuleInput>;
+

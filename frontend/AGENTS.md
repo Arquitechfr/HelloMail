@@ -50,8 +50,9 @@ frontend/src/
 │   └── mail/               # layout authentifié avec AppHeader fixe
 │       ├── [accountId]/[[...folder]] # vue principale webmail (dossiers + liste + lecteur)
 │       ├── empty/          # état vide (aucun compte configuré)
-│       ├── settings/       # Réglages généraux + signatures d'email par compte (Phase 7)
-│       │   └── security/   # Page dédiée 2FA TOTP + WebAuthn + codes de secours
+│       ├── settings/       # Réglages généraux + notifications natives + signatures (Phase 7 & 8)
+│       │   ├── security/   # Page dédiée 2FA TOTP + WebAuthn + codes de secours
+│       │   └── rules/      # Page dédiée règles de tri & filtres automatiques (Phase 8)
 │       └── contacts/       # Page dédiée carnet d'adresses (CRUD + recherche)
 ├── components/
 │   ├── ui/                 # composants shadcn (button, input, dialog, dropdown-menu stabilisé, etc.)
@@ -59,15 +60,17 @@ frontend/src/
 │   ├── accounts/           # AccountList, AddAccountDialog (Autoconfig + Google/MS OAuth), AccountSignatureManager
 │   └── mail/               # AppHeader, UserDropdown, KeyboardShortcutsDialog, SettingsNav, AttachmentDropzone,
 │                           # MessageThreadView, QuickReplyBar, MessageMetadataHeader, GlassPanel, AccountSidebar,
-│                           # FolderTree, MessageList, MessageReader, EmailIframe, etc.
+│                           # FolderTree, MessageList, MessageReader, ReadReceiptBanner, NotificationSettings,
+│                           # rules/ (RuleDialog, RuleForm, RulesList), EmailIframe, etc.
 ├── lib/
 │   ├── api.ts              # fetch wrapper + interceptor 401 → refresh (lock en vol)
-│   ├── api-types.ts        # types API (Account, Message, Folder, Contact, Autoconfig, Signature, etc.)
-│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts)
-│   ├── stores/             # authStore (token en mémoire), uiStore (sélection persistée)
+│   ├── api-types.ts        # types API (Account, Message, Folder, Contact, Autoconfig, Signature, MailRule, etc.)
+│   ├── notifications.ts    # Web Notification API + Web Audio API carillon synthétisé
+│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts, rules)
+│   ├── stores/             # authStore (token en mémoire), uiStore (sélection persistée + notifications)
 │   └── utils.ts            # cn(), formatDate, formatSize, downloadBlob, getInitials
 ├── hooks/
-│   ├── useSSE.ts           # EventSource /api/events + invalidation TanStack Query
+│   ├── useSSE.ts           # EventSource /api/events + invalidation TanStack Query + notifications sonores/desktop
 │   └── useAuth.ts          # bootstrap session au mount
 └── providers/
     ├── theme-provider.tsx   # next-themes

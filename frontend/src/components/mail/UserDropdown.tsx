@@ -20,6 +20,7 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  Filter,
   Keyboard,
   LogOut,
   ChevronDown,
@@ -100,6 +101,14 @@ export function UserDropdown() {
           >
             <Settings className="size-4 text-muted-foreground" />
             <span>Paramètres généraux</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            className="cursor-pointer gap-2.5 py-2 px-2.5 text-xs rounded-md"
+            onClick={() => router.push("/mail/settings/rules")}
+          >
+            <Filter className="size-4 text-muted-foreground" />
+            <span>Règles & Filtres de tri</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem

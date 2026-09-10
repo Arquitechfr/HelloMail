@@ -34,9 +34,9 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Post-Phase 5** | Sync multi-dossiers initiale (INBOX + Sent/Drafts/Trash/Junk/Archive via `runInitialSyncAll`) + miroir Sent dans MongoDB (`saveToSent` upsert après append IMAP) + reconciliation multi-dossiers au démarrage (`reconcileAllFolders` — nettoyage messages fantômes) + migration `reconcileFolder` vers logger pino + 23 nouveaux tests (250 total, coverage 89.05% lignes) | — | ~600 |
 | **Phase 6** | Sync multi-dossiers temps réel (polling dossiers spéciaux via 2e connexion IMAP parallèle à l'IDLE INBOX) + pagination arrière (`fetchMoreService` — fetch IMAP des messages plus anciens par UID range) + OAuth Google XOAUTH2 (service OAuth + callback + refresh token chiffré + renouvellement auto + intégration IMAP/SMTP + bouton frontend) + 2FA TOTP + WebAuthn (secret chiffré AES-256-GCM, codes de secours bcrypt, passkeys `@simplewebauthn/server`, flux login challenge → verify → tokens) + contacts (modèle Contact + index textuel + CRUD + recherche/autocomplétion + intégration compose) + observabilité (métriques Prometheus `prom-client` + health check enrichi + middleware instrumentation) + page réglages (2FA + contacts) + 73 nouveaux tests (323 total, 31 fichiers) | — | ~4 200 |
 | **Phase 7** | Autoconfiguration des comptes email (Mozilla ISPDB + DNS MX + heuristiques) + OAuth Microsoft 365 / Outlook.com (XOAUTH2) + Signatures d'email personnalisées par compte + Pièces jointes avancées (drag & drop, jauge 25 Mo, preview, suppressions individuelles) + Rate Limiting distribué Redis (`rate-limit-redis`) + Résorption intégrale de la dette technique D2, D10 et D12 (0 `as any`) + 16 nouveaux tests (339 total, 34 fichiers) | — | ~2 100 |
-| **Phase 8 (Lots 8.1 & 8.2)** | Threading & Conversation (regroupement `messageId` + `inReplyTo` + normalisation sujet, endpoint `GET /thread`, timeline & accordéon `MessageThreadView`, réponse rapide `QuickReplyBar`) + Export d'emails bruts RFC 822 (`.eml`, streaming PassThrough PEEK) + Impression dédiée (`@media print`, masquage navigation/header, raccourci P) + 10 nouveaux tests (349 total, 35 fichiers) | — | ~1 200 |
+| **Phase 8** | Threading & Conversation (Lots 8.1 & 8.2 : `inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline `MessageThreadView`, réponse rapide `QuickReplyBar` + export .eml streamé PEEK + impression `@media print`) + Notifications de bureau & carillon Web Audio (Lot 8.3) + Moteur de règles & filtres automatiques (Lot 8.4 : modèle `Rule`, validation Zod, service d'évaluation et actions, intégration IDLE loop, page UI `/mail/settings/rules`) + Accusés de lecture (Lot 8.5 : RFC 3798 MDN, `Disposition-Notification-To`, bannière `ReadReceiptBanner` interactive, émission rapport MIME multipart/report) + 31 nouveaux tests (370 total, 38 fichiers, 0 `as any`) | — | ~3 100 |
 
-**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis et couvert par 349 tests Vitest (35 suites). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml) ainsi que l'impression dédiée. Typecheck, ESLint et Next.js Build sont 100% verts.
+**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis et couvert par 370 tests Vitest (38 suites). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique et les accusés de lecture MDN. Typecheck, ESLint et Next.js Build sont 100% verts.
 
 ---
 
@@ -873,6 +873,29 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Le produit est prêt pour la production. ✅ Atteint.
 
+### Phase 7 — Autoconfiguration + Signatures + Pièces Jointes Pro + Redis ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|-------|----------|---------------|------|
+| 16. Autoconfiguration des comptes email (ISPDB / MX) | 🟢 UX / Onboarding | Moyen | ✅ Livré |
+| 17. OAuth Microsoft 365 / Outlook.com (XOAUTH2) | 🟡 Secondaire | Élevé | ✅ Livré |
+| 18. Signatures d'email personnalisées par compte | 🟢 Confort | Faible | ✅ Livré |
+| 19. Drag & Drop pièces jointes (`AttachmentDropzone`) | 🟢 Confort | Faible | ✅ Livré |
+| 20. Rate Limiting distribué Redis (`rate-limit-redis`) | 🔴 Sécurité | Faible | ✅ Livré |
+| 21. Résorption intégrale dette technique (0 `as any`) | 🔴 Qualité | Moyen | ✅ Livré |
+
+### Phase 8 — Threading, EML, Print, Notifications, Règles & Accusés ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|-------|----------|---------------|------|
+| 22. Threading conversationnel (Lots 8.1 & 8.2) | 🟠 IMPORTANTE | Moyen | ✅ Livré (`inReplyTo` + `messageId`, `GET /thread`, `MessageThreadView`) |
+| 23. Export brut RFC 822 (.eml) & Impression dédiée | 🟡 SECONDaire | Faible | ✅ Livré (stream PEEK PassThrough, `@media print`, raccourci P) |
+| 24. Notifications bureau natives & Carillon Web Audio (Lot 8.3) | 🟠 IMPORTANTE | Faible | ✅ Livré (`Notification` API, synthèse Web Audio zéro asset, toggle réglages) |
+| 25. Moteur de Règles & Filtres automatiques (Lot 8.4) | 🔴 CRITIQUE | Élevé | ✅ Livré (Modèle `Rule`, service, IDLE loop, page `/mail/settings/rules`) |
+| 26. Accusés de lecture MDN RFC 3798 (Lot 8.5) | 🟡 SECONDaire | Moyen | ✅ Livré (`Disposition-Notification-To`, bannière interactive, rapport MIME) |
+
+**Objectif :** Expérience utilisateur professionnelle de niveau Thunderbird/Fastmail. ✅ Atteint.
+
 ---
 
 ## 7. Matrice de couverture fonctionnelle
@@ -921,6 +944,8 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Fil de discussion / Threading | ✅ | Phase 8 | Regroupement `messageId` + `inReplyTo` + sujet normalisé, API `GET /thread`, `MessageThreadView` |
 | Export brut RFC 822 (.eml) | ✅ | Phase 8 | Téléchargement brut streamé, respect PEEK (`readOnly`), bouton dans le lecteur |
 | Impression dédiée | ✅ | Phase 8 | `@media print` optimisé, masquage des panneaux/headers, raccourci clavier `P` |
+| Moteur de règles & filtres | ✅ | Phase 8 | Modèle `Rule`, conditions multiples (from, to, subject, hasAttachments), actions (move, read, flag, spam, delete), worker IDLE loop, page `/mail/settings/rules` |
+| Accusé de lecture (MDN) | ✅ | Phase 8 | Demande à l'envoi (`Disposition-Notification-To`), détection à la lecture, bannière `ReadReceiptBanner`, émission automatique rapport RFC 3798 |
 | **Envoi** | | | |
 | Composer un message | ✅ | Phase 3 | sendService (Nodemailer) |
 | Répondre (reply) | ✅ | Phase 3 | inReplyTo + references dans le schéma |
@@ -948,11 +973,11 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | JWT algorithm pinning | ✅ | Phase 5 | algorithms: ['HS256'] sur verify |
 | **Temps réel** | | | |
 | Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
+| Notifications bureau & carillon | ✅ | Phase 8 | Notifications Web natives + synthèse Web Audio sans asset + toggle réglages |
 | **Tests** | | | |
-| Tests unitaires | ✅ | Phase 3 + 5 + 6 + 7 + 8 | 349 tests, 35 fichiers |
-| Tests d'intégration | ✅ | Phase 3 + 6 + 7 + 8 | Supertest + mongodb-memory-server |
+| Tests unitaires & intégration | ✅ | Phase 3 + 5 + 6 + 7 + 8 | 370 tests, 38 fichiers (100% passants) |
 | **Frontend** | | | |
-| Interface web | ✅ | Phase 4 + 6 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts), brouillons auto-save, recherche, SSE temps réel, page réglages (2FA + contacts) |
+| Interface web | ✅ | Phase 4 + 6 + 7 + 8 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google/MS OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts, drag&drop PJ, accusés de lecture), brouillons auto-save, recherche, SSE temps réel, pages dédiées (/mail/settings, /mail/settings/security, /mail/settings/rules, /mail/contacts) |
 | **Observabilité** | | | |
 | Health check | ✅ | Phase 6 | Enrichi (status, uptime, version, MongoDB, Redis, HTTP 503 si dégradé) |
 | Métriques Prometheus | ✅ | Phase 6 | prom-client — compteur requêtes, histogramme durée, jauges MongoDB/Redis |

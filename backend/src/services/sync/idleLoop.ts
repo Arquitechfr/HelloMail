@@ -1,10 +1,12 @@
 import type { ImapFlow, ExistsEvent, ExpungeEvent, FlagsEvent } from 'imapflow';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
+import { Types } from 'mongoose';
 import { MessageModel } from '../../models/Message.js';
 import { mapFetchResultToMessage } from './messageMapper.js';
 import { reconcileFolder } from './reconcileFolder.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
+import { applyRulesToIncomingMessage } from '../email/ruleService.js';
 
 const FETCH_QUERY = {
   uid: true,
@@ -66,6 +68,25 @@ export async function runIdleLoop(
             userId,
             payload: { folder: messageInput.folder, uid: messageInput.uid },
           }).catch(() => {});
+
+          // Évaluation et application des règles de tri automatique
+          const savedMsg = await MessageModel.findOne({
+            accountId,
+            folder: messageInput.folder,
+            uid: messageInput.uid,
+          });
+          if (savedMsg) {
+            applyRulesToIncomingMessage(
+              { _id: new Types.ObjectId(accountId), userId: new Types.ObjectId(userId) },
+              savedMsg,
+              client,
+            ).catch((ruleErr) => {
+              logger.error(
+                { error: ruleErr instanceof Error ? ruleErr.message : 'inconnu' },
+                'Erreur exécution règles de tri',
+              );
+            });
+          }
         } catch (error) {
           logger.error(
             { accountId, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },

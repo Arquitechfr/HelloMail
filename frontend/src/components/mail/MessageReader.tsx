@@ -15,6 +15,7 @@ import { AttachmentList } from "@/components/mail/AttachmentList";
 import { MessageThreadView } from "@/components/mail/MessageThreadView";
 import { QuickReplyBar } from "@/components/mail/QuickReplyBar";
 import { MessageMetadataHeader } from "@/components/mail/MessageMetadataHeader";
+import { ReadReceiptBanner } from "@/components/mail/ReadReceiptBanner";
 import { Button } from "@/components/ui/button";
 import {
   Mail,
@@ -250,6 +251,17 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       {/* En-tête des métadonnées du message */}
       <MessageMetadataHeader message={message} />
 
+      {/* Bannière d'accusé de réception (MDN RFC 3798) */}
+      {message.readReceiptRequestedTo && (
+        <ReadReceiptBanner
+          key={`${folder}-${uid}`}
+          accountId={accountId}
+          folder={folder}
+          uid={uid}
+          recipientEmail={message.readReceiptRequestedTo}
+        />
+      )}
+
       {/* Corps scrollable + pièces jointes */}
       <div className="flex-1 overflow-y-auto px-6 py-4 printable-area">
         {message.attachments.length > 0 && (
@@ -277,11 +289,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
             messageId: message.messageId,
             subject: message.subject,
             from: message.from.address,
-            to: [
-              message.from.address,
-              ...message.to.map((t) => t.address),
-              ...(message.cc ? message.cc.map((c) => c.address) : []),
-            ],
+            to: [message.from.address, ...message.to.map((t) => t.address), ...(message.cc?.map((c) => c.address) ?? [])],
           })
         }
       />

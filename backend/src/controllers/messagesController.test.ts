@@ -27,6 +27,7 @@ const {
   mockMarkMessageAsJunk,
   mockBatchAction,
   mockGetConversationThread,
+  mockSendReadReceipt,
 } = vi.hoisted(() => ({
   mockFetchMessageDetail: vi.fn(),
   mockFetchAttachmentStream: vi.fn(),
@@ -38,6 +39,11 @@ const {
   mockMarkMessageAsJunk: vi.fn(),
   mockBatchAction: vi.fn(),
   mockGetConversationThread: vi.fn(),
+  mockSendReadReceipt: vi.fn(),
+}));
+
+vi.mock('../services/email/receiptService.js', () => ({
+  sendReadReceipt: mockSendReadReceipt,
 }));
 
 vi.mock('../services/email/messageFetchService.js', () => ({
@@ -285,8 +291,20 @@ describe('Messages routes (intégration)', () => {
       .get(`/api/accounts/${accountId}/messages/INBOX/100/thread`)
       .set('Authorization', `Bearer ${token}`);
 
-    expect(res.status).toBe(200);
     expect(res.body.count).toBe(2);
     expect(res.body.conversationSubject).toBe('Test Thread');
+  });
+
+  it('POST /:accountId/messages/:folder/:uid/receipt → 200 envoie l\'accusé', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+    mockSendReadReceipt.mockResolvedValueOnce({ ok: true, sentTo: 'sender@test.com' });
+
+    const res = await request(app)
+      .post(`/api/accounts/${accountId}/messages/INBOX/100/receipt`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.sentTo).toBe('sender@test.com');
   });
 });

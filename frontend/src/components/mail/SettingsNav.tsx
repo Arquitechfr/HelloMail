@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, ShieldCheck, Users, ArrowLeft } from "lucide-react";
+import { Settings, ShieldCheck, Users, Filter, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SettingsNavProps {
@@ -19,6 +19,12 @@ export function SettingsNav({ title, description }: SettingsNavProps) {
       href: "/mail/settings",
       icon: Settings,
       active: pathname === "/mail/settings",
+    },
+    {
+      label: "Règles & Filtres",
+      href: "/mail/settings/rules",
+      icon: Filter,
+      active: pathname === "/mail/settings/rules",
     },
     {
       label: "Sécurité & 2FA",

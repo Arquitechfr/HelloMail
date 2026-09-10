@@ -17,6 +17,8 @@ interface UIState {
   composeReplyTo: { messageId?: string; subject?: string; from?: string; to?: string[] } | null;
   mobileSidebarOpen: boolean;
   shortcutsDialogOpen: boolean;
+  desktopNotificationsEnabled: boolean;
+  notificationSoundEnabled: boolean;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedFolder: (folder: string) => void;
   setSelectedUid: (uid: number | null) => void;
@@ -25,6 +27,8 @@ interface UIState {
   setMobileSidebarOpen: (open: boolean) => void;
   toggleMobileSidebar: () => void;
   setShortcutsDialogOpen: (open: boolean) => void;
+  setDesktopNotificationsEnabled: (enabled: boolean) => void;
+  setNotificationSoundEnabled: (enabled: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -38,6 +42,8 @@ export const useUIStore = create<UIState>()(
       composeReplyTo: null,
       mobileSidebarOpen: false,
       shortcutsDialogOpen: false,
+      desktopNotificationsEnabled: true,
+      notificationSoundEnabled: true,
       setSelectedAccount: (accountId) => set({ selectedAccountId: accountId }),
       setSelectedFolder: (folder) => set({ selectedFolder: folder }),
       setSelectedUid: (uid) => set({ selectedUid: uid }),
@@ -47,12 +53,16 @@ export const useUIStore = create<UIState>()(
       setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
       toggleMobileSidebar: () => set((state) => ({ mobileSidebarOpen: !state.mobileSidebarOpen })),
       setShortcutsDialogOpen: (open) => set({ shortcutsDialogOpen: open }),
+      setDesktopNotificationsEnabled: (enabled) => set({ desktopNotificationsEnabled: enabled }),
+      setNotificationSoundEnabled: (enabled) => set({ notificationSoundEnabled: enabled }),
     }),
     {
       name: "hellomail-ui",
       partialize: (state) => ({
         selectedAccountId: state.selectedAccountId,
         selectedFolder: state.selectedFolder,
+        desktopNotificationsEnabled: state.desktopNotificationsEnabled,
+        notificationSoundEnabled: state.notificationSoundEnabled,
       }),
     },
   ),

@@ -22,6 +22,7 @@ export interface SendEmailInput {
   attachments?: { filename: string; content: string; contentType?: string }[];
   inReplyTo?: string;
   references?: string[];
+  requestReadReceipt?: boolean;
 }
 
 export interface SendResult {
@@ -49,6 +50,9 @@ function buildRawMime(input: SendEmailInput, fromAddress: string): Promise<Buffe
   if (input.html) mailOptions.html = input.html;
   if (input.inReplyTo) mailOptions.inReplyTo = input.inReplyTo;
   if (input.references?.length) mailOptions.references = input.references.join(' ');
+  if (input.requestReadReceipt) {
+    mailOptions.headers = { 'Disposition-Notification-To': fromAddress };
+  }
 
   if (input.attachments?.length) {
     mailOptions.attachments = input.attachments.map((a) => ({
@@ -123,6 +127,7 @@ export async function sendEmail(
       })),
       inReplyTo: input.inReplyTo,
       references: input.references?.join(' '),
+      headers: input.requestReadReceipt ? { 'Disposition-Notification-To': account.emailAddress } : undefined,
     });
 
     // Sauvegarde dans Sent via IMAP append.

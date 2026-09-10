@@ -67,6 +67,7 @@ export const sendEmailSchema = z.object({
     .optional(),
   inReplyTo: z.string().optional(),
   references: z.array(z.string()).optional(),
+  requestReadReceipt: z.boolean().optional(),
 });
 
 /**

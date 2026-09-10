@@ -13,7 +13,7 @@ pnpm --filter backend dev         # tsx watch src/app.ts
 pnpm --filter backend build       # tsc → dist/
 pnpm --filter backend typecheck   # tsc --noEmit
 pnpm --filter backend start       # node dist/app.js
-pnpm --filter backend test          # vitest run (349 tests, 35 fichiers)
+pnpm --filter backend test          # vitest run (370 tests, 38 fichiers)
 pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 ```
 
@@ -24,18 +24,18 @@ src/
 ├── config/         env.ts (validation Zod fail-fast) + constants.ts (cookies, JWT, rate limit, SMTP timeout) + logger.ts (pino + redaction)
 ├── utils/          AppError, asyncHandler, cookieHelpers, projections (ACCOUNT_SAFE_PROJECTION)
 ├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit + RedisStore Phase 7), validate (Zod), requestLogger (pino-http), metricsMiddleware (Prometheus instrumentation, Phase 6)
-├── models/         User (2FA TOTP + WebAuthn, Phase 6), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7), Message (inReplyTo, index textuel, indexes conversation), Contact (index textuel + unique, Phase 6)
-├── schemas/        commonSchemas, authSchemas (register, login, verify2FA), accountSchemas (+ signature, autoconfig Phase 7), messageSchemas (list/send/flags/move/batch/search/fetchMore), folderSchemas, draftSchemas, contactSchemas
+├── models/         User (2FA TOTP + WebAuthn, Phase 6), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7), Message (inReplyTo, index textuel, indexes conversation), Contact (index textuel + unique, Phase 6), Rule (moteur de tri, Phase 8)
+├── schemas/        commonSchemas, authSchemas (register, login, verify2FA), accountSchemas (+ signature, autoconfig Phase 7), messageSchemas (list/send/flags/move/batch/search/fetchMore + receipt), folderSchemas, draftSchemas, contactSchemas, ruleSchemas (Phase 8)
 ├── services/
 │   ├── security/   encryptionService (AES-256-GCM, fail-fast si clé invalide)
 │   ├── auth/       authService, twoFactorService (TOTP), webauthnService (passkeys), oauthService (Google XOAUTH2), microsoftOAuthService (Microsoft XOAUTH2, Phase 7)
-│   ├── email/      connectionTest, imapPool (XOAUTH2 Google/Microsoft), sanitize, messageFetchService, attachmentService (PJ + stream RFC 822 .eml), threadService (regroupement inReplyTo + sujet), sendService (XOAUTH2), folderService, specialFolders, messageActionService, searchService, draftService, fetchMoreService
+│   ├── email/      connectionTest, imapPool (XOAUTH2 Google/Microsoft), sanitize, messageFetchService, attachmentService (PJ + stream RFC 822 .eml), threadService (regroupement inReplyTo + sujet), sendService (XOAUTH2 + MDN), receiptService (RFC 3798, Phase 8), ruleService (moteur de règles, Phase 8), folderService, specialFolders, messageActionService, searchService, draftService, fetchMoreService
 │   ├── contacts/   contactService (CRUD + recherche/autocomplétion, Phase 6)
 │   ├── observability/ metricsService (Prometheus prom-client, Phase 6)
 │   ├── realtime/   eventPublisher (Redis Pub/Sub worker→API), eventSubscriber (filtrage par userId)
 │   └── accounts/   accountService (create, list, delete, toggle, updateSignature Phase 7), autoconfigService (ISPDB / MX, Phase 7)
-├── controllers/    authController, twoFactorController, oauthController (Google + Microsoft Phase 7), accountsController (signature, autoconfig Phase 7), messagesController (+ getRaw, getThread Phase 8), foldersController, draftsController, contactsController, healthController, eventsController
-├── routes/         authRoutes, twoFactorRoutes, accountsRoutes (+ autoconfig, signature Phase 7), messagesRoutes (+ raw, thread Phase 8), foldersRoutes, draftsRoutes, oauthRoutes (Google + Microsoft Phase 7), contactsRoutes, eventsRoutes
+├── controllers/    authController, twoFactorController, oauthController (Google + Microsoft Phase 7), accountsController (signature, autoconfig Phase 7), messagesController (+ getRaw, getThread, sendReceipt Phase 8), rulesController (Phase 8), foldersController, draftsController, contactsController, healthController, eventsController
+├── routes/         authRoutes, twoFactorRoutes, accountsRoutes (+ autoconfig, signature Phase 7), messagesRoutes (+ raw, thread, receipt Phase 8), rulesRoutes (Phase 8), foldersRoutes, draftsRoutes, oauthRoutes (Google + Microsoft Phase 7), contactsRoutes, eventsRoutes
 ├── test/           globalSetup (MongoMemoryServer partagé), setup (clearDb)
 └── app.ts          bootstrap Mongoose + Express + Helmet + pino-http + CORS + trust proxy + rate limit global + graceful shutdown + errorHandler
 ```

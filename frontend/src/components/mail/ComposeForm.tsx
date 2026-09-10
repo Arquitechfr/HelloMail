@@ -39,14 +39,8 @@ function htmlToText(html: string): string {
 
 function formatSignatureHtml(sigText: string): string {
   const trimmed = sigText.trim();
-  const alreadyHasDashes = trimmed.startsWith("--");
-  const lines = sigText.split("\n");
-  const linesHtml = lines
-    .map((line) => `<p>${line.trim() ? line : "<br>"}</p>`)
-    .join("");
-
-  // Évite le doublon si le texte contient déjà le délimiteur standard RFC '--'
-  const prefix = alreadyHasDashes ? "" : "<p>-- </p>";
+  const prefix = trimmed.startsWith("--") ? "" : "<p>-- </p>";
+  const linesHtml = sigText.split("\n").map((l) => `<p>${l.trim() ? l : "<br>"}</p>`).join("");
   return `<p><br></p>${prefix}${linesHtml}`;
 }
 
@@ -65,11 +59,9 @@ export function ComposeForm({
   const updateDraft = useUpdateDraft(accountId);
 
   const initialSubject = () => {
-    if (mode === "reply" && replyTo?.subject) {
-      return replyTo.subject.startsWith("Re:") ? replyTo.subject : `Re: ${replyTo.subject}`;
-    }
-    if (mode === "forward" && replyTo?.subject) {
-      return replyTo.subject.startsWith("Fwd:") ? replyTo.subject : `Fwd: ${replyTo.subject}`;
+    if ((mode === "reply" || mode === "forward") && replyTo?.subject) {
+      const p = mode === "reply" ? "Re:" : "Fwd:";
+      return replyTo.subject.startsWith(p) ? replyTo.subject : `${p} ${replyTo.subject}`;
     }
     return "";
   };
@@ -80,6 +72,7 @@ export function ComposeForm({
   const [subject, setSubject] = useState(initialSubject());
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [requestReadReceipt, setRequestReadReceipt] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(false);
@@ -234,6 +227,7 @@ export function ComposeForm({
           : undefined,
       inReplyTo: mode === "reply" ? replyTo?.messageId : undefined,
       references: mode === "reply" && replyTo?.messageId ? [replyTo.messageId] : undefined,
+      requestReadReceipt: requestReadReceipt ? true : undefined,
     };
 
     try {
@@ -332,10 +326,21 @@ export function ComposeForm({
             Enregistrer
           </Button>
         </div>
-        <Button type="button" variant="ghost" onClick={onClose} disabled={submitting || savingDraft}>
-          <X className="size-4" />
-          Annuler
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={requestReadReceipt}
+              onChange={(e) => setRequestReadReceipt(e.target.checked)}
+              className="rounded border-border size-3.5 accent-primary"
+            />
+            <span>Accusé de lecture</span>
+          </label>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting || savingDraft}>
+            <X className="size-4" />
+            Annuler
+          </Button>
+        </div>
       </div>
     </form>
   );

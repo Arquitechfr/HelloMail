@@ -212,3 +212,24 @@ export async function downloadAttachment(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/** POST /api/accounts/:accountId/messages/:folder/:uid/receipt — envoie un accusé de réception MDN. */
+export function useSendReadReceipt(accountId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ folder, uid }: { folder: string; uid: number }) =>
+      apiFetch<{ ok: boolean; sentTo: string }>(
+        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/receipt`,
+        { method: "POST" },
+      ),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({
+        queryKey: messageKeys.detail(accountId, variables.folder, variables.uid),
+      });
+      qc.invalidateQueries({
+        queryKey: ["messages", accountId, variables.folder],
+      });
+    },
+  });
+}
+

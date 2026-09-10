@@ -33,9 +33,9 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (349 tests, 35 fichiers). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (370 tests, 38 fichiers). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
-- **Header fixe & architecture par page** : Header permanent unifié (`AppHeader`) et navigation modulaire (`/mail/settings`, `/mail/settings/security`, `/mail/contacts`).
+- **Header fixe & architecture par page** : Header permanent unifié (`AppHeader`) et navigation modulaire (`/mail/settings`, `/mail/settings/security`, `/mail/settings/rules`, `/mail/contacts`).
 
 ## Structure
 
@@ -55,4 +55,10 @@ HelloMail/
 - **Phase 5** ✅ — Sécurité backend (Helmet, pino, rate limit global) + recherche + brouillons + temps réel (SSE)
 - **Phase 6** ✅ — Sync multi-dossiers (polling dossiers spéciaux) + pagination arrière + OAuth Google XOAUTH2 + 2FA (TOTP + WebAuthn) + contacts + observabilité (Prometheus + health enrichi)
 - **Phase 7 & Refonte UI Pro** ✅ — Refonte Header fixe compact (actions rapides, recherche, menu profil complet) + sous-pages dédiées (paramètres, sécurité 2FA, carnet d'adresses) + autoconfiguration email (ISPDB / MX) + OAuth Microsoft XOAUTH2 + signatures d'email personnalisées par compte + rate limiting distribué Redis (RedisStore) + drag & drop pièces jointes (`AttachmentDropzone`) + élimination totale des `as any`.
-- **Phase 8 (Lots 8.1 & 8.2)** ✅ — Threading & Vue Conversation (`inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline & accordéon `MessageThreadView`, réponse rapide `QuickReplyBar`) + Export d'emails bruts RFC 822 (`.eml`, streaming PassThrough PEEK) + Impression dédiée (`@media print`, masquage navigation/header, raccourci P) — 349 tests, 35 fichiers.
+- **Phase 8 (Lots 8.1 à 8.5 — Intégralité livrée)** ✅ :
+  - **Lot 8.1** : Threading & Vue Conversation (`inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline & accordéon `MessageThreadView`, réponse rapide `QuickReplyBar`).
+  - **Lot 8.2** : Export d'emails bruts RFC 822 (`.eml`, streaming PassThrough PEEK) + Impression dédiée (`@media print`, masquage navigation/header, raccourci P).
+  - **Lot 8.3** : Notifications bureau natives (`Notification` Web API avec permission dynamique) + Carillon audio Web Audio API synthétisé (zéro asset externe) + bascule dans les réglages et réaction SSE `message:new`.
+  - **Lot 8.4** : Moteur de Règles & Filtres automatiques (Modèle `Rule`, validation Zod, service d'évaluation et d'actions moveToFolder/markAsRead/markAsFlagged/markAsJunk/delete, intégration temps réel dans `idleLoop.ts`, page UI dédiée `/mail/settings/rules`, ordonnancement par priorité).
+  - **Lot 8.5** : Accusés de lecture (MDN RFC 3798 — demande à l'envoi `Disposition-Notification-To`, détection à la lecture, bannière discrète `ReadReceiptBanner` avec confirmation/ignorance et émission du rapport MIME `multipart/report; report-type=disposition-notification`).
+  - Couverture : **370 tests Vitest, 38 fichiers, 0 `as any`**.

@@ -27,6 +27,7 @@ export interface MessageDetail {
   flags: { seen: boolean; answered: boolean; flagged: boolean };
   size: number;
   attachments: AttachmentInfo[];
+  readReceiptRequestedTo?: string;
 }
 
 interface ParsedParts {
@@ -204,6 +205,7 @@ export async function fetchMessageDetail(
       },
       size: msg.size ?? 0,
       attachments: parts.attachments,
+      readReceiptRequestedTo: headers['disposition-notification-to'],
     };
   } finally {
     imapPool.release(accountId);

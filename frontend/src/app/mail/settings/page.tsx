@@ -8,6 +8,7 @@ import { SettingsNav } from "@/components/mail/SettingsNav";
 import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { AccountItem } from "@/components/accounts/AccountItem";
 import { AccountSignatureManager } from "@/components/accounts/AccountSignatureManager";
+import { NotificationSettings } from "@/components/mail/NotificationSettings";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/mail/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -133,7 +134,10 @@ export default function GeneralSettingsPage() {
               <AccountSignatureManager />
             </div>
 
-            {/* 4. Carte Préférences & Thème */}
+            {/* 4. Carte Notifications & Son */}
+            <NotificationSettings />
+
+            {/* 5. Carte Préférences & Thème */}
             <div className="rounded-md border border-border bg-card/60 p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
                 <Sliders className="size-4 text-primary" />
