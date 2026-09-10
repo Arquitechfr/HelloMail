@@ -4,8 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccounts } from "@/lib/queries/accounts";
 import { AccountSidebar } from "@/components/mail/AccountSidebar";
-import { GlassPanel } from "@/components/mail/GlassPanel";
-import { Mail, Loader2 } from "lucide-react";
+import { Mail } from "lucide-react";
 
 export default function EmptyStatePage() {
   const router = useRouter();
@@ -23,19 +22,19 @@ export default function EmptyStatePage() {
   return (
     <>
       <AccountSidebar />
-      <GlassPanel className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Mail className="size-8" />
+      <div className="flex flex-1 items-center justify-center bg-card/10 p-8 select-none">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
+            <Mail className="size-7" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold">Bienvenue sur HelloMail</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Ajoutez votre premier compte IMAP pour commencer à gérer vos emails.
+            <h2 className="text-lg font-bold font-display tracking-tight text-foreground">Bienvenue sur HelloMail</h2>
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+              Ajoutez votre premier compte IMAP depuis la barre latérale pour commencer à synchroniser et gérer vos emails.
             </p>
           </div>
         </div>
-      </GlassPanel>
+      </div>
     </>
   );
 }

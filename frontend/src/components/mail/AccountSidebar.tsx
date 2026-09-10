@@ -7,18 +7,21 @@ import { useUIStore } from "@/lib/stores/uiStore";
 import { AccountItem } from "@/components/accounts/AccountItem";
 import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { FolderTree } from "@/components/mail/FolderTree";
-import { GlassPanel } from "@/components/mail/GlassPanel";
 import { Button } from "@/components/ui/button";
-import { useLogout } from "@/lib/queries/auth";
-import { Plus, LogOut, Mail, Loader2, Settings } from "lucide-react";
-import { ThemeToggle } from "@/components/mail/ThemeToggle";
+import { Plus, Mail, Loader2, X, FolderKanban } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function AccountSidebar() {
   const router = useRouter();
   const { data: accounts, isLoading } = useAccounts();
-  const logout = useLogout();
-  const { selectedAccountId, selectedFolder, setSelectedAccount, setSelectedFolder } =
-    useUIStore();
+  const {
+    selectedAccountId,
+    selectedFolder,
+    setSelectedAccount,
+    setSelectedFolder,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
+  } = useUIStore();
   const [addOpen, setAddOpen] = useState(false);
 
   const handleSelectAccount = (accountId: string) => {
@@ -30,57 +33,61 @@ export function AccountSidebar() {
   const handleSelectFolder = (path: string) => {
     if (!selectedAccountId) return;
     setSelectedFolder(path);
+    setMobileSidebarOpen(false);
     router.push(`/mail/${selectedAccountId}/${encodeURIComponent(path)}`);
   };
 
-  const handleLogout = () => {
-    logout.mutate();
-    router.replace("/login");
-  };
-
-  return (
-    <GlassPanel className="flex h-full w-72 flex-col border-r">
-      {/* En-tête */}
-      <div className="flex items-center justify-between px-4 py-3">
+  const content = (
+    <div className="flex h-full flex-col">
+      {/* En-tête de la barre latérale */}
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Mail className="size-4" />
-          </div>
-          <span className="font-semibold tracking-tight">HelloMail</span>
+          <FolderKanban className="size-4 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Boîtes & Dossiers
+          </span>
         </div>
         <div className="flex items-center gap-1">
-          <ThemeToggle />
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => router.push("/mail/settings")}
+            onClick={() => setAddOpen(true)}
+            title="Ajouter un compte IMAP"
+            aria-label="Ajouter un compte"
           >
-            <Settings className="size-4" />
+            <Plus className="size-4 text-muted-foreground hover:text-foreground" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleLogout} disabled={logout.isPending}>
-            {logout.isPending ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-label="Fermer"
+          >
+            <X className="size-4" />
           </Button>
         </div>
       </div>
 
-      <div className="mx-3 border-t border-border" />
-
-      {/* Liste comptes + dossiers */}
+      {/* Liste des comptes et arborescence des dossiers */}
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
         ) : !accounts || accounts.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <p className="text-sm text-muted-foreground">Aucun compte configuré</p>
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              <Plus className="size-4" />
+          <div className="flex flex-col items-center gap-2.5 py-8 px-3 text-center">
+            <div className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+              <Mail className="size-5" />
+            </div>
+            <p className="text-xs text-muted-foreground">Aucun compte configuré</p>
+            <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => setAddOpen(true)}>
+              <Plus className="size-3.5 mr-1" />
               Ajouter un compte
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             {accounts.map((account) => (
               <div key={account._id} className="flex flex-col">
                 <AccountItem
@@ -89,7 +96,7 @@ export function AccountSidebar() {
                   onSelect={() => handleSelectAccount(account._id)}
                 />
                 {selectedAccountId === account._id && account.isActive && (
-                  <div className="mt-1 mb-2 ml-2">
+                  <div className="mt-1 mb-1.5 ml-2 border-l border-border/60 pl-1">
                     <FolderTree
                       accountId={account._id}
                       selectedFolder={selectedFolder}
@@ -103,26 +110,46 @@ export function AccountSidebar() {
         )}
       </div>
 
-      {/* Pied : bouton compose + ajouter */}
+      {/* Pied : bouton ajouter un compte */}
       <div className="border-t border-border p-2">
         <Button
-          className="w-full justify-start mb-2"
-          onClick={() => useUIStore.getState().openCompose("new")}
-        >
-          <Plus className="size-4" />
-          Nouveau message
-        </Button>
-        <Button
           variant="outline"
-          className="w-full justify-start"
+          size="sm"
+          className="w-full justify-start text-xs border-border bg-background/50 hover:bg-muted"
           onClick={() => setAddOpen(true)}
         >
-          <Plus className="size-4" />
-          Ajouter un compte
+          <Plus className="size-3.5 mr-1.5" />
+          Ajouter un compte IMAP
         </Button>
       </div>
 
       <AddAccountDialog open={addOpen} onOpenChange={setAddOpen} />
-    </GlassPanel>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Sidebar Desktop Dockée Edge-to-Edge */}
+      <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar/50 backdrop-blur-xs select-none h-full">
+        {content}
+      </aside>
+
+      {/* Tiroir Mobile Slide-Over */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity duration-200 lg:hidden",
+          mobileSidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        )}
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 flex-col border-r border-border bg-background pt-13 shadow-2xl transition-transform duration-200 ease-in-out flex lg:hidden",
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        {content}
+      </aside>
+    </>
   );
 }

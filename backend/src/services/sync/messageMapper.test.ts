@@ -50,6 +50,21 @@ describe('mapFetchResultToMessage', () => {
     expect(result.flags).toEqual({ seen: true, answered: true, flagged: true });
   });
 
+  it('mappe inReplyTo si présent dans envelope', () => {
+    const result = mapFetchResultToMessage(
+      'acc1',
+      'INBOX',
+      makeFetchResult({
+        envelope: {
+          ...makeFetchResult().envelope!,
+          inReplyTo: '<parent@example.com>',
+        },
+      }),
+    );
+
+    expect(result.inReplyTo).toBe('<parent@example.com>');
+  });
+
   it('gère un envelope null (valeurs par défaut)', () => {
     const result = mapFetchResultToMessage(
       'acc1',

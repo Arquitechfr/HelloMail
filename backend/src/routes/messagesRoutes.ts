@@ -80,12 +80,28 @@ router.get(
   messagesController.getAttachment,
 );
 
+// Téléchargement du message brut RFC 822 (.eml)
+router.get(
+  '/:accountId/messages/:folder/:uid/raw',
+  requireAuth,
+  validate({ params: getOneParamsSchema }),
+  messagesController.getRaw,
+);
+
 // Suppression d'un message.
 router.delete(
   '/:accountId/messages/:folder/:uid',
   requireAuth,
   validate({ params: messageActionParamsSchema, query: deleteMessageQuerySchema }),
   messagesController.remove,
+);
+
+// Récupération du fil de conversation d'un message.
+router.get(
+  '/:accountId/messages/:folder/:uid/thread',
+  requireAuth,
+  validate({ params: getOneParamsSchema }),
+  messagesController.getThread,
 );
 
 // Lecture d'un message complet (corps + headers + structure PJ).

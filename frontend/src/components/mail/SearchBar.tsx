@@ -41,25 +41,34 @@ export function SearchBar({ accountId, onResults }: SearchBarProps) {
   }, [data, debounced, onResults]);
 
   return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+    <div className="relative w-full">
+      <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
       <Input
+        id="mail-search-input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Rechercher... (from:, to:, subject:, is:unread, has:attachment)"
-        className="glass h-9 pl-9 pr-9 text-sm"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setQuery("");
+            (e.target as HTMLElement).blur();
+          }
+        }}
+        placeholder="Filtrer... (ex: from:alex is:unread)"
+        className="h-8 pl-8 pr-8 text-xs bg-muted/40 border-border/80 focus-visible:bg-background focus-visible:border-primary/50 transition-colors rounded-md placeholder:text-muted-foreground/70"
       />
       {isFetching && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <div className="size-3 animate-pulse rounded-full bg-primary" />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+          <div className="size-2.5 animate-pulse rounded-full bg-primary" />
         </div>
       )}
       {query && !isFetching && (
         <button
+          type="button"
           onClick={() => setQuery("")}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+          aria-label="Effacer la recherche"
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </button>
       )}
     </div>

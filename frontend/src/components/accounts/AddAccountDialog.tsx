@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCreateAccount } from "@/lib/queries/accounts";
+import { useAutoconfig } from "@/lib/queries/autoconfig";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface AddAccountDialogProps {
@@ -22,21 +23,43 @@ interface AddAccountDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const INITIAL_FORM = {
+  emailAddress: "",
+  displayName: "",
+  imapHost: "",
+  imapPort: "993",
+  imapSecure: true,
+  imapUsername: "",
+  imapPassword: "",
+  smtpHost: "",
+  smtpPort: "465",
+  smtpSecure: true,
+};
+
 export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) {
   const router = useRouter();
   const createAccount = useCreateAccount();
-  const [form, setForm] = useState({
-    emailAddress: "",
-    displayName: "",
-    imapHost: "",
-    imapPort: "993",
-    imapSecure: true,
-    imapUsername: "",
-    imapPassword: "",
-    smtpHost: "",
-    smtpPort: "465",
-    smtpSecure: true,
-  });
+  const [form, setForm] = useState(INITIAL_FORM);
+
+  const { data: autoconfig, isFetching: autoconfigLoading } = useAutoconfig(form.emailAddress);
+
+  const applyAutoconfig = () => {
+    if (!autoconfig?.imap || !autoconfig?.smtp) return;
+    setForm((prev) => ({
+      ...prev,
+      imapHost: autoconfig.imap?.host ?? prev.imapHost,
+      imapPort: String(autoconfig.imap?.port ?? prev.imapPort),
+      imapSecure: autoconfig.imap?.secure ?? prev.imapSecure,
+      smtpHost: autoconfig.smtp?.host ?? prev.smtpHost,
+      smtpPort: String(autoconfig.smtp?.port ?? prev.smtpPort),
+      smtpSecure: autoconfig.smtp?.secure ?? prev.smtpSecure,
+      imapUsername:
+        autoconfig.imap?.usernameRule === "localpart"
+          ? prev.emailAddress.split("@")[0]
+          : prev.emailAddress,
+    }));
+    toast.success("Paramètres IMAP & SMTP appliqués");
+  };
 
   const update = (key: keyof typeof form, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -64,19 +87,7 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
         onSuccess: (account) => {
           toast.success("Compte ajouté avec succès");
           onOpenChange(false);
-          setForm({
-            emailAddress: "",
-            displayName: "",
-            imapHost: "",
-            imapPort: "993",
-            imapSecure: true,
-            imapUsername: "",
-            imapPassword: "",
-            smtpHost: "",
-            smtpPort: "465",
-            smtpSecure: true,
-          });
-          // Redirige vers la boîte de réception du nouveau compte.
+          setForm(INITIAL_FORM);
           router.push(`/mail/${account._id}/INBOX`);
         },
         onError: (err) => {
@@ -89,38 +100,67 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-strong max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="border border-border bg-card max-h-[90vh] max-w-lg overflow-y-auto p-6 shadow-2xl rounded-xl">
         <DialogHeader>
           <DialogTitle>Ajouter un compte</DialogTitle>
         </DialogHeader>
 
-        {/* Connexion Google OAuth */}
+        {/* Connexion OAuth rapide (Google & Microsoft) */}
         <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              // Redirection full-page vers le backend OAuth (nécessite window.location pour le redirect Google).
-              // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-              window.location.href = "/api/accounts/oauth/google";
-            }}
-          >
-            Continuer avec Google
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Connexion sécurisée via OAuth 2.0 (Gmail).
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="text-xs h-9"
+              onClick={() => {
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                window.location.href = "/api/accounts/oauth/google";
+              }}
+            >
+              Google Workspace
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="text-xs h-9"
+              onClick={() => {
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                window.location.href = "/api/accounts/oauth/microsoft";
+              }}
+            >
+              Microsoft 365
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Connexion sécurisée sans mot de passe d&apos;application via OAuth 2.0 (XOAUTH2).
           </p>
         </div>
 
         <div className="my-2 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">ou</span>
+          <span className="text-xs text-muted-foreground">ou IMAP standard</span>
           <div className="h-px flex-1 bg-border" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Adresse email</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="email">Adresse email</Label>
+              {autoconfigLoading && (
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" /> Détection des paramètres...
+                </span>
+              )}
+              {autoconfig?.detected && (
+                <button
+                  type="button"
+                  onClick={applyAutoconfig}
+                  className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium hover:underline cursor-pointer"
+                >
+                  <Sparkles className="size-3" /> Appliquer ({autoconfig.source.toUpperCase()})
+                </button>
+              )}
+            </div>
             <Input
               id="email"
               type="email"

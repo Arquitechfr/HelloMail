@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { useSendEmail } from "@/lib/queries/messages";
 import { useCreateDraft, useUpdateDraft } from "@/lib/queries/drafts";
+import { useAccounts } from "@/lib/queries/accounts";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/mail/RichTextEditor";
 import { ContactAutocomplete } from "@/components/mail/ContactAutocomplete";
+import { AttachmentDropzone, type AttachmentItem } from "@/components/mail/AttachmentDropzone";
 import { Loader2, Send, ChevronDown, ChevronUp, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import type { SendEmailInput } from "@/lib/api-types";
@@ -33,6 +35,19 @@ function htmlToText(html: string): string {
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
   return tmp.textContent || tmp.innerText || "";
+}
+
+function formatSignatureHtml(sigText: string): string {
+  const trimmed = sigText.trim();
+  const alreadyHasDashes = trimmed.startsWith("--");
+  const lines = sigText.split("\n");
+  const linesHtml = lines
+    .map((line) => `<p>${line.trim() ? line : "<br>"}</p>`)
+    .join("");
+
+  // Évite le doublon si le texte contient déjà le délimiteur standard RFC '--'
+  const prefix = alreadyHasDashes ? "" : "<p>-- </p>";
+  return `<p><br></p>${prefix}${linesHtml}`;
 }
 
 export function ComposeForm({
@@ -64,11 +79,58 @@ export function ComposeForm({
   const [bcc, setBcc] = useState("");
   const [subject, setSubject] = useState(initialSubject());
   const [body, setBody] = useState("");
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
+
+  const { data: accounts } = useAccounts();
+  const currentAccount = accounts?.find((a) => a._id === accountId);
+
+  const handleInsertSignature = useCallback(() => {
+    if (!currentAccount) return;
+    const sigText =
+      currentAccount.signature?.text?.trim() ||
+      `-- \nBien cordialement,\n${currentAccount.displayName || currentAccount.emailAddress}`;
+    const sigHtml =
+      currentAccount.signature?.html || formatSignatureHtml(sigText);
+
+    setBody((prev) => {
+      const significantLine =
+        sigText
+          .split("\n")
+          .map((l) => l.trim())
+          .find((l) => l && !l.startsWith("-")) || sigText;
+
+      if (prev && prev.includes(significantLine)) {
+        toast.info("La signature est déjà présente dans le message");
+        return prev;
+      }
+      return prev && prev !== "<p></p>" ? `${prev}${sigHtml}` : `<p></p>${sigHtml}`;
+    });
+    toast.success("Signature insérée");
+  }, [currentAccount]);
+
+  // Insertion automatique de la signature si activée et nouveau message
+  const signatureInsertedRef = useRef(false);
+  useEffect(() => {
+    if (
+      mode === "new" &&
+      currentAccount?.signature?.enabled &&
+      !body &&
+      !signatureInsertedRef.current
+    ) {
+      signatureInsertedRef.current = true;
+      const sigText =
+        currentAccount.signature.text?.trim() ||
+        `-- \nBien cordialement,\n${currentAccount.displayName || currentAccount.emailAddress}`;
+      const sigHtml =
+        currentAccount.signature.html || formatSignatureHtml(sigText);
+      setBody(`<p></p>${sigHtml}`);
+    }
+  }, [mode, currentAccount, body]);
 
   // Auto-save avec debounce 5s.
   const saveDraft = useCallback(async () => {
@@ -162,6 +224,14 @@ export function ComposeForm({
       subject,
       text: htmlToText(body),
       html,
+      attachments:
+        attachments.length > 0
+          ? attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content,
+              contentType: a.contentType,
+            }))
+          : undefined,
       inReplyTo: mode === "reply" ? replyTo?.messageId : undefined,
       references: mode === "reply" && replyTo?.messageId ? [replyTo.messageId] : undefined,
     };
@@ -181,6 +251,18 @@ export function ComposeForm({
 
   return (
     <form onSubmit={handleSend} className="flex h-full flex-col gap-4">
+      {/* Expéditeur */}
+      {currentAccount && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground pb-1 border-b border-border/40">
+          <span className="font-medium text-foreground">De :</span>
+          <span className="font-medium text-foreground/90">
+            {currentAccount.displayName
+              ? `${currentAccount.displayName} <${currentAccount.emailAddress}>`
+              : currentAccount.emailAddress}
+          </span>
+        </div>
+      )}
+
       {/* Destinataire + toggle Cc/Cci */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
@@ -219,10 +301,25 @@ export function ComposeForm({
       </div>
 
       {/* Éditeur de texte riche */}
-      <div className="flex min-h-[40vh] flex-1 flex-col gap-2">
-        <Label>Message</Label>
+      <div className="flex min-h-[35vh] flex-1 flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <Label>Message</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={handleInsertSignature}
+            className="text-[11px] text-muted-foreground hover:text-primary h-auto py-0.5 px-1.5"
+            title="Insérer la signature de courtoisie"
+          >
+            Insérer ma signature
+          </Button>
+        </div>
         <RichTextEditor value={body} onChange={handleBodyChange} placeholder="Écrivez votre message..." />
       </div>
+
+      {/* Zone de pièces jointes */}
+      <AttachmentDropzone attachments={attachments} onChange={setAttachments} />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

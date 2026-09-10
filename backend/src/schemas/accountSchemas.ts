@@ -23,3 +23,13 @@ export const accountIdParamSchema = objectIdParamSchema;
 export const toggleAccountActiveSchema = z.object({
   isActive: z.boolean(),
 });
+
+export const autoconfigQuerySchema = z.object({
+  email: emailSchema,
+});
+
+export const updateSignatureSchema = z.object({
+  enabled: z.boolean(),
+  text: z.string().max(4000, 'La signature texte ne peut pas dépasser 4000 caractères'),
+  html: z.string().max(10000, 'La signature HTML ne peut pas dépasser 10000 caractères').optional(),
+});

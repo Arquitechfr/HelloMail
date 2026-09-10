@@ -15,11 +15,16 @@ interface UIState {
   composeOpen: boolean;
   composeMode: ComposeMode;
   composeReplyTo: { messageId?: string; subject?: string; from?: string; to?: string[] } | null;
+  mobileSidebarOpen: boolean;
+  shortcutsDialogOpen: boolean;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedFolder: (folder: string) => void;
   setSelectedUid: (uid: number | null) => void;
   openCompose: (mode?: ComposeMode, replyTo?: UIState["composeReplyTo"]) => void;
   closeCompose: () => void;
+  setMobileSidebarOpen: (open: boolean) => void;
+  toggleMobileSidebar: () => void;
+  setShortcutsDialogOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -31,12 +36,17 @@ export const useUIStore = create<UIState>()(
       composeOpen: false,
       composeMode: "new",
       composeReplyTo: null,
+      mobileSidebarOpen: false,
+      shortcutsDialogOpen: false,
       setSelectedAccount: (accountId) => set({ selectedAccountId: accountId }),
       setSelectedFolder: (folder) => set({ selectedFolder: folder }),
       setSelectedUid: (uid) => set({ selectedUid: uid }),
       openCompose: (mode = "new", replyTo = null) =>
         set({ composeOpen: true, composeMode: mode, composeReplyTo: replyTo }),
       closeCompose: () => set({ composeOpen: false, composeReplyTo: null }),
+      setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
+      toggleMobileSidebar: () => set((state) => ({ mobileSidebarOpen: !state.mobileSidebarOpen })),
+      setShortcutsDialogOpen: (open) => set({ shortcutsDialogOpen: open }),
     }),
     {
       name: "hellomail-ui",

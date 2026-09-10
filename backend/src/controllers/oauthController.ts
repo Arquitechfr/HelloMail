@@ -11,6 +11,11 @@ import {
   encryptRefreshToken,
   GMAIL_IMAP_DEFAULTS,
 } from '../services/auth/oauthService.js';
+import {
+  getMicrosoftAuthUrl,
+  exchangeMicrosoftCode,
+  OUTLOOK_IMAP_DEFAULTS,
+} from '../services/auth/microsoftOAuthService.js';
 import { logger } from '../config/logger.js';
 
 /**
@@ -101,6 +106,95 @@ export const googleCallback = asyncHandler(
     }
 
     // Redirige vers le frontend.
+    res.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_success=true`);
+  },
+);
+
+/**
+ * GET /api/accounts/oauth/microsoft — redirige vers Microsoft pour l'autorisation.
+ */
+export const microsoftRedirect = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+    const state = createOAuthState(req.user.id, 'microsoft_oauth');
+    const authUrl = getMicrosoftAuthUrl(state);
+    res.redirect(authUrl);
+  },
+);
+
+/**
+ * GET /api/accounts/oauth/microsoft/callback — callback Microsoft après autorisation.
+ */
+export const microsoftCallback = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { code, state, error } = req.query;
+
+    if (error) {
+      res.redirect(
+        `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_error=${encodeURIComponent(String(error))}`,
+      );
+      return;
+    }
+
+    if (!code || typeof code !== 'string') {
+      throw AppError.badRequest('Code d\'autorisation manquant');
+    }
+
+    const userId = verifyOAuthState(state as string, 'microsoft_oauth');
+    const tokens = await exchangeMicrosoftCode(code);
+
+    if (!tokens.refresh_token) {
+      throw AppError.badRequest('Refresh token Microsoft manquant');
+    }
+
+    // Récupère l'adresse email via Microsoft Graph
+    const graphResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+
+    if (!graphResponse.ok) {
+      throw AppError.unprocessable('Impossible de récupérer les informations utilisateur Microsoft');
+    }
+
+    const graphUser = (await graphResponse.json()) as { mail?: string; userPrincipalName?: string };
+    const email = graphUser.mail || graphUser.userPrincipalName;
+
+    if (!email) {
+      throw AppError.unprocessable('Adresse email introuvable dans le profil Microsoft');
+    }
+
+    const existing = await AccountModel.findOne({ userId, emailAddress: email.toLowerCase() });
+    if (existing) {
+      existing.oauthConfig = {
+        encryptedRefreshToken: encryptRefreshToken(tokens.refresh_token),
+        accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+        scope: tokens.scope ? tokens.scope.split(' ') : [],
+      };
+      await existing.save();
+      logger.info({ userId, emailAddress: email }, 'Compte Microsoft OAuth mis à jour');
+    } else {
+      const account = new AccountModel({
+        userId,
+        provider: 'microsoft_oauth',
+        emailAddress: email.toLowerCase(),
+        imapConfig: {
+          host: OUTLOOK_IMAP_DEFAULTS.host,
+          port: OUTLOOK_IMAP_DEFAULTS.port,
+          secure: OUTLOOK_IMAP_DEFAULTS.secure,
+          smtpHost: OUTLOOK_IMAP_DEFAULTS.smtpHost,
+          smtpPort: OUTLOOK_IMAP_DEFAULTS.smtpPort,
+          smtpSecure: OUTLOOK_IMAP_DEFAULTS.smtpSecure,
+          username: email.toLowerCase(),
+        },
+        oauthConfig: {
+          encryptedRefreshToken: encryptRefreshToken(tokens.refresh_token),
+          accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+          scope: tokens.scope ? tokens.scope.split(' ') : [],
+        },
+      });
+      await account.save();
+      logger.info({ userId, emailAddress: email }, 'Compte Microsoft OAuth créé');
+    }
+
     res.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_success=true`);
   },
 );

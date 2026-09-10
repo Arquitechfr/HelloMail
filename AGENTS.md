@@ -33,15 +33,16 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (323 tests, 31 fichiers). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (349 tests, 35 fichiers). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
+- **Header fixe & architecture par page** : Header permanent unifié (`AppHeader`) et navigation modulaire (`/mail/settings`, `/mail/settings/security`, `/mail/contacts`).
 
 ## Structure
 
 ```
 HelloMail/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-3 + 5 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phase 4 livrée
+├── backend/     # API REST (Express + MongoDB) — Phases 1-3, 5, 6, 7, 8 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 4, 6, 7, 8 & Refonte Pro
 └── pnpm-workspace.yaml
 ```
 
@@ -53,3 +54,5 @@ HelloMail/
 - **Phase 4** ✅ — Frontend Next.js 16 + shadcn/ui + glassmorphism + auth + comptes + dossiers + liste virtualisée + lecteur iframe sandbox + compose/reply/forward + brouillons auto-save + recherche + SSE temps réel
 - **Phase 5** ✅ — Sécurité backend (Helmet, pino, rate limit global) + recherche + brouillons + temps réel (SSE)
 - **Phase 6** ✅ — Sync multi-dossiers (polling dossiers spéciaux) + pagination arrière + OAuth Google XOAUTH2 + 2FA (TOTP + WebAuthn) + contacts + observabilité (Prometheus + health enrichi)
+- **Phase 7 & Refonte UI Pro** ✅ — Refonte Header fixe compact (actions rapides, recherche, menu profil complet) + sous-pages dédiées (paramètres, sécurité 2FA, carnet d'adresses) + autoconfiguration email (ISPDB / MX) + OAuth Microsoft XOAUTH2 + signatures d'email personnalisées par compte + rate limiting distribué Redis (RedisStore) + drag & drop pièces jointes (`AttachmentDropzone`) + élimination totale des `as any`.
+- **Phase 8 (Lots 8.1 & 8.2)** ✅ — Threading & Vue Conversation (`inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline & accordéon `MessageThreadView`, réponse rapide `QuickReplyBar`) + Export d'emails bruts RFC 822 (`.eml`, streaming PassThrough PEEK) + Impression dédiée (`@media print`, masquage navigation/header, raccourci P) — 349 tests, 35 fichiers.

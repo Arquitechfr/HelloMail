@@ -114,4 +114,26 @@ export class AccountService {
 
     return account;
   }
+
+  /**
+   * Met à jour la signature d'un compte.
+   * AppError 404 si introuvable.
+   */
+  static async updateSignature(
+    userId: string,
+    accountId: string,
+    signature: { enabled: boolean; text: string; html?: string },
+  ): Promise<IAccountDocument> {
+    const account = await AccountModel.findOneAndUpdate(
+      { _id: accountId, userId },
+      { signature },
+      { new: true },
+    ).select(ACCOUNT_SAFE_PROJECTION);
+
+    if (!account) {
+      throw AppError.notFound('Compte introuvable');
+    }
+
+    return account;
+  }
 }

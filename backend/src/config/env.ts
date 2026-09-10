@@ -26,6 +26,13 @@ const envSchema = z.object({
     .string()
     .url('GOOGLE_REDIRECT_URI doit être une URL valide')
     .default('http://localhost:4000/api/accounts/oauth/google/callback'),
+  // --- OAuth Microsoft (Phase 7) — optionnel, requis uniquement si OAuth activé ---
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_REDIRECT_URI: z
+    .string()
+    .url('MICROSOFT_REDIRECT_URI doit être une URL valide')
+    .default('http://localhost:4000/api/accounts/oauth/microsoft/callback'),
 });
 
 const parsed = envSchema.safeParse(process.env);

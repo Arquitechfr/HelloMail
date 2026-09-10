@@ -19,7 +19,7 @@ vi.mock('./imapPool.js', () => ({
   },
 }));
 
-const { fetchAttachmentStream } = await import('./attachmentService.js');
+const { fetchAttachmentStream, fetchRawMessageStream } = await import('./attachmentService.js');
 
 function makeAccount(): IAccountDocument {
   return {
@@ -113,6 +113,62 @@ describe('fetchAttachmentStream', () => {
     });
 
     await fetchAttachmentStream(makeAccount(), 'INBOX', 100, '2');
+
+    expect(mockClient.mailboxOpen).toHaveBeenCalledWith('INBOX', { readOnly: true });
+  });
+});
+
+describe('fetchRawMessageStream', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('retourne un stream RFC822 et le nom de fichier .eml pour un message valide', async () => {
+    mockClient.fetchOne.mockResolvedValueOnce({
+      uid: 100,
+      envelope: { subject: 'Test Sujet Email' },
+      size: 1234,
+    });
+
+    const rawContent = Readable.from([Buffer.from('From: a@b.com\r\nSubject: Test Sujet Email\r\n\r\nCorps')]);
+    mockClient.download.mockResolvedValueOnce({ content: rawContent });
+
+    const result = await fetchRawMessageStream(makeAccount(), 'INBOX', 100);
+
+    expect(result.contentType).toBe('message/rfc822');
+    expect(result.filename).toBe('Test Sujet Email.eml');
+    expect(result.size).toBe(1234);
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of result.stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    expect(Buffer.concat(chunks).toString()).toContain('Subject: Test Sujet Email');
+  });
+
+  it('lance 404 si le message est introuvable', async () => {
+    mockClient.fetchOne.mockResolvedValueOnce(null);
+
+    await expect(
+      fetchRawMessageStream(makeAccount(), 'INBOX', 999),
+    ).rejects.toThrow('Message introuvable');
+  });
+
+  it('ouvre le dossier en readOnly pour préserver les flags', async () => {
+    mockClient.fetchOne.mockResolvedValueOnce({
+      uid: 100,
+      envelope: { subject: 'Test' },
+      size: 10,
+    });
+    mockClient.download.mockResolvedValueOnce({
+      content: Readable.from([Buffer.from('x')]),
+    });
+
+    await fetchRawMessageStream(makeAccount(), 'INBOX', 100);
 
     expect(mockClient.mailboxOpen).toHaveBeenCalledWith('INBOX', { readOnly: true });
   });

@@ -10,6 +10,7 @@ export interface MessageInput {
   folder: string;
   uid: number;
   messageId?: string;
+  inReplyTo?: string;
   subject: string;
   from: MessageAddress;
   to: MessageAddress[];
@@ -66,6 +67,7 @@ export function mapFetchResultToMessage(
     folder,
     uid: fetchResult.uid,
     messageId: envelope?.messageId,
+    inReplyTo: envelope?.inReplyTo,
     subject: envelope?.subject ?? '',
     from: fromAddress,
     to: toAddresses,

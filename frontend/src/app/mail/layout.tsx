@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthBootstrap } from "@/hooks/useAuth";
 import { useSSE } from "@/hooks/useSSE";
+import { AppHeader } from "@/components/mail/AppHeader";
+import { KeyboardShortcutsDialog } from "@/components/mail/KeyboardShortcutsDialog";
 import { Loader2 } from "lucide-react";
 
 /**
@@ -32,8 +34,12 @@ export default function MailLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <SSEWrapper>
-      <div className="flex h-screen overflow-hidden">
-        {children}
+      <div className="flex h-screen flex-col overflow-hidden bg-background">
+        <AppHeader />
+        <div className="flex flex-1 pt-13 overflow-hidden">
+          {children}
+        </div>
+        <KeyboardShortcutsDialog />
       </div>
     </SSEWrapper>
   );

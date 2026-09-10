@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useContacts, useCreateContact, useDeleteContact } from "@/lib/queries/contacts";
+import { useUIStore } from "@/lib/stores/uiStore";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +15,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2, Users, Mail, Phone } from "lucide-react";
+import { Loader2, Plus, Trash2, Users, Mail, Phone, Send } from "lucide-react";
 import { toast } from "sonner";
 
 export function ContactsManager() {
+  const router = useRouter();
   const { data, isLoading } = useContacts();
   const contacts = data?.contacts ?? [];
   const createContact = useCreateContact();
@@ -102,22 +105,37 @@ export function ContactsManager() {
                   )}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => handleDelete(contact.id)}
-                disabled={deleteContact.isPending}
-                className="text-destructive"
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title={`Écrire à ${contact.name}`}
+                  onClick={() => {
+                    useUIStore.getState().openCompose("new", { to: [contact.email] });
+                    router.push("/mail");
+                  }}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  <Send className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Supprimer ce contact"
+                  onClick={() => handleDelete(contact.id)}
+                  disabled={deleteContact.isPending}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="glass-strong max-w-md">
+        <DialogContent className="border border-border bg-card max-w-md p-6 shadow-2xl rounded-xl">
           <DialogHeader>
             <DialogTitle>Nouveau contact</DialogTitle>
           </DialogHeader>

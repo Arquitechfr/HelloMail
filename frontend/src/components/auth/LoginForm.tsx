@@ -63,13 +63,13 @@ export function LoginForm() {
   // Étape 2 : vérification 2FA.
   if (twoFactorTempToken) {
     return (
-      <GlassPanel variant="strong" className="w-full max-w-md p-8">
+      <GlassPanel variant="strong" className="w-full max-w-md p-8 rounded-xl shadow-2xl border border-border">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
             <ShieldCheck className="size-6" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Vérification 2FA</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">Vérification 2FA</h1>
+          <p className="text-xs text-muted-foreground">
             {"Saisissez le code de votre application d'authentification"}
           </p>
         </div>
@@ -112,13 +112,13 @@ export function LoginForm() {
 
   // Étape 1 : login classique.
   return (
-    <GlassPanel variant="strong" className="w-full max-w-md p-8">
+    <GlassPanel variant="strong" className="w-full max-w-md p-8 rounded-xl shadow-2xl border border-border">
       <div className="mb-8 flex flex-col items-center gap-3">
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
           <Mail className="size-6" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">HelloMail</h1>
-        <p className="text-sm text-muted-foreground">Connectez-vous à votre webmail</p>
+        <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">HelloMail</h1>
+        <p className="text-xs text-muted-foreground">Connectez-vous à votre webmail moderne</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

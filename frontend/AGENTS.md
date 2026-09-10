@@ -14,14 +14,14 @@ Client webmail Next.js consommant l'API REST HelloMail (`backend/`).
 
 ## Stack
 
-- **Next.js 16** App Router + TypeScript strict
+- **Next.js 16** App Router + TypeScript strict (Turbopack)
 - **Tailwind CSS v4** (PostCSS, `@theme` dans `globals.css`)
 - **shadcn/ui** (style base-nova, Base UI)
 - **Zustand** (UI state + access token en mémoire)
 - **TanStack Query** (cache/invalidation données serveur)
 - **TanStack Virtual** (virtualisation liste messages)
 - **next-themes** (clair/sombre)
-- **framer-motion** (animations glass)
+- **framer-motion** (animations fluides)
 - **lucide-react** (icônes)
 - **date-fns** (formats dates FR)
 - **zod** (validation formulaires côté client)
@@ -42,21 +42,28 @@ pnpm --filter frontend start      # Démarre en production
 ```
 frontend/src/
 ├── app/
-│   ├── globals.css         # ⭐ SOURCE DE VÉRITÉ DESIGN — @theme + vars shadcn + glass + aurora + utilitaires
+│   ├── globals.css         # ⭐ SOURCE DE VÉRITÉ DESIGN — @theme + vars shadcn + glass + utilitaires
 │   ├── layout.tsx          # Root : AuroraBackground, ThemeProvider, QueryProvider, Toaster
 │   ├── page.tsx            # Redirect → /login ou /mail
 │   ├── api/auth/refresh/   # Route Handler server-side (forward cookie → backend refresh)
 │   ├── (auth)/             # login, register
-│   └── (mail)/             # layout authentifié + [accountId]/[[...folder]] + settings (Phase 6)
+│   └── mail/               # layout authentifié avec AppHeader fixe
+│       ├── [accountId]/[[...folder]] # vue principale webmail (dossiers + liste + lecteur)
+│       ├── empty/          # état vide (aucun compte configuré)
+│       ├── settings/       # Réglages généraux + signatures d'email par compte (Phase 7)
+│       │   └── security/   # Page dédiée 2FA TOTP + WebAuthn + codes de secours
+│       └── contacts/       # Page dédiée carnet d'adresses (CRUD + recherche)
 ├── components/
-│   ├── ui/                 # composants shadcn (button, input, dialog, etc.)
-│   ├── auth/               # LoginForm (2FA verify Phase 6), RegisterForm, TwoFactorSettings (Phase 6), ContactsManager (Phase 6)
-│   ├── accounts/           # AccountList, AddAccountDialog (Google OAuth Phase 6), AccountItem
-│   └── mail/               # GlassPanel, AccountSidebar, FolderTree, MessageList, MessageReader, EmailIframe, ContactAutocomplete (Phase 6), etc.
+│   ├── ui/                 # composants shadcn (button, input, dialog, dropdown-menu stabilisé, etc.)
+│   ├── auth/               # LoginForm (2FA verify), RegisterForm, TwoFactorSettings, ContactsManager
+│   ├── accounts/           # AccountList, AddAccountDialog (Autoconfig + Google/MS OAuth), AccountSignatureManager
+│   └── mail/               # AppHeader, UserDropdown, KeyboardShortcutsDialog, SettingsNav, AttachmentDropzone,
+│                           # MessageThreadView, QuickReplyBar, MessageMetadataHeader, GlassPanel, AccountSidebar,
+│                           # FolderTree, MessageList, MessageReader, EmailIframe, etc.
 ├── lib/
 │   ├── api.ts              # fetch wrapper + interceptor 401 → refresh (lock en vol)
-│   ├── api-types.ts        # types API (Account, Message, Folder, Contact Phase 6, 2FA Phase 6, etc.)
-│   ├── queries/            # hooks TanStack Query (auth + 2FA Phase 6, accounts, folders, messages, drafts, contacts Phase 6)
+│   ├── api-types.ts        # types API (Account, Message, Folder, Contact, Autoconfig, Signature, etc.)
+│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts)
 │   ├── stores/             # authStore (token en mémoire), uiStore (sélection persistée)
 │   └── utils.ts            # cn(), formatDate, formatSize, downloadBlob, getInitials
 ├── hooks/
@@ -68,49 +75,40 @@ frontend/src/
     └── aurora-background.tsx # fond gradient animé (matière pour le glass blur)
 ```
 
-## Design system centralisé
+## Design system & Architecture UI Pro
 
-`src/app/globals.css` est l'unique source de vérité pour tout le design :
-- **Section 1** : `@theme` Tailwind v4 (couleurs OKLCH, fonts, radius) → génère les utilitaires.
-- **Section 2** : Variables shadcn/ui (light + dark, convention OKLCH).
-- **Section 3** : Variables glass (bg, border, shadow, blur, saturate — light + dark).
-- **Section 4** : Variables aurora (couleurs du fond gradient animé).
-- **Section 5** : Utilitaires `.glass`, `.glass-strong`.
-- **Section 6** : Base + aurora background + scrollbar.
+- **`globals.css` source de vérité** : variables shadcn (OKLCH), tokens glass et aurora. Aucune couleur hardcodée.
+- **Header fixe compact (`AppHeader`)** : barre d'outils permanente en haut contenant le logo HelloMail, statut live SSE, barre de recherche unifiée, actions rapides (Nouveau message, Rafraîchir, Raccourcis `?`, Thème) et menu profil (`UserDropdown`).
+- **Élimination des arrondis excessifs** : transition des "bulles isolées" vers un layout épuré, élégant, dense et moderne adapté à un webmail pro.
+- **Architecture par pages dédiées** :
+  - `/mail/settings` : gestion des signatures personnalisées par compte + paramètres généraux.
+  - `/mail/settings/security` : configuration 2FA (TOTP avec QR code, Passkeys WebAuthn, codes de secours).
+  - `/mail/contacts` : gestionnaire complet de carnet d'adresses avec recherche instantanée.
+- **Typographie robuste** : pile de polices système moderne assurant un rendu parfait sans risque de glyphes manquants pour les emails internationaux.
 
-**Règle :** Aucune couleur/valeur hardcodée dans les composants. Tout passe par les tokens Tailwind (`bg-background`, `text-primary`) ou la classe `.glass`. `tailwind.config.ts` ne définit pas de couleurs.
+## Patterns & Fonctionnalités (Phases 6 & 7)
 
-## Patterns
-
-- **`apiFetch`** : wrapper fetch avec injection `Authorization: Bearer`, `credentials: 'include'`, interceptor 401 → refresh (lock en vol via Promise partagé), retry une seule fois, `ApiError` structurée.
-- **`authStore`** : access token en mémoire (Zustand non persisté, jamais localStorage). Refresh via cookie httpOnly (Route Handler server-side).
-- **TanStack Query** : `staleTime` 30s, invalidation ciblée après mutations et événements SSE.
-- **Zustand** : UI state (compte/dossier/message sélectionnés, compose). `uiStore` persisté partiellement (compte/dossier) via localStorage (pas de secrets).
-- **iframe sandbox** : `sandbox="allow-same-origin"` sans `allow-scripts` ni `allow-forms` ni `allow-popups`. `srcDoc` uniquement. Auto-resize via `ResizeObserver` sur `contentDocument.body`.
-- **SSE** : `EventSource` `/api/events?token=<accessToken>`. Reconnexion backoff exponentiel (1s → 30s), max 10, toast après dépassement. Cleanup au unmount.
-
-## Patterns Phase 6
-
-- **2FA login** : `useLogin` retourne une réponse union — si `requiresTwoFactor`, le `LoginForm` bascule en mode vérification (saisie code TOTP ou code de secours). `useVerify2FA` finalise l'authentification via `POST /api/auth/verify-2fa` avec le `twoFactorTempToken`. Tokens conservés en mémoire (Zustand) uniquement.
-- **2FA settings** : `TwoFactorSettings` gère l'activation TOTP (QR code + secret + vérification), l'affichage des codes de secours, et la désactivation (dialog avec mot de passe). Utilise `use2FAStatus`, `useSetupTOTP`, `useEnableTOTP`, `useDisable2FA`.
-- **Contacts** : `ContactsManager` (CRUD dans la page réglages) + `ContactAutocomplete` (autocomplétion dans le compose form avec navigation clavier flèches + Enter + Escape). `useSearchContacts` activé seulement si `q.length >= 2`.
-- **OAuth Google** : bouton "Continuer avec Google" dans `AddAccountDialog` → `window.location.href = "/api/accounts/oauth/google"` (redirection full-page, pas `router.push` car c'est une navigation sortante vers le backend). Gestion du retour OAuth côté `/mail` (paramètres `?oauth=success` ou `?oauth=error`).
-- **Page réglages** : `/mail/settings` — sections Sécurité (2FA) et Contacts. Bouton réglages dans `AccountSidebar` (icône Settings).
+- **Threading & Vue Conversation (Phase 8)** : `MessageThreadView` affichant la timeline chronologique des échanges avec sélection fluide, statut lu/non-lu, dossier d'appartenance et accordéon dépliable ; complété par `QuickReplyBar` pour répondre directement en bas du fil.
+- **Export .eml & Impression dédiée (Phase 8)** : action de téléchargement du message brut RFC 822 (`.eml`) et impression dédiée avec feuille de style `@media print` masquant headers/barres latérales pour un rendu papier épuré (raccourci clavier `P`).
+- **Autoconfiguration email (ISPDB / MX)** : saisie de l'email dans `AddAccountDialog` → interrogation automatique de `GET /api/accounts/autoconfig` via `useAutoconfig`, pré-remplissage transparent des paramètres IMAP et SMTP.
+- **OAuth multi-fournisseurs** : boutons "Continuer avec Google" et "Continuer avec Microsoft" (XOAUTH2) pour configuration sans mot de passe d'application.
+- **Signatures d'email par compte** : `AccountSignatureManager` permettant de configurer une signature spécifique par compte, automatiquement insérée dans `ComposeForm`.
+- **Drag & Drop pièces jointes** : `AttachmentDropzone` dans le formulaire de rédaction avec aperçu des tailles, limite cumulée et suppression intuitive.
+- **Raccourcis clavier** : modale d'aide interactive (`KeyboardShortcutsDialog`) accessible via la touche `?` ou le bouton d'en-tête.
+- **2FA & Sécurité** : flux login à deux étapes avec token court temporaire, QR Code interactif et affichage sécurisé des codes de secours.
+- **Composants Base UI résilients** : `DropdownMenuGroup` et `DropdownMenuLabel` adaptés pour éliminer les erreurs de contexte Base UI tout en conservant l'accessibilité sémantique (`role="group"`).
+- **Virtualisation & Iframe Sandbox** : liste de messages haute performance via `@tanstack/react-virtual`, rendu des emails dans une iframe isolée (`allow-same-origin` sans scripts).
 
 ## Sécurité
 
-- Access token en mémoire uniquement (jamais localStorage/sessionStorage).
-- Refresh via cookie httpOnly (proxy same-origin + Route Handler server-side).
-- CSP stricte dans `next.config.ts` headers (`default-src 'self'`, `script-src 'self'`, `frame-src 'self'`).
-- Validation Zod côté client sur les formulaires.
-- Sanitization DOMPurify côté frontend avant envoi (défense en profondeur + backend sanitizé).
-- Pas de `dangerouslySetInnerHTML` (iframe `srcDoc` uniquement).
-- `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`.
+- Access token en mémoire uniquement (Zustand non persisté, jamais de stockage local pour les tokens).
+- Refresh token géré via cookie httpOnly protégé avec Route Handler server-side `/api/auth/refresh`.
+- Sanitization DOMPurify côté client + assainissement strict côté serveur.
+- Iframe sandboxée sans permissions d'exécution de scripts ou d'ouverture de popups non contrôlée.
 
 ## Conventions
 
-- Composants ≤300 lignes, composition > héritage.
-- Messages en français.
-- Conventional Commits.
-- Imports `@/*` (alias `src/`).
-- Design glassmorphism (inspiré Inbox Zero + ApexZero) — 3 colonnes frosted glass.
+- Composants ≤ 300 lignes (composition modulaire).
+- Messages d'interface et d'erreur en français.
+- Imports alias `@/*` (`src/`).
+- Conventional Commits (`type(scope): description`).

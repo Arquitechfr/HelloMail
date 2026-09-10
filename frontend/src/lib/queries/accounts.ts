@@ -48,3 +48,25 @@ export function useToggleAccount() {
     onSuccess: () => qc.invalidateQueries({ queryKey: accountKeys.all }),
   });
 }
+
+export interface UpdateSignatureInput {
+  id: string;
+  signature: {
+    enabled: boolean;
+    text: string;
+    html?: string;
+  };
+}
+
+/** PATCH /api/accounts/:id/signature — met à jour la signature d'un compte. */
+export function useUpdateSignature() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, signature }: UpdateSignatureInput) =>
+      apiFetch<Account>(`/api/accounts/${id}/signature`, {
+        method: "PATCH",
+        body: JSON.stringify(signature),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: accountKeys.all }),
+  });
+}

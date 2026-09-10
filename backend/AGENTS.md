@@ -4,7 +4,7 @@ API REST pour la gestion de comptes email (IMAP/SMTP) avec chiffrement des ident
 
 ## Stack
 
-Node.js ESM + Express 4 + MongoDB/Mongoose 9 + Zod 4 + JWT (jsonwebtoken) + bcryptjs + AES-256-GCM (node:crypto) + ImapFlow + Nodemailer + isomorphic-dompurify + Helmet + pino/pino-http + express-rate-limit + ioredis + otplib + @simplewebauthn/server + qrcode + prom-client + Vitest.
+Node.js ESM + Express 4 + MongoDB/Mongoose 9 + Zod 4 + JWT (jsonwebtoken) + bcryptjs + AES-256-GCM (node:crypto) + ImapFlow + Nodemailer + isomorphic-dompurify + Helmet + pino/pino-http + express-rate-limit + rate-limit-redis + ioredis + otplib + @simplewebauthn/server + qrcode + prom-client + Vitest.
 
 ## Commandes
 
@@ -13,7 +13,7 @@ pnpm --filter backend dev         # tsx watch src/app.ts
 pnpm --filter backend build       # tsc → dist/
 pnpm --filter backend typecheck   # tsc --noEmit
 pnpm --filter backend start       # node dist/app.js
-pnpm --filter backend test          # vitest run (323 tests, 31 fichiers)
+pnpm --filter backend test          # vitest run (349 tests, 35 fichiers)
 pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 ```
 
@@ -23,20 +23,19 @@ pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 src/
 ├── config/         env.ts (validation Zod fail-fast) + constants.ts (cookies, JWT, rate limit, SMTP timeout) + logger.ts (pino + redaction)
 ├── utils/          AppError, asyncHandler, cookieHelpers, projections (ACCOUNT_SAFE_PROJECTION)
-├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit), validate (Zod), requestLogger (pino-http), metricsMiddleware (Prometheus instrumentation, Phase 6)
-├── models/         User (2FA TOTP + WebAuthn, Phase 6), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google XOAUTH2 Phase 6), Message (index textuel), Contact (index textuel + unique, Phase 6)
-├── schemas/        commonSchemas, authSchemas (register, login, verify2FA Phase 6), accountSchemas, messageSchemas (list/send/flags/move/batch/search/fetchMore Phase 6), folderSchemas, draftSchemas, contactSchemas (Phase 6)
+├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit + RedisStore Phase 7), validate (Zod), requestLogger (pino-http), metricsMiddleware (Prometheus instrumentation, Phase 6)
+├── models/         User (2FA TOTP + WebAuthn, Phase 6), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7), Message (inReplyTo, index textuel, indexes conversation), Contact (index textuel + unique, Phase 6)
+├── schemas/        commonSchemas, authSchemas (register, login, verify2FA), accountSchemas (+ signature, autoconfig Phase 7), messageSchemas (list/send/flags/move/batch/search/fetchMore), folderSchemas, draftSchemas, contactSchemas
 ├── services/
 │   ├── security/   encryptionService (AES-256-GCM, fail-fast si clé invalide)
-│   ├── auth/       authService (register, login, refreshTokens, logout, generateTokens, 2FA challenge Phase 6), twoFactorService (TOTP + codes de secours, Phase 6), webauthnService (passkeys, Phase 6), oauthService (Google XOAUTH2, Phase 6)
-│   ├── email/      connectionTest, imapPool (XOAUTH2 Phase 6), sanitize, messageFetchService, attachmentService,
-│   │               sendService (XOAUTH2 Phase 6), folderService, specialFolders, messageActionService, searchService, draftService, fetchMoreService (pagination arrière, Phase 6)
+│   ├── auth/       authService, twoFactorService (TOTP), webauthnService (passkeys), oauthService (Google XOAUTH2), microsoftOAuthService (Microsoft XOAUTH2, Phase 7)
+│   ├── email/      connectionTest, imapPool (XOAUTH2 Google/Microsoft), sanitize, messageFetchService, attachmentService (PJ + stream RFC 822 .eml), threadService (regroupement inReplyTo + sujet), sendService (XOAUTH2), folderService, specialFolders, messageActionService, searchService, draftService, fetchMoreService
 │   ├── contacts/   contactService (CRUD + recherche/autocomplétion, Phase 6)
 │   ├── observability/ metricsService (Prometheus prom-client, Phase 6)
-│   ├── realtime/   eventPublisher (Redis Pub/Sub worker→API), eventSubscriber (filtrage par userId, isSubscriberConnected Phase 6)
-│   └── accounts/   accountService (create, list, delete, toggle)
-├── controllers/    authController, twoFactorController (Phase 6), oauthController (Phase 6), accountsController, messagesController (fetchMore Phase 6), foldersController, draftsController, contactsController (Phase 6), healthController (health enrichi + metrics, Phase 6), eventsController
-├── routes/         authRoutes (+ 2FA Phase 6), twoFactorRoutes (Phase 6), accountsRoutes, messagesRoutes (+ fetchMore Phase 6), foldersRoutes, draftsRoutes, oauthRoutes (Phase 6), contactsRoutes (Phase 6), eventsRoutes
+│   ├── realtime/   eventPublisher (Redis Pub/Sub worker→API), eventSubscriber (filtrage par userId)
+│   └── accounts/   accountService (create, list, delete, toggle, updateSignature Phase 7), autoconfigService (ISPDB / MX, Phase 7)
+├── controllers/    authController, twoFactorController, oauthController (Google + Microsoft Phase 7), accountsController (signature, autoconfig Phase 7), messagesController (+ getRaw, getThread Phase 8), foldersController, draftsController, contactsController, healthController, eventsController
+├── routes/         authRoutes, twoFactorRoutes, accountsRoutes (+ autoconfig, signature Phase 7), messagesRoutes (+ raw, thread Phase 8), foldersRoutes, draftsRoutes, oauthRoutes (Google + Microsoft Phase 7), contactsRoutes, eventsRoutes
 ├── test/           globalSetup (MongoMemoryServer partagé), setup (clearDb)
 └── app.ts          bootstrap Mongoose + Express + Helmet + pino-http + CORS + trust proxy + rate limit global + graceful shutdown + errorHandler
 ```
@@ -181,137 +180,79 @@ src/
 - Intégré dans `syncManager` (IMAP XOAUTH2) et `sendService` (SMTP XOAUTH2 via Nodemailer OAuth2).
 - Variables d'env : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
 
-## Services email (Phase 6)
+## Services email (Phase 6 & 7)
 
-### fetchMoreService — Pagination arrière
+### fetchMoreService — Pagination arrière (Phase 6)
 
-- `fetchMoreMessages(account, folder, lastUid, limit)` : fetch IMAP des messages plus anciens par UID range décroissant.
-- Utilise `client.fetch(searchRange, ...)` avec `uid: true` pour respecter la discipline PEEK.
-- Stocke les messages en base au fur et à mesure (upsert idempotent).
-- Endpoint `POST /api/accounts/:accountId/messages/fetch-more` avec validation Zod.
+- `fetchMoreMessages(account, folder, lastUid, limit)` : fetch IMAP des messages plus anciens par UID range décroissant (PEEK respecté).
+- Stocke les messages en base au fur et à mesure (upsert idempotent). `POST /api/accounts/:accountId/messages/fetch-more`.
 
-## Services contacts (Phase 6)
+### autoconfigService — Découverte paramètres email (Phase 7)
+
+- `discoverEmailSettings(email)` : résolution automatique des serveurs IMAP/SMTP via base locale de domaines connus (`gmail.com`, `outlook.com`, `yahoo.com`, `orange.fr`, etc.), consultation Mozilla ISPDB XML (`autoconfig.thunderbird.net`), et résolution DNS MX fallback (`node:dns/promises`).
+- Endpoint public authentifié : `GET /api/accounts/autoconfig?email=...`.
+
+### microsoftOAuthService — OAuth Microsoft XOAUTH2 (Phase 7)
+
+- Flux OAuth2 Microsoft Identity (scopes `offline_access`, `IMAP.AccessAsUser.All`, `SMTP.Send`).
+- `exchangeCodeForTokens(code)` et `getValidMicrosoftAccessToken(account)`.
+- Refresh token chiffré AES-256-GCM. Endpoints `/api/accounts/oauth/microsoft` et `/callback`.
+
+### Signatures par compte (Phase 7)
+
+- Champ `signature` (max 4000 car.) dans `Account`. Service `updateSignature(userId, accountId, signature)`.
+- Endpoint `PATCH /api/accounts/:id/signature` avec validation Zod.
+
+## Services contacts & observabilité (Phase 6)
 
 ### contactService — CRUD + autocomplétion
+- Modèle `Contact` + index textuel + index unique `(userId, email)`. CRUD + recherche regex (limit 20).
 
-- Modèle `Contact` (userId, name, email, phone, notes) + index textuel + index unique `(userId, email)`.
-- `listContacts(userId)` : liste triée par nom.
-- `createContact(userId, input)` : création avec vérification de doublon (409 si existe).
-- `updateContact(userId, contactId, input)` : mise à jour avec vérification d'appartenance (404 si introuvable).
-- `deleteContact(userId, contactId)` : suppression avec vérification d'appartenance.
-- `searchContacts(userId, query)` : recherche par regex sur name + email (limit 20, autocomplétion).
+### metricsService & healthController — Prometheus & Health
+- `prom-client` v15, compteur requêtes, histogramme durées, jauges MongoDB/Redis/comptes.
+- `GET /api/health` (enrichi MongoDB/Redis) + `GET /api/metrics` (Prometheus).
+- `pollingSync` : connexion IMAP dédiée au polling des dossiers spéciaux.
 
-## Services observability (Phase 6)
+## Sécurité & Performance
 
-### metricsService — Métriques Prometheus
+- **Chiffrement** : AES-256-GCM via node:crypto (`ENCRYPTION_KEY` 64 hex chars, IV 12 octets).
+- **Refresh token** : cookie httpOnly (`sameSite: strict`, `path: /api/auth`). Rotation et détection de réutilisation.
+- **Helmet** : activé, CSP désactivée (API REST), COEP désactivé pour pièces jointes.
+- **Logger structuré** : `pino` + `pino-http` avec redaction des données sensibles.
+- **Rate limiting distribué (Phase 7)** : `rateLimit.ts` avec `rate-limit-redis` (RedisStore) branché sur `ioredis` si disponible, avec fallback transparent in-memory. `globalRateLimit` (100 req/15 min), `authRateLimit` (10 req/15 min), `sendRateLimit` (20 req/min).
+- **Typage strict (Dette D12 résolue)** : Zéro `as any` dans tout le backend. Typage strict Mongoose, Zod et Express.
+- **JWT pinning** : `algorithms: ['HS256']` sur tous les `jwt.verify`.
+- **trust proxy** : `app.set('trust proxy', 1)` en production.
+- **CORS** : origin explicite `FRONTEND_URL` avec credentials.
+- **Sanitization HTML** : `isomorphic-dompurify` sur tout corps de message.
+- **Discipline PEEK** : `BODY.PEEK` systématique, `readOnly: true` en consultation.
+- **Graceful shutdown** : fermeture propre API + worker (Mongo, Redis, pool IMAP).
 
-- `prom-client` v15 avec registry personnalisé (isolation des métriques HelloMail).
-- Métriques par défaut Node.js (GC, event loop, memory) via `collectDefaultMetrics`.
-- Compteur `hellomail_http_requests_total` (method, route, status).
-- Histogramme `hellomail_http_request_duration_seconds` (method, route, status, buckets 5ms→10s).
-- Jauges `hellomail_mongodb_connected`, `hellomail_redis_connected`, `hellomail_active_accounts`, `hellomail_imap_pool_size`.
-- `getMetrics()` : retourne le texte Prometheus (async — `registry.metrics()` est une Promise en v15).
+## Modèles & Auth — conventions
 
-### metricsMiddleware — Instrumentation HTTP
+- `select: false` sur les secrets (`passwordHash`, `encryptedPassword`, `encryptedRefreshToken`, `twoFactorSecret`).
+- `timestamps: true` partout. Hook `pre('validate')` sur `Account`.
+- User : 2FA TOTP (`twoFactorSecret`, `twoFactorBackupCodes`) et Passkeys WebAuthn (`webauthnCredentials`).
+- Auth : Access token (15m) + Refresh token (30j en cookie). 2FA via token temporaire court si actif.
+- Account : support provider `custom`, `google`, `microsoft` (XOAUTH2) + champ `signature`.
 
-- Enregistre le compteur + histogramme pour chaque requête (sur `res.on('finish')`).
-- Normalise les routes : remplace les ObjectId (24 hex) et IDs numériques par `:id` (évite la cardinalité excessive).
-- Monté dans `app.ts` avant les routes, après le rate limit global.
-
-### healthController — Health check enrichi
-
-- `GET /api/health` : retourne `{ status, uptime, version, node, services: { mongodb, redis } }`.
-- HTTP 200 si MongoDB connecté, HTTP 503 si dégradé.
-- Met à jour les jauges `mongodbConnectedGauge` et `redisConnectedGauge`.
-- `GET /api/metrics` : expose les métriques Prometheus (Content-Type `text/plain; version=0.0.4`).
-
-## Services sync (Phase 6)
-
-### pollingSync — Polling multi-dossiers
-
-- Seconde connexion IMAP dédiée au polling des dossiers spéciaux (Sent, Drafts, Trash, Junk, Archive).
-- Tourne en parallèle de l'IDLE INBOX (pas de conflit — 2 connexions distinctes).
-- Polling périodique avec intervalle configurable (`POLLING_INTERVAL_MS`, défaut 60s).
-- Reconnexion avec backoff exponentiel en cas d'erreur.
-- Arrêt propre via `AbortSignal` (intégré dans `syncManager.stop()`).
-- Démarre après `runInitialSyncAll` et `reconcileAllFolders`.
-
-## Sécurité
-
-- **Chiffrement** : AES-256-GCM via node:crypto. Clé `ENCRYPTION_KEY` (64 hex chars) en env. IV aléatoire 12 octets par appel. Fail-fast si clé invalide.
-- **Refresh token** : cookie httpOnly (`sameSite: strict`, `path: /api/auth`). Rotation à chaque refresh. Détection de réutilisation → révocation globale.
-- **Helmet** : `helmet()` activé sur l'app Express. `contentSecurityPolicy: false` (API REST, pas de HTML rendu côté serveur). `crossOriginEmbedderPolicy: false` (compatibilité pièces jointes).
-- **Logger structuré** : `pino` + `pino-http`. Redaction automatique des champs sensibles (`authorization`, `cookie`, `password`, `token`, `encryptedPassword`, `encryptedRefreshToken`, `req.body`). Logs JSON en production, prettifiés en développement. `LOG_LEVEL` configurable via env.
-- **Rate limiting** : `globalRateLimit` (100 req/15 min/IP) sur toute l'API. `authRateLimit` (10 req/15 min/IP) sur `/login` + `/register`. `sendRateLimit` (20 req/min/IP) sur `/send`. Via `express-rate-limit` v7, headers `RateLimit-*` (draft-7). In-memory (Map). Dépend de `trust proxy` en prod. Bypass en mode test. Dette : migrer le store vers Redis si scaling horizontal.
-- **JWT pinning** : `algorithms: ['HS256']` sur tous `jwt.verify` (auth + authService). Empêche l'algorithme confusion (RS256 → HS256).
-- **trust proxy** : `app.set('trust proxy', 1)` en production. Suppose un seul hop de proxy (nginx direct). Ajuster si la chaîne grandit (usurpation d'IP via X-Forwarded-For).
-- **CORS** : `cors({ origin: env.FRONTEND_URL, credentials: true })`. Origin explicite obligatoire avec credentials.
-- **Sanitization HTML** : tout corps HTML d'email est sanitizé via `isomorphic-dompurify` avant envoi au frontend.
-- **Pool IMAP** : `readOnly: true` pour la lecture (préserve `\Seen`). `BODY.PEEK` via ImapFlow. Verrou par compte.
-- **Redis** : dépendance d'infrastructure pour le temps réel (SSE). Variables `REDIS_HOST` + `REDIS_PORT` + `REDIS_PASSWORD` (optionnel) en env. Connexions lazy (publisher côté worker, subscriber côté API). Best-effort : une panne Redis ne stoppe pas la synchronisation.
-
-## Graceful shutdown (Phase 5)
-
-- **API** (`app.ts`) : handler `SIGTERM`/`SIGINT` → `server.close()` + `imapPool.closeAll()` + `mongoose.disconnect()` + `closeSubscriber()`. Safety net de 10s pour forcer l'arrêt. Évite les arrêts multiples via flag `isShuttingDown`.
-- **Worker** (`worker.ts`) : `accountRegistry.shutdown()` (stop tous les `SyncManager`) + `closePublisher()` + `mongoose.disconnect()`.
-- Logs de shutdown via `logger` (pino), jamais `console.log`.
-
-## Flow comptes
-
-1. Test connexion IMAP + SMTP **avant** toute écriture en base (jamais de persistance d'identifiants non vérifiés).
-2. Chiffrement du mot de passe IMAP (AES-256-GCM).
-3. Persistence via `new Account()` + `.save()` (pour que le hook `pre('validate')` s'exécute).
-4. `ACCOUNT_SAFE_PROJECTION` exclut toujours `encryptedPassword` et `encryptedRefreshToken` des réponses API.
-5. Doublon `(userId, emailAddress)` → 409.
-
-## Modèles — conventions
-
-- `select: false` sur tous les champs secrets (`passwordHash`, `encryptedPassword`, `encryptedRefreshToken`, `twoFactorSecret` Phase 6).
-- `timestamps: true` partout.
-- Hook `pre('validate')` sur Account : cohérence provider ↔ config. Ne s'exécute que sur `new Model()` + `.save()`, **pas** sur `findOneAndUpdate`.
-- `toggleAccountActive` ne met à jour que `isActive` via schéma Zod strict `{ isActive: boolean }` — aucun autre champ modifiable.
-- User : `email` + `passwordHash` + 2FA (Phase 6) : `twoFactorEnabled`, `twoFactorSecret` (chiffré), `twoFactorBackupCodes` (bcrypt), `webauthnCredentials` (tableau).
-- Contact (Phase 6) : index textuel `{name: 'text', email: 'text'}` + index unique `{userId, email}` (doublons interdits par utilisateur).
-
-## Auth — conventions
-
-- Access token : JWT `JWT_ACCESS_SECRET`, payload `{ sub, email }`, durée 15m.
-- Refresh token : JWT `JWT_REFRESH_SECRET`, payload `{ sub, tokenId }`, durée 30j. Stocké en base (hash sha256) avec flag `revoked`.
-- Rotation : à chaque `refreshTokens`, l'ancien token est révoqué + nouveau émis.
-- Détection de vol : token révoqué réutilisé → révocation globale de tous les tokens de l'utilisateur.
-- Refresh lu exclusivement depuis `req.cookies[COOKIE_REFRESH_TOKEN]` — jamais depuis le body.
-- **2FA (Phase 6)** : si `twoFactorEnabled` est true, le login retourne `{ requiresTwoFactor: true, twoFactorTempToken }` au lieu des tokens complets. Le `twoFactorTempToken` est un JWT court signé `JWT_ACCESS_SECRET` limité au flux verify. `POST /api/auth/verify-2fa` valide le code TOTP ou un code de secours et émet les tokens complets.
-
-## Tests (Phase 3 + 5 + 6)
+## Tests (Phases 3, 5, 6 & 7)
 
 - **Vitest** 5.0.0 + `@vitest/coverage-v8` + `mongodb-memory-server` + `supertest`.
-- **323 tests** (31 fichiers). Thresholds : 80% lignes/fonctions/statements, 75% branches.
-- **globalSetup.ts** : démarre un seul `MongoMemoryServer` partagé entre tous les fichiers d'intégration.
-- **setup.ts** : `clearDb()` vide les collections entre les tests (préserve les index).
-- **Tests unitaires** : encryption, mapper, validate, errorHandler, sanitize, imapPool, messageFetch, attachment, send, folder, messageAction, specialFolders, messageSchemas, searchService (parser + recherche), draftService, eventPublisher, eventSubscriber, twoFactorService (Phase 6), oauthService (Phase 6), fetchMoreService (Phase 6), pollingSync (Phase 6).
-- **Tests d'intégration** : auth, auth2FA (Phase 6), accounts, messages, folders, drafts, contacts (Phase 6), health/metrics (Phase 6) (Supertest + Express + mongodb-memory-server).
-- **Mocks ImapFlow** : classe constructable (pas de arrow function), `vi.hoisted()` pour éviter les problèmes de hoisting Vitest.
-- **Mocks ioredis** : classe constructable (pas de arrow function). `closeSubscriber()` en `beforeEach` pour recréer l'instance singleton.
-- **Mocks otplib** : mock de `authenticator.generateSecret` et `authenticator.verify` pour les tests 2FA (Phase 6).
-- **Coverage exclusions** : tests, app bootstrap, worker bootstrap, env config, test setup, et modules sync worker (Phase 2, hors scope Phase 3).
-- **fileParallelism: false** + **maxWorkers: 2** pour éviter les conflits MongoMemoryServer.
+- **339 tests** (34 fichiers). Thresholds : 80% lignes/fonctions/statements, 75% branches.
+- Nouveaux tests Phase 7 : `autoconfigService.test.ts`, `microsoftOAuthService.test.ts`, `accountSignature.test.ts`.
+- Mocks propres : `ImapFlow`, `ioredis`, `otplib`, `rate-limit-redis` mockable / fallback.
+- `fileParallelism: false` + `maxWorkers: 2` pour MongoMemoryServer.
 
 ## Règles
 
 - Aucun fichier > 300 lignes (350 max).
-- Messages d'erreur en français.
-- Jamais `req.body` dans les logs (contient des secrets en clair avant chiffrement).
-- `toggleAccountActive` ne met à jour que `isActive` (schéma Zod strict).
-- OAuth Google : implémenté via XOAUTH2 (Phase 6) — service OAuth + callback + refresh token chiffré + IMAP/SMTP. OAuth Microsoft : structure seule dans `oauthConfig`, non implémenté.
-- Toute nouvelle variable d'env doit être ajoutée au schéma Zod dans `env.ts` ET au `.env`/`.env.example`.
-- Les services ne connaissent pas Express (pas de req/res) — c'est le rôle des controllers.
-- Discipline PEEK : `BODY.PEEK` obligatoire pour tout fetch de corps (ImapFlow le gère automatiquement).
-- `readOnly: true` pour la lecture (préserve `\Seen`), `readOnly: false` pour les actions (flags, delete, move).
-- Libération du pool IMAP en `finally` pour garantir la libération du verrou.
-- Vérifier l'appartenance du compte (`userId`) avant tout accès aux messages/dossiers.
-- Les comptes d'autrui retournent 404 (pas 403, pour éviter la fuite d'information).
-- **Logger** : utiliser `logger` (pino) partout, jamais `console.log`/`console.error`. Redaction automatique des champs sensibles.
-- **JWT** : toujours `algorithms: ['HS256']` sur `jwt.verify`.
-- **Événements temps réel** : ne jamais inclure de sujet/corps d'email dans les payloads Redis (uniquement UID, folder, flags, errorMsg).
-- **Redis best-effort** : une panne Redis ne doit jamais stopper la synchronisation — `publishEvent` catch ses erreurs.
-- **SSE** : auth via `requireAuthSse` (token en query param). Mitigation future : token SSE à courte durée via endpoint dédié.
+- Messages d'erreur en français côté API.
+- Jamais `req.body` dans les logs ni secrets en clair.
+- Zéro `as any` toléré dans le code de production.
+- OAuth : Google & Microsoft implémentés via XOAUTH2 (Phases 6 & 7).
+- Variables d'env : schéma Zod dans `env.ts` + `.env`/`.env.example`.
+- Services agnostiques d'Express (pas de req/res).
+- Libération systématique du pool IMAP en `finally`.
+- Isolation des comptes par `userId` (accès non autorisé → 404).
+- Événements Redis Pub/Sub sans métadonnées sensibles (pas de sujet ni corps).

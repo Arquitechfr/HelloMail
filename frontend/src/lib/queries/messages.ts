@@ -9,6 +9,7 @@ import type {
   SendEmailInput,
   SendResult,
   FetchMoreResult,
+  ThreadResponse,
 } from "@/lib/api-types";
 
 export const messageKeys = {
@@ -16,6 +17,8 @@ export const messageKeys = {
     ["messages", accountId, folder, page, limit] as const,
   detail: (accountId: string, folder: string, uid: number) =>
     ["message", accountId, folder, uid] as const,
+  thread: (accountId: string, folder: string, uid: number) =>
+    ["thread", accountId, folder, uid] as const,
   search: (accountId: string, query: string, page: number, limit: number) =>
     ["search", accountId, query, page, limit] as const,
 };
@@ -64,6 +67,18 @@ export function useMessageDetail(accountId: string | null, folder: string, uid: 
     queryFn: () =>
       apiFetch<MessageDetail>(
         `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}`,
+      ),
+    enabled: !!accountId && uid !== null,
+  });
+}
+
+/** GET /api/accounts/:accountId/messages/:folder/:uid/thread — fil de discussion. */
+export function useMessageThread(accountId: string | null, folder: string, uid: number | null) {
+  return useQuery({
+    queryKey: messageKeys.thread(accountId ?? "", folder, uid ?? 0),
+    queryFn: () =>
+      apiFetch<ThreadResponse>(
+        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/thread`,
       ),
     enabled: !!accountId && uid !== null,
   });

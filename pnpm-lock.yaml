@@ -80,6 +80,9 @@ importers:
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
+      rate-limit-redis:
+        specifier: ^6.0.1
+        version: 6.0.1(express-rate-limit@8.7.0(express@4.22.2(supports-color@10.2.2))(supports-color@10.2.2))
       zod:
         specifier: ^4.4.3
         version: 4.5.4
@@ -4363,6 +4366,12 @@ packages:
   range-parser@1.2.1:
     resolution: {integrity: sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==}
     engines: {node: '>= 0.6'}
+
+  rate-limit-redis@6.0.1:
+    resolution: {integrity: sha512-qys7ulbh5X4Bohfjm6BXFWBiyzK6r5eGdFghPWZfJwggnDFTDwCIRq1u7tmN50vLTp4Kbe1h/ZAuBOn/hVpjtQ==}
+    engines: {node: '>= 16'}
+    peerDependencies:
+      express-rate-limit: '>= 8.6.0'
 
   raw-body@2.5.3:
     resolution: {integrity: sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA==}
@@ -9510,6 +9519,10 @@ snapshots:
   quick-format-unescaped@4.0.4: {}
 
   range-parser@1.2.1: {}
+
+  rate-limit-redis@6.0.1(express-rate-limit@8.7.0(express@4.22.2(supports-color@10.2.2))(supports-color@10.2.2)):
+    dependencies:
+      express-rate-limit: 8.7.0(express@4.22.2(supports-color@10.2.2))(supports-color@10.2.2)
 
   raw-body@2.5.3:
     dependencies:

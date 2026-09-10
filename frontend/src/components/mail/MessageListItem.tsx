@@ -17,40 +17,51 @@ export function MessageListItem({ message, isSelected, onSelect }: MessageListIt
   return (
     <div
       className={cn(
-        "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
-        isSelected ? "bg-primary/15" : "hover:bg-muted/40",
-        isUnread && "font-medium",
+        "group relative flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors border-b border-border/40 select-none",
+        isSelected
+          ? "bg-accent/80 text-accent-foreground border-l-2 border-l-primary"
+          : "hover:bg-muted/40 border-l-2 border-l-transparent",
       )}
       onClick={onSelect}
     >
       {/* Avatar / initiales */}
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary mt-0.5">
         {getInitials(message.from.name, message.from.address)}
       </div>
 
       {/* Contenu */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center justify-between gap-2">
-          <span className={cn("truncate text-sm", isUnread ? "font-semibold" : "font-normal")}>
+          <span
+            className={cn(
+              "truncate text-xs",
+              isUnread ? "font-bold text-foreground" : "font-medium text-foreground/80",
+            )}
+          >
             {message.from.name ?? message.from.address}
           </span>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-[11px] text-muted-foreground font-mono">
             {formatRelativeDate(message.date)}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={cn("truncate text-sm", isUnread ? "text-foreground" : "text-muted-foreground")}>
+
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={cn(
+              "truncate text-xs",
+              isUnread ? "font-medium text-foreground" : "text-muted-foreground",
+            )}
+          >
             {message.subject || "(Sans objet)"}
           </span>
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            {isFlagged && <Star className="size-3.5 fill-amber-400 text-amber-400" />}
-            {message.hasAttachments && <Paperclip className="size-3.5 text-muted-foreground" />}
+
+          <div className="flex shrink-0 items-center gap-1.5 ml-1">
+            {isFlagged && <Star className="size-3 fill-amber-400 text-amber-400" />}
+            {message.hasAttachments && <Paperclip className="size-3 text-muted-foreground" />}
+            {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
           </div>
         </div>
       </div>
-
-      {/* Indicateur non lu */}
-      {isUnread && <div className="size-2 shrink-0 rounded-full bg-primary" />}
     </div>
   );
 }

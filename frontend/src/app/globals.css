@@ -17,7 +17,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-outfit), var(--font-sans);
+  --font-display: var(--font-outfit), var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -50,114 +51,116 @@
   --color-glass: var(--glass-bg);
   --color-glass-strong: var(--glass-bg-strong);
   --color-glass-border: var(--glass-border);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: calc(var(--radius) * 0.75);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 1.33);
+  --radius-xl: calc(var(--radius) * 1.8);
+  --radius-2xl: calc(var(--radius) * 2.4);
 }
 
-/* --- 2. Variables shadcn/ui — Thème clair --- */
+/* --- 2. Variables shadcn/ui — Thème clair (Modern Crisp Light) --- */
 :root {
-  --background: oklch(0.98 0.005 240);
-  --foreground: oklch(0.20 0.02 240);
+  --background: oklch(0.985 0.003 240);
+  --foreground: oklch(0.18 0.02 240);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.02 240);
+  --card-foreground: oklch(0.18 0.02 240);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.02 240);
-  --primary: oklch(0.55 0.20 260);
-  --primary-foreground: oklch(0.98 0.01 260);
-  --secondary: oklch(0.95 0.01 240);
-  --secondary-foreground: oklch(0.25 0.02 240);
-  --muted: oklch(0.95 0.01 240);
-  --muted-foreground: oklch(0.50 0.02 240);
-  --accent: oklch(0.93 0.02 260);
-  --accent-foreground: oklch(0.30 0.05 260);
-  --destructive: oklch(0.58 0.24 27);
-  --border: oklch(0.90 0.01 240);
-  --input: oklch(0.90 0.01 240);
-  --ring: oklch(0.55 0.20 260);
+  --popover-foreground: oklch(0.18 0.02 240);
+  --primary: oklch(0.52 0.20 262);
+  --primary-foreground: oklch(0.99 0.005 262);
+  --secondary: oklch(0.955 0.008 240);
+  --secondary-foreground: oklch(0.22 0.02 240);
+  --muted: oklch(0.955 0.008 240);
+  --muted-foreground: oklch(0.48 0.02 240);
+  --accent: oklch(0.94 0.015 260);
+  --accent-foreground: oklch(0.25 0.04 260);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.89 0.01 240);
+  --input: oklch(0.89 0.01 240);
+  --ring: oklch(0.52 0.20 262);
   --chart-1: oklch(0.65 0.20 260);
   --chart-2: oklch(0.60 0.15 200);
   --chart-3: oklch(0.55 0.18 300);
   --chart-4: oklch(0.70 0.15 160);
   --chart-5: oklch(0.65 0.20 30);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.97 0.01 240);
+  --radius: 0.375rem;
+  --sidebar: oklch(0.975 0.005 240);
   --sidebar-foreground: oklch(0.20 0.02 240);
-  --sidebar-primary: oklch(0.55 0.20 260);
-  --sidebar-primary-foreground: oklch(0.98 0.01 260);
-  --sidebar-accent: oklch(0.93 0.02 260);
-  --sidebar-accent-foreground: oklch(0.30 0.05 260);
-  --sidebar-border: oklch(0.90 0.01 240);
-  --sidebar-ring: oklch(0.55 0.20 260);
+  --sidebar-primary: oklch(0.52 0.20 262);
+  --sidebar-primary-foreground: oklch(0.99 0.005 262);
+  --sidebar-accent: oklch(0.935 0.015 260);
+  --sidebar-accent-foreground: oklch(0.25 0.04 260);
+  --sidebar-border: oklch(0.89 0.01 240);
+  --sidebar-ring: oklch(0.52 0.20 262);
 
-  /* --- 3. Variables glass — Thème clair --- */
-  --glass-bg: rgba(255, 255, 255, 0.60);
-  --glass-bg-strong: rgba(255, 255, 255, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.25);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  --glass-blur: 16px;
-  --glass-saturate: 150%;
+  /* --- 3. Variables glass / panneaux — Thème clair --- */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg-strong: rgba(255, 255, 255, 0.96);
+  --glass-border: oklch(0.89 0.01 240);
+  --glass-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --glass-blur: 12px;
+  --glass-saturate: 140%;
 
-  /* --- 4. Variables aurora — Thème clair --- */
-  --aurora-color-1: oklch(0.75 0.15 260);
-  --aurora-color-2: oklch(0.80 0.12 200);
-  --aurora-color-3: oklch(0.72 0.18 300);
-  --aurora-opacity: 0.35;
-  --aurora-duration: 25s;
+  /* --- 4. Variables aurora (fond subtil) --- */
+  --aurora-color-1: oklch(0.80 0.10 260);
+  --aurora-color-2: oklch(0.84 0.08 200);
+  --aurora-color-3: oklch(0.82 0.10 300);
+  --aurora-opacity: 0.10;
+  --aurora-duration: 35s;
 }
 
-/* --- 2b. Variables shadcn/ui — Thème sombre --- */
+/* --- 2b. Variables shadcn/ui — Thème sombre (Obsidian Desktop Pro) --- */
 .dark {
-  --background: oklch(0.15 0.02 260);
-  --foreground: oklch(0.95 0.01 240);
-  --card: oklch(0.20 0.02 260);
-  --card-foreground: oklch(0.95 0.01 240);
-  --popover: oklch(0.20 0.02 260);
-  --popover-foreground: oklch(0.95 0.01 240);
-  --primary: oklch(0.65 0.20 260);
-  --primary-foreground: oklch(0.15 0.02 260);
-  --secondary: oklch(0.27 0.02 260);
-  --secondary-foreground: oklch(0.95 0.01 240);
-  --muted: oklch(0.27 0.02 260);
-  --muted-foreground: oklch(0.68 0.02 240);
-  --accent: oklch(0.32 0.04 260);
-  --accent-foreground: oklch(0.90 0.03 260);
-  --destructive: oklch(0.70 0.19 22);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.20 260);
+  --background: oklch(0.12 0.015 260);
+  --foreground: oklch(0.96 0.005 240);
+  --card: oklch(0.15 0.015 260);
+  --card-foreground: oklch(0.96 0.005 240);
+  --popover: oklch(0.15 0.018 260);
+  --popover-foreground: oklch(0.96 0.005 240);
+  --primary: oklch(0.64 0.21 262);
+  --primary-foreground: oklch(0.12 0.01 262);
+  --secondary: oklch(0.19 0.015 260);
+  --secondary-foreground: oklch(0.92 0.01 240);
+  --muted: oklch(0.18 0.012 260);
+  --muted-foreground: oklch(0.62 0.015 240);
+  --accent: oklch(0.22 0.025 262);
+  --accent-foreground: oklch(0.95 0.015 262);
+  --destructive: oklch(0.65 0.20 25);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.64 0.21 262);
   --chart-1: oklch(0.65 0.20 260);
   --chart-2: oklch(0.60 0.15 200);
   --chart-3: oklch(0.55 0.18 300);
   --chart-4: oklch(0.70 0.15 160);
   --chart-5: oklch(0.65 0.20 30);
-  --sidebar: oklch(0.18 0.02 260);
-  --sidebar-foreground: oklch(0.95 0.01 240);
-  --sidebar-primary: oklch(0.65 0.20 260);
-  --sidebar-primary-foreground: oklch(0.15 0.02 260);
-  --sidebar-accent: oklch(0.32 0.04 260);
-  --sidebar-accent-foreground: oklch(0.90 0.03 260);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.20 260);
+  --sidebar: oklch(0.10 0.015 260);
+  --sidebar-foreground: oklch(0.94 0.005 240);
+  --sidebar-primary: oklch(0.64 0.21 262);
+  --sidebar-primary-foreground: oklch(0.12 0.01 262);
+  --sidebar-accent: oklch(0.18 0.02 260);
+  --sidebar-accent-foreground: oklch(0.95 0.01 240);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.64 0.21 262);
 
-  /* --- 3b. Variables glass — Thème sombre --- */
-  --glass-bg: rgba(20, 25, 45, 0.50);
-  --glass-bg-strong: rgba(20, 25, 45, 0.70);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.30);
+  /* --- 3b. Variables surface & bordure — Thème sombre --- */
+  --glass-bg: rgba(22, 26, 38, 0.85);
+  --glass-bg-strong: rgba(22, 26, 38, 0.95);
+  --glass-border: oklch(1 0 0 / 8%);
+  --glass-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
 
   /* --- 4b. Variables aurora — Thème sombre --- */
-  --aurora-color-1: oklch(0.45 0.20 260);
-  --aurora-color-2: oklch(0.40 0.15 200);
-  --aurora-color-3: oklch(0.42 0.18 300);
-  --aurora-opacity: 0.25;
+  --aurora-color-1: oklch(0.35 0.14 260);
+  --aurora-color-2: oklch(0.32 0.12 200);
+  --aurora-color-3: oklch(0.33 0.14 300);
+  --aurora-opacity: 0.08;
 }
 
-/* --- 5. Utilitaires glass --- */
+/* --- 5. Utilitaires UI --- */
+@utility font-display {
+  font-family: var(--font-display);
+}
+
 @utility glass {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -174,7 +177,7 @@
   box-shadow: var(--glass-shadow);
 }
 
-/* --- 6. Base + aurora background --- */
+/* --- 6. Base + layout racine --- */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -189,7 +192,7 @@
   }
 }
 
-/* Fond aurora : gradient animé fixed derrière tout (matière pour le glass blur) */
+/* Fond aurora : ultra discret, ambiance en fond sans distraire */
 .aurora-bg {
   position: fixed;
   inset: 0;
@@ -202,35 +205,35 @@
 .aurora-bg::after {
   content: "";
   position: absolute;
-  width: 60vw;
-  height: 60vw;
+  width: 50vw;
+  height: 50vw;
   border-radius: 50%;
-  filter: blur(80px);
+  filter: blur(90px);
   opacity: var(--aurora-opacity);
   animation: aurora-rotate var(--aurora-duration) ease-in-out infinite;
 }
 
 .aurora-bg::before {
-  top: -20vw;
-  left: -10vw;
+  top: -15vw;
+  left: -5vw;
   background: radial-gradient(circle, var(--aurora-color-1), transparent 70%);
 }
 
 .aurora-bg::after {
-  bottom: -20vw;
-  right: -10vw;
+  bottom: -15vw;
+  right: -5vw;
   background: radial-gradient(circle, var(--aurora-color-2), transparent 70%);
   animation-delay: calc(var(--aurora-duration) / -2);
 }
 
 .aurora-bg-3 {
   position: absolute;
-  top: 30%;
-  left: 40%;
-  width: 50vw;
-  height: 50vw;
+  top: 35%;
+  left: 45%;
+  width: 40vw;
+  height: 40vw;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(110px);
   opacity: var(--aurora-opacity);
   background: radial-gradient(circle, var(--aurora-color-3), transparent 70%);
   animation: aurora-rotate var(--aurora-duration) ease-in-out infinite reverse;
@@ -239,20 +242,20 @@
 
 @keyframes aurora-rotate {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(10vw, 5vw) scale(1.1); }
-  66% { transform: translate(-5vw, 10vw) scale(0.9); }
+  33% { transform: translate(6vw, 3vw) scale(1.05); }
+  66% { transform: translate(-3vw, 6vw) scale(0.95); }
 }
 
-/* Scrollbar discrète */
+/* Scrollbar minimale et élégante */
 @layer base {
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
     background: var(--muted-foreground);
-    border-radius: 3px;
-    opacity: 0.3;
+    border-radius: 9999px;
+    opacity: 0.2;
   }
-  ::-webkit-scrollbar-thumb:hover { opacity: 0.5; }
+  ::-webkit-scrollbar-thumb:hover { opacity: 0.4; }
 }
 
 /* --- 7. Éditeur de texte riche (TipTap) --- */
@@ -327,4 +330,21 @@
   border: none;
   border-top: 1px solid var(--border);
   margin: 1rem 0;
+}
+
+/* --- 6. Impression dédiée d'email --- */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print, header, aside, [role="dialog"], button {
+    display: none !important;
+  }
+  .printable-area {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+  }
 }

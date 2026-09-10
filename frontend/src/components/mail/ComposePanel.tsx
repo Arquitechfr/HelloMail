@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { ComposeForm, type DraftStatus } from "@/components/mail/ComposeForm";
-import { GlassPanel } from "@/components/mail/GlassPanel";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useDeleteDraft } from "@/lib/queries/drafts";
@@ -50,13 +49,13 @@ export function ComposePanel() {
   if (!composeOpen || !selectedAccountId) return null;
 
   return (
-    <GlassPanel className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col h-full bg-background overflow-hidden select-text">
       {/* En-tête : titre + bouton fermer */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <h2 className="text-base font-semibold">
+      <div className="flex items-center justify-between border-b border-border px-6 py-2.5 bg-background/80 shrink-0">
+        <h2 className="text-sm font-bold tracking-tight font-display text-foreground">
           {composeMode === "reply" ? "Répondre" : composeMode === "forward" ? "Transférer" : "Nouveau message"}
         </h2>
-        <Button variant="ghost" size="icon-sm" onClick={handleClose} aria-label="Fermer">
+        <Button variant="ghost" size="icon-sm" onClick={handleClose} aria-label="Fermer" title="Fermer (Échap)">
           <X className="size-4" />
         </Button>
       </div>
@@ -99,6 +98,6 @@ export function ComposePanel() {
           onClose={handleClose}
         />
       </div>
-    </GlassPanel>
+    </div>
   );
 }

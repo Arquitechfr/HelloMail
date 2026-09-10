@@ -48,19 +48,29 @@ function DropdownMenuContent({
   )
 }
 
-function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
-  return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+function DropdownMenuGroup({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      role="group"
+      data-slot="dropdown-menu-group"
+      className={cn("flex flex-col", className)}
+      {...props}
+    />
+  )
 }
 
 function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean
 }) {
   return (
-    <MenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(

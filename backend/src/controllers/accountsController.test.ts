@@ -155,4 +155,40 @@ describe('Accounts routes (intégration)', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('GET /api/accounts/autoconfig → 200 avec configuration détectée ou fallback', async () => {
+    const token = await registerAndLogin(app, 'autoconf@test.com');
+
+    const res = await request(app)
+      .get('/api/accounts/autoconfig?email=test@example.org')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('source');
+    expect(res.body).toHaveProperty('imap');
+    expect(res.body.imap.host).toContain('example.org');
+  });
+
+  it('PATCH /api/accounts/:id/signature → 200 avec signature mise à jour', async () => {
+    const token = await registerAndLogin(app, 'signature-api@test.com');
+
+    const createRes = await request(app)
+      .post('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validAccountBody);
+
+    const accountId = createRes.body._id;
+
+    const res = await request(app)
+      .patch(`/api/accounts/${accountId}/signature`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enabled: true,
+        text: 'Ma super signature HelloMail',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.signature.enabled).toBe(true);
+    expect(res.body.signature.text).toBe('Ma super signature HelloMail');
+  });
 });

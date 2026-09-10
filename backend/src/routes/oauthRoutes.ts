@@ -11,4 +11,10 @@ router.get('/google', requireAuth, oauthController.googleRedirect);
 // Callback Google après autorisation — pas de requireAuth (state JWT vérifie l'userId).
 router.get('/google/callback', oauthController.googleCallback);
 
+// Démarre le flow OAuth Microsoft — redirige vers Microsoft.
+router.get('/microsoft', requireAuth, oauthController.microsoftRedirect);
+
+// Callback Microsoft après autorisation.
+router.get('/microsoft/callback', oauthController.microsoftCallback);
+
 export const oauthRoutes = router;

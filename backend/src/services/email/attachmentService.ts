@@ -73,6 +73,65 @@ export async function fetchAttachmentStream(
   }
 }
 
+export interface RawMessageStream {
+  stream: Readable;
+  contentType: string;
+  filename: string;
+  size: number;
+}
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^\w\s.-]/gi, '_').trim().slice(0, 100) || 'message';
+}
+
+/**
+ * Télécharge le message MIME brut complet au format RFC 822 (.eml).
+ * Ouvre la boîte en lecture seule pour préserver le flag \Seen.
+ */
+export async function fetchRawMessageStream(
+  account: IAccountDocument,
+  folder: string,
+  uid: number,
+): Promise<RawMessageStream> {
+  const accountId = String(account._id);
+  const client = await imapPool.acquire(account);
+
+  try {
+    await client.mailboxOpen(folder, { readOnly: true });
+
+    const msg = await client.fetchOne(uid, { envelope: true, size: true }, { uid: true });
+
+    if (!msg) {
+      imapPool.release(accountId);
+      throw AppError.notFound('Message introuvable');
+    }
+
+    const { content } = await client.download(uid, undefined, { uid: true });
+
+    const passThrough = new PassThrough();
+    const releasePool = (): void => imapPool.release(accountId);
+
+    content.on('end', releasePool);
+    content.on('error', (err) => {
+      releasePool();
+      passThrough.destroy(err);
+    });
+    content.pipe(passThrough);
+
+    const safeSubject = sanitizeFilename(msg.envelope?.subject || `message-${uid}`);
+
+    return {
+      stream: passThrough,
+      contentType: 'message/rfc822',
+      filename: `${safeSubject}.eml`,
+      size: msg.size ?? 0,
+    };
+  } catch (error) {
+    imapPool.release(accountId);
+    throw error;
+  }
+}
+
 /**
  * Recherche récursivement une partie MIME par son numéro de partie.
  */

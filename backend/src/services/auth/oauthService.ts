@@ -4,6 +4,10 @@ import { logger } from '../../config/logger.js';
 import { AppError } from '../../utils/AppError.js';
 import { encrypt, decrypt, type EncryptedPayload } from '../security/encryptionService.js';
 import { AccountModel, type IAccountDocument } from '../../models/Account.js';
+import {
+  getValidMicrosoftAccessToken,
+  invalidateMicrosoftTokenCache,
+} from './microsoftOAuthService.js';
 
 /** Scope Google pour IMAP/SMTP via XOAUTH2. */
 const GOOGLE_SCOPE = 'https://mail.google.com/';
@@ -58,23 +62,29 @@ export function getGoogleAuthUrl(state: string): string {
  * Génère un state JWT signé pour le flow OAuth (contient l'userId).
  * Expire après 10 minutes.
  */
-export function createOAuthState(userId: string): string {
-  return jwt.sign({ sub: userId, action: 'google_oauth' }, env.JWT_ACCESS_SECRET, {
+export function createOAuthState(
+  userId: string,
+  action: 'google_oauth' | 'microsoft_oauth' = 'google_oauth',
+): string {
+  return jwt.sign({ sub: userId, action }, env.JWT_ACCESS_SECRET, {
     expiresIn: '10m',
     algorithm: 'HS256',
   });
 }
 
 /**
- * Vérifie le state JWT retourné par Google et retourne l'userId.
+ * Vérifie le state JWT retourné par Google ou Microsoft et retourne l'userId.
  */
-export function verifyOAuthState(state: string): string {
+export function verifyOAuthState(
+  state: string,
+  expectedAction: 'google_oauth' | 'microsoft_oauth' = 'google_oauth',
+): string {
   try {
     const decoded = jwt.verify(state, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as {
       sub: string;
       action: string;
     };
-    if (decoded.action !== 'google_oauth') {
+    if (decoded.action !== expectedAction) {
       throw new Error('Action invalide');
     }
     return decoded.sub;
@@ -191,6 +201,7 @@ export async function getValidGoogleAccessToken(account: IAccountDocument): Prom
 /** Invalide le cache de token pour un compte (à appeler après suppression/déconnexion). */
 export function invalidateTokenCache(accountId: string): void {
   tokenCache.delete(accountId);
+  invalidateMicrosoftTokenCache(accountId);
 }
 
 /**
@@ -209,6 +220,11 @@ export async function getImapAuth(
 
   if (account.provider === 'google_oauth') {
     const accessToken = await getValidGoogleAccessToken(account);
+    return { user: account.emailAddress, accessToken };
+  }
+
+  if (account.provider === 'microsoft_oauth') {
+    const accessToken = await getValidMicrosoftAccessToken(account);
     return { user: account.emailAddress, accessToken };
   }
 
@@ -231,6 +247,11 @@ export async function getSmtpAuth(
 
   if (account.provider === 'google_oauth') {
     const accessToken = await getValidGoogleAccessToken(account);
+    return { user: account.emailAddress, type: 'OAuth2', accessToken };
+  }
+
+  if (account.provider === 'microsoft_oauth') {
+    const accessToken = await getValidMicrosoftAccessToken(account);
     return { user: account.emailAddress, type: 'OAuth2', accessToken };
   }
 

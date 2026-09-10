@@ -103,14 +103,14 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
 
       {confirmDelete && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs"
           onClick={(e) => {
             e.stopPropagation();
             setConfirmDelete(false);
           }}
         >
           <div
-            className="glass-strong rounded-2xl p-6 max-w-sm"
+            className="rounded-xl border border-border bg-card p-5 max-w-sm shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">

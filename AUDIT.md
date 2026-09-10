@@ -33,10 +33,10 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 5** | Sécurité backend (Helmet, pino + redaction, express-rate-limit global, JWT HS256 pinning, graceful shutdown API, fix validate ZodError) + recherche messages (index textuel MongoDB + parser d'opérateurs) + brouillons (IMAP Drafts via messageAppend) + temps réel SSE (Redis Pub/Sub worker→API) + 40 nouveaux tests (227 total, coverage 88.92% lignes) | — | ~3 200 |
 | **Post-Phase 5** | Sync multi-dossiers initiale (INBOX + Sent/Drafts/Trash/Junk/Archive via `runInitialSyncAll`) + miroir Sent dans MongoDB (`saveToSent` upsert après append IMAP) + reconciliation multi-dossiers au démarrage (`reconcileAllFolders` — nettoyage messages fantômes) + migration `reconcileFolder` vers logger pino + 23 nouveaux tests (250 total, coverage 89.05% lignes) | — | ~600 |
 | **Phase 6** | Sync multi-dossiers temps réel (polling dossiers spéciaux via 2e connexion IMAP parallèle à l'IDLE INBOX) + pagination arrière (`fetchMoreService` — fetch IMAP des messages plus anciens par UID range) + OAuth Google XOAUTH2 (service OAuth + callback + refresh token chiffré + renouvellement auto + intégration IMAP/SMTP + bouton frontend) + 2FA TOTP + WebAuthn (secret chiffré AES-256-GCM, codes de secours bcrypt, passkeys `@simplewebauthn/server`, flux login challenge → verify → tokens) + contacts (modèle Contact + index textuel + CRUD + recherche/autocomplétion + intégration compose) + observabilité (métriques Prometheus `prom-client` + health check enrichi + middleware instrumentation) + page réglages (2FA + contacts) + 73 nouveaux tests (323 total, 31 fichiers) | — | ~4 200 |
+| **Phase 7** | Autoconfiguration des comptes email (Mozilla ISPDB + DNS MX + heuristiques) + OAuth Microsoft 365 / Outlook.com (XOAUTH2) + Signatures d'email personnalisées par compte + Pièces jointes avancées (drag & drop, jauge 25 Mo, preview, suppressions individuelles) + Rate Limiting distribué Redis (`rate-limit-redis`) + Résorption intégrale de la dette technique D2, D10 et D12 (0 `as any`) + 16 nouveaux tests (339 total, 34 fichiers) | — | ~2 100 |
+| **Phase 8 (Lots 8.1 & 8.2)** | Threading & Conversation (regroupement `messageId` + `inReplyTo` + normalisation sujet, endpoint `GET /thread`, timeline & accordéon `MessageThreadView`, réponse rapide `QuickReplyBar`) + Export d'emails bruts RFC 822 (`.eml`, streaming PassThrough PEEK) + Impression dédiée (`@media print`, masquage navigation/header, raccourci P) + 10 nouveaux tests (349 total, 35 fichiers) | — | ~1 200 |
 
-**Verdict :** HelloMail est désormais un webmail complet, sécurisé et observable, prêt pour la production. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est sécurisé et testé (323 tests, 31 fichiers). Le frontend (Next.js + shadcn/ui + glassmorphism) consomme l'API REST via proxy Next.js rewrites + Route Handler pour le refresh. La Phase 6 ajoute l'OAuth Google, la 2FA (TOTP + WebAuthn), les contacts avec autocomplétion, l'observabilité Prometheus et la sync multi-dossiers temps réel. Le typecheck, le build, les 323 tests backend et les builds frontend passent sans erreur.
-
-**Ce qu'il reste :** L'OAuth Microsoft (structure présente, non implémenté), la signature d'email, l'autoconfig Mozilla/MS, le QRESYNC avancé (delta sync via modseq), et le passage du rate limit store vers Redis pour le scaling horizontal. L'audit ci-dessous détaille l'état actuel et les améliorations possibles.
+**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis et couvert par 349 tests Vitest (35 suites). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml) ainsi que l'impression dédiée. Typecheck, ESLint et Next.js Build sont 100% verts.
 
 ---
 
@@ -888,13 +888,13 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Profil (me) | ✅ | Phase 1 | — |
 | 2FA / TOTP | ✅ | Phase 6 | TOTP (otplib) + codes de secours (bcrypt) + WebAuthn passkeys |
 | OAuth Google | ✅ | Phase 6 | XOAUTH2 — service OAuth + callback + refresh chiffré + IMAP/SMTP |
-| OAuth Microsoft | ❌ | Phase 6 | Structure présente dans le modèle, non implémenté |
+| OAuth Microsoft | ✅ | Phase 7 | XOAUTH2 — service OAuth Microsoft + callback + refresh chiffré + IMAP/SMTP |
 | **Comptes** | | | |
 | Créer un compte IMAP | ✅ | Phase 1 | Test IMAP+SMTP avant persistance |
 | Lister ses comptes | ✅ | Phase 1 | Projection safe (pas de secrets) |
 | Supprimer un compte | ✅ | Phase 1 | — |
 | Activer/désactiver | ✅ | Phase 1 | Toggle isActive |
-| Autoconfig (Mozilla/MS) | ❌ | — | Non implémenté |
+| Autoconfig (Mozilla/MS) | ✅ | Phase 7 | Détection automatique via Mozilla ISPDB, DNS MX et heuristiques |
 | **Sync** | | | |
 | Sync initiale INBOX (50 msgs) | ✅ | Phase 2 | Idempotent, par range de séquence |
 | Sync initiale multi-dossiers | ✅ | Post-Phase 5 | INBOX + Sent/Drafts/Trash/Junk/Archive via runInitialSyncAll |
@@ -918,15 +918,18 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Actions en masse | ✅ | Phase 3 | batch (markRead/Unread/flag/unflag/delete/move/markAsJunk) |
 | Marquer comme spam | ✅ | Phase 3 | markAsJunk (individuelle + batch) |
 | Recherche | ✅ | Phase 5 | Index textuel MongoDB + parser d'opérateurs (from:/to:/is:/has:/before:/since:) |
+| Fil de discussion / Threading | ✅ | Phase 8 | Regroupement `messageId` + `inReplyTo` + sujet normalisé, API `GET /thread`, `MessageThreadView` |
+| Export brut RFC 822 (.eml) | ✅ | Phase 8 | Téléchargement brut streamé, respect PEEK (`readOnly`), bouton dans le lecteur |
+| Impression dédiée | ✅ | Phase 8 | `@media print` optimisé, masquage des panneaux/headers, raccourci clavier `P` |
 | **Envoi** | | | |
 | Composer un message | ✅ | Phase 3 | sendService (Nodemailer) |
 | Répondre (reply) | ✅ | Phase 3 | inReplyTo + references dans le schéma |
 | Transférer (forward) | ✅ | Phase 3 | Schéma supporte les champs reply/forward |
-| Pièces jointes (upload) | ✅ | Phase 3 | base64 → Buffer, limite 30mb |
+| Pièces jointes (upload) | ✅ | Phase 3 + 7 | base64 → Buffer, zone drag & drop, jauge 25 Mo, suppression unitaire |
 | Sauvegarde Sent | ✅ | Phase 3 | IMAP append, dossier détecté via specialUse |
 | Brouillons + auto-save | ✅ | Phase 5 | Stockage IMAP Drafts via messageAppend, flag \Draft, CRUD endpoints |
 | CC / BCC | ✅ | Phase 3 | Supportés dans sendEmailSchema |
-| Signature | ❌ | — | Non implémenté |
+| Signature | ✅ | Phase 7 | Signatures personnalisées par compte (texte + HTML), insertion dans compose |
 | **Dossiers** | | | |
 | Lister les dossiers | ✅ | Phase 3 | folderService.listFolders (avec status) |
 | Créer / renommer / supprimer | ✅ | Phase 3 | folderService CRUD + cache invalidation |
@@ -946,8 +949,8 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | **Temps réel** | | | |
 | Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | **Tests** | | | |
-| Tests unitaires | ✅ | Phase 3 + 5 + 6 | 323 tests, 31 fichiers |
-| Tests d'intégration | ✅ | Phase 3 + 6 | Supertest + mongodb-memory-server |
+| Tests unitaires | ✅ | Phase 3 + 5 + 6 + 7 + 8 | 349 tests, 35 fichiers |
+| Tests d'intégration | ✅ | Phase 3 + 6 + 7 + 8 | Supertest + mongodb-memory-server |
 | **Frontend** | | | |
 | Interface web | ✅ | Phase 4 + 6 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts), brouillons auto-save, recherche, SSE temps réel, page réglages (2FA + contacts) |
 | **Observabilité** | | | |

@@ -48,13 +48,13 @@ export function RegisterForm() {
   };
 
   return (
-    <GlassPanel variant="strong" className="w-full max-w-md p-8">
+    <GlassPanel variant="strong" className="w-full max-w-md p-8 rounded-xl shadow-2xl border border-border">
       <div className="mb-8 flex flex-col items-center gap-3">
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
           <Mail className="size-6" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Créer un compte</h1>
-        <p className="text-sm text-muted-foreground">Inscrivez-vous pour utiliser HelloMail</p>
+        <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">Créer un compte</h1>
+        <p className="text-xs text-muted-foreground">Inscrivez-vous pour utiliser HelloMail</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { Readable } from 'node:stream';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -18,21 +19,25 @@ vi.mock('../services/email/connectionTest.js', () => ({
 const {
   mockFetchMessageDetail,
   mockFetchAttachmentStream,
+  mockFetchRawMessageStream,
   mockSendEmail,
   mockUpdateFlags,
   mockDeleteMessage,
   mockMoveMessage,
   mockMarkMessageAsJunk,
   mockBatchAction,
+  mockGetConversationThread,
 } = vi.hoisted(() => ({
   mockFetchMessageDetail: vi.fn(),
   mockFetchAttachmentStream: vi.fn(),
+  mockFetchRawMessageStream: vi.fn(),
   mockSendEmail: vi.fn(),
   mockUpdateFlags: vi.fn(),
   mockDeleteMessage: vi.fn(),
   mockMoveMessage: vi.fn(),
   mockMarkMessageAsJunk: vi.fn(),
   mockBatchAction: vi.fn(),
+  mockGetConversationThread: vi.fn(),
 }));
 
 vi.mock('../services/email/messageFetchService.js', () => ({
@@ -40,6 +45,10 @@ vi.mock('../services/email/messageFetchService.js', () => ({
 }));
 vi.mock('../services/email/attachmentService.js', () => ({
   fetchAttachmentStream: mockFetchAttachmentStream,
+  fetchRawMessageStream: mockFetchRawMessageStream,
+}));
+vi.mock('../services/email/threadService.js', () => ({
+  getConversationThread: mockGetConversationThread,
 }));
 vi.mock('../services/email/sendService.js', () => ({
   sendEmail: mockSendEmail,
@@ -240,5 +249,44 @@ describe('Messages routes (intégration)', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(404);
+  });
+
+  it('GET /:accountId/messages/:folder/:uid/raw → 200 et télécharge le fichier .eml', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    const rawData = 'From: sender@test.com\r\nSubject: Test Raw\r\n\r\nHello';
+    mockFetchRawMessageStream.mockResolvedValueOnce({
+      stream: Readable.from([rawData]),
+      contentType: 'message/rfc822',
+      filename: 'Test Raw.eml',
+      size: Buffer.byteLength(rawData),
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages/INBOX/100/raw`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('message/rfc822');
+    expect(res.headers['content-disposition']).toContain('filename="Test%20Raw.eml"');
+    expect(res.text).toBe('From: sender@test.com\r\nSubject: Test Raw\r\n\r\nHello');
+  });
+
+  it('GET /:accountId/messages/:folder/:uid/thread → 200 avec liste du thread', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    mockGetConversationThread.mockResolvedValueOnce({
+      conversationSubject: 'Test Thread',
+      count: 2,
+      messages: [{ uid: 100, subject: 'Test Thread' }, { uid: 101, subject: 'Re: Test Thread' }],
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages/INBOX/100/thread`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.count).toBe(2);
+    expect(res.body.conversationSubject).toBe('Test Thread');
   });
 });

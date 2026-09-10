@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -58,6 +59,16 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
       onChange(editor.getHTML());
     },
   });
+
+  // Synchronisation des mises à jour de contenu externes (ex: insertion signature, template, brouillon)
+  useEffect(() => {
+    if (!editor) return;
+    if (!value && editor.isEmpty) return;
+    const currentHtml = editor.getHTML();
+    if (value !== currentHtml) {
+      editor.commands.setContent(value, { emitUpdate: false });
+    }
+  }, [value, editor]);
 
   const setLink = () => {
     const previousUrl = editor?.getAttributes("link").href ?? "";

@@ -5,10 +5,11 @@ import { AppError } from '../utils/AppError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { fetchMessageDetail } from '../services/email/messageFetchService.js';
-import { fetchAttachmentStream } from '../services/email/attachmentService.js';
+import { fetchAttachmentStream, fetchRawMessageStream } from '../services/email/attachmentService.js';
 import { sendEmail } from '../services/email/sendService.js';
 import { searchMessages } from '../services/email/searchService.js';
 import { fetchMoreMessages } from '../services/email/fetchMoreService.js';
+import { getConversationThread } from '../services/email/threadService.js';
 import {
   updateFlags as updateMessageFlags,
   deleteMessage,
@@ -86,6 +87,29 @@ export const getAttachment = asyncHandler(async (req: AuthenticatedRequest, res:
     folder,
     Number(uid),
     part,
+  );
+
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+  if (size > 0) {
+    res.setHeader('Content-Length', String(size));
+  }
+
+  stream.pipe(res);
+});
+
+export const getRaw = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const { stream, contentType, filename, size } = await fetchRawMessageStream(
+    account,
+    folder,
+    Number(uid),
   );
 
   res.setHeader('Content-Type', contentType);
@@ -188,3 +212,16 @@ export const fetchMore = asyncHandler(async (req: AuthenticatedRequest, res: Res
   const result = await fetchMoreMessages(account, req.body.folder, req.body.count);
   res.status(200).json(result);
 });
+
+export const getThread = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const thread = await getConversationThread(accountId, folder, Number(uid));
+  res.status(200).json(thread);
+});
+

@@ -16,6 +16,7 @@ export interface IMessageDocument extends Document {
   folder: string;
   uid: number;
   messageId?: string;
+  inReplyTo?: string;
   subject: string;
   from: MessageAddress;
   to: MessageAddress[];
@@ -65,6 +66,10 @@ const messageSchema = new Schema<IMessageDocument>(
       type: String,
       trim: true,
     },
+    inReplyTo: {
+      type: String,
+      trim: true,
+    },
     subject: {
       type: String,
       default: '',
@@ -107,6 +112,10 @@ messageSchema.index({ accountId: 1, date: -1 });
 
 // Index pour la liste paginée par dossier (optimise find({accountId, folder}).sort({date: -1})).
 messageSchema.index({ accountId: 1, folder: 1, date: -1 });
+
+// Index pour le regroupement de conversation / threading.
+messageSchema.index({ accountId: 1, messageId: 1 });
+messageSchema.index({ accountId: 1, inReplyTo: 1 });
 
 // Index textuel pour la recherche plein texte (subject + from + to).
 // Poids : subject (3) > from (2) > to (1) pour prioriser le sujet dans le score.

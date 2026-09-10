@@ -152,13 +152,13 @@ export class AuthService {
     const accessToken = jwt.sign(
       { sub: user._id.toString(), email: user.email },
       env.JWT_ACCESS_SECRET,
-      { expiresIn: env.JWT_ACCESS_EXPIRES_IN as any },
+      { expiresIn: env.JWT_ACCESS_EXPIRES_IN as jwt.SignOptions['expiresIn'] },
     );
 
     const refreshToken = jwt.sign(
       { sub: user._id.toString(), tokenId },
       env.JWT_REFRESH_SECRET,
-      { expiresIn: `${env.JWT_REFRESH_EXPIRES_IN_DAYS}d` as any },
+      { expiresIn: `${env.JWT_REFRESH_EXPIRES_IN_DAYS}d` as jwt.SignOptions['expiresIn'] },
     );
 
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');

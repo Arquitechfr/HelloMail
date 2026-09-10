@@ -6,9 +6,9 @@ import { useMessages, useFetchMore } from "@/lib/queries/messages";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { MessageListItem } from "@/components/mail/MessageListItem";
 import { SearchBar } from "@/components/mail/SearchBar";
-import { GlassPanel } from "@/components/mail/GlassPanel";
 import { Loader2, Inbox } from "lucide-react";
 import type { Message } from "@/lib/api-types";
+import { cn } from "@/lib/utils";
 
 interface MessageListProps {
   accountId: string;
@@ -93,34 +93,63 @@ export function MessageList({ accountId, folder }: MessageListProps) {
 
   if (isLoading) {
     return (
-      <GlassPanel className="flex flex-1 items-center justify-center border-r">
+      <div
+        className={cn(
+          "flex flex-1 md:flex-initial md:w-84 lg:w-96 flex-col items-center justify-center border-r border-border bg-card/30",
+          selectedUid !== null ? "hidden md:flex" : "flex",
+        )}
+      >
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </GlassPanel>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <GlassPanel className="flex flex-1 flex-col items-center justify-center gap-2 border-r text-muted-foreground">
-        <p className="text-sm">Impossible de charger les messages</p>
-      </GlassPanel>
+      <div
+        className={cn(
+          "flex flex-1 md:flex-initial md:w-84 lg:w-96 flex-col items-center justify-center gap-2 border-r border-border text-muted-foreground bg-card/30",
+          selectedUid !== null ? "hidden md:flex" : "flex",
+        )}
+      >
+        <p className="text-xs">Impossible de charger les messages</p>
+      </div>
     );
   }
 
   if (messages.length === 0) {
     return (
-      <GlassPanel className="flex flex-1 flex-col border-r">
+      <div
+        className={cn(
+          "flex flex-1 md:flex-initial md:w-84 lg:w-96 flex-col border-r border-border bg-card/30 overflow-hidden",
+          selectedUid !== null ? "hidden md:flex" : "flex",
+        )}
+      >
         <ListHeader folder={folder} total={data?.total ?? 0} isFetching={isFetching} accountId={accountId} onResults={handleResults} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
-          <Inbox className="size-10 opacity-40" />
-          <p className="text-sm">{searchResults ? "Aucun résultat" : "Aucun message dans ce dossier"}</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-muted-foreground p-6 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted/50 border border-border">
+            <Inbox className="size-5 opacity-60 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-foreground">
+              {searchResults ? "Aucun résultat trouvé" : "Boîte vide"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {searchResults ? "Essayez avec d'autres mots-clés" : "Aucun message dans ce dossier"}
+            </p>
+          </div>
         </div>
-      </GlassPanel>
+      </div>
     );
   }
 
   return (
-    <GlassPanel className="flex flex-1 flex-col border-r">
+    <div
+      className={cn(
+        "flex flex-1 md:flex-initial md:w-84 lg:w-96 flex-col border-r border-border bg-card/30 overflow-hidden select-none",
+        selectedUid !== null ? "hidden md:flex" : "flex",
+      )}
+    >
       <ListHeader folder={folder} total={data?.total ?? 0} isFetching={isFetching} accountId={accountId} onResults={handleResults} searching={!!searchResults} />
 
       {/* Liste virtualisée */}
@@ -149,12 +178,12 @@ export function MessageList({ accountId, folder }: MessageListProps) {
         {/* Indicateur de chargement pour la pagination arrière */}
         {fetchMore.isPending && !searchResults && (
           <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            <span>Chargement des messages plus anciens…</span>
+            <Loader2 className="size-3 animate-spin text-primary" />
+            <span>Chargement des messages anciens…</span>
           </div>
         )}
       </div>
-    </GlassPanel>
+    </div>
   );
 }
 
@@ -174,17 +203,26 @@ function ListHeader({
   searching?: boolean;
 }) {
   return (
-    <>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold">{searching ? "Recherche" : folder}</h2>
-        <span className="text-xs text-muted-foreground">
-          {total} message{total > 1 ? "s" : ""}
-          {isFetching ? " · sync…" : ""}
-        </span>
+    <div className="shrink-0 border-b border-border bg-background/60 backdrop-blur-xs">
+      <div className="flex items-center justify-between px-3.5 py-2.5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider font-display">
+            {searching ? "Recherche" : folder}
+          </h2>
+          <span className="rounded-full bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground border border-border/60">
+            {total}
+          </span>
+        </div>
+        {isFetching && (
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Loader2 className="size-3 animate-spin text-primary" />
+            <span>sync…</span>
+          </span>
+        )}
       </div>
-      <div className="px-3 py-2 border-b border-border">
+      <div className="px-3 pb-2.5">
         <SearchBar accountId={accountId} onResults={onResults} />
       </div>
-    </>
+    </div>
   );
 }

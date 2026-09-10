@@ -20,6 +20,7 @@ export interface MessageDetail {
   cc?: { name?: string; address: string }[];
   date: Date;
   messageId?: string;
+  inReplyTo?: string;
   headers: Record<string, string>;
   text?: string;
   html?: string;
@@ -192,6 +193,7 @@ export async function fetchMessageDetail(
         })),
       date: envelope?.date ?? new Date(0),
       messageId: envelope?.messageId,
+      inReplyTo: envelope?.inReplyTo,
       headers,
       text: textContent,
       html: sanitizedHtml,

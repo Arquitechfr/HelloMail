@@ -28,6 +28,11 @@ export interface IAccountDocument extends Document {
     accessTokenExpiresAt?: Date;
     scope: string[];
   };
+  signature?: {
+    enabled: boolean;
+    text: string;
+    html?: string;
+  };
   isActive: boolean;
   lastSyncedAt?: Date;
   lastSyncError?: string;
@@ -81,6 +86,11 @@ const accountSchema = new Schema<IAccountDocument>(
       encryptedRefreshToken: { type: encryptedFieldSchema, required: false },
       accessTokenExpiresAt: { type: Date, required: false },
       scope: { type: [String], default: [] },
+    },
+    signature: {
+      enabled: { type: Boolean, default: false },
+      text: { type: String, default: '' },
+      html: { type: String, required: false },
     },
     isActive: {
       type: Boolean,

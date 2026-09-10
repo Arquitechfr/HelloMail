@@ -59,6 +59,11 @@ export interface Account {
   provider: AccountProvider;
   emailAddress: string;
   displayName?: string;
+  signature?: {
+    enabled: boolean;
+    text: string;
+    html?: string;
+  };
   isActive: boolean;
   lastSyncedAt?: string;
   lastSyncError?: string;
@@ -119,6 +124,7 @@ export interface Message {
   folder: string;
   uid: number;
   messageId?: string;
+  inReplyTo?: string;
   subject: string;
   from: MessageAddress;
   to: MessageAddress[];
@@ -151,12 +157,33 @@ export interface MessageDetail {
   cc?: MessageAddress[];
   date: string;
   messageId?: string;
+  inReplyTo?: string;
   headers: Record<string, string>;
   text?: string;
   html?: string;
   flags: MessageFlags;
   size: number;
   attachments: AttachmentInfo[];
+}
+
+export interface ThreadItem {
+  uid: number;
+  folder: string;
+  messageId?: string;
+  inReplyTo?: string;
+  subject: string;
+  from: MessageAddress;
+  to: MessageAddress[];
+  date: string;
+  flags: MessageFlags;
+  hasAttachments: boolean;
+  size: number;
+}
+
+export interface ThreadResponse {
+  conversationSubject: string;
+  count: number;
+  messages: ThreadItem[];
 }
 
 // --- Envoi ---
