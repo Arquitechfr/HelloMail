@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { accountsRoutes } from './routes/accountsRoutes.js';
+import { messagesRoutes } from './routes/messagesRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -30,6 +31,7 @@ async function bootstrap(): Promise<void> {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/accounts', accountsRoutes);
+  app.use('/api/accounts', messagesRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
