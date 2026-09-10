@@ -1,7 +1,7 @@
 # Audit HelloMail — État du projet et prochaines étapes
 
-> Date : 2026-09-10 (mis à jour 2026-09-11)  
-> Auteur : Devin (audit automatisé)  
+> Date : 2026-09-10 (mis à jour 2026-09-11 — Phase 5 livrée)
+> Auteur : Devin (audit automatisé)
 > Périmètre : backend `HelloMail/` (monorepo pnpm, `backend/` uniquement — `frontend/` non encore créé)
 
 ---
@@ -29,10 +29,11 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 1** | Auth (register, login, refresh, logout, me) + gestion comptes IMAP/SMTP + chiffrement + middleware (errorHandler, validate, rateLimit, auth) + modèles (User, RefreshToken, Account) | `3694447` → `4cc5c44` | ~2 870 |
 | **Phase 2** | Sync worker IMAP IDLE (SyncManager, AccountRegistry, InitialSync, IdleLoop, ReconcileFolder, MessageMapper) + modèle Message + endpoint liste messages + PM2 config | `4cc5c44` → `f31dced` | ~1 055 |
 | **Phase 3** | Lecture email (corps, headers, PJ) + envoi (SMTP + Sent) + dossiers CRUD + flags/suppression/déplacement/batch + markAsJunk + détection dossiers spéciaux (specialUse + fallbacks) + sanitization HTML + pool IMAP API + Vitest (187 tests, coverage 86.93% lignes) | — | ~3 500 |
+| **Phase 5** | Sécurité backend (Helmet, pino + redaction, express-rate-limit global, JWT HS256 pinning, graceful shutdown API, fix validate ZodError) + recherche messages (index textuel MongoDB + parser d'opérateurs) + brouillons (IMAP Drafts via messageAppend) + temps réel SSE (Redis Pub/Sub worker→API) + 40 nouveaux tests (227 total, coverage 88.92% lignes) | — | ~3 200 |
 
-**Verdict :** Le backend est désormais un webmail fonctionnel — code propre, bien structuré, patterns cohérents (AppError, asyncHandler, validate Zod, projections safe), sécurité de base (chiffrement AES-256-GCM, rotation refresh tokens, rate limit auth, cookies httpOnly, sanitization HTML). Le typecheck, le build, les 187 tests et la couverture passent sans erreur.
+**Verdict :** Le backend est désormais un webmail fonctionnel et sécurisé — code propre, bien structuré, patterns cohérents (AppError, asyncHandler, validate Zod, projections safe), sécurité renforcée (Helmet, pino + redaction, rate limit global, JWT pinning, chiffrement AES-256-GCM, rotation refresh tokens, cookies httpOnly, sanitization HTML). Le typecheck, le build, les 227 tests et la couverture passent sans erreur. Le backend est prêt pour une bêta.
 
-**Ce qu'il reste :** Le frontend (Next.js/shadcn/ui), la sécurité backend avancée (Helmet, pino, rate limit global), la recherche, les brouillons, le temps réel (SSE), l'OAuth, la 2FA, les contacts, et l'extension de la sync multi-dossiers. L'audit ci-dessous détaille les prochaines étapes par ordre de priorité.
+**Ce qu'il reste :** Le frontend (Next.js/shadcn/ui), la sécurité backend avancée (rate limit Redis distribué), l'OAuth, la 2FA, les contacts, et l'extension de la sync multi-dossiers. L'audit ci-dessous détaille les prochaines étapes par ordre de priorité.
 
 ---
 
@@ -44,29 +45,32 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 backend/src/
 ├── config/
 │   ├── env.ts              # Validation Zod fail-fast des variables d'env
-│   └── constants.ts        # Cookies, JWT, rate limit, sync worker, SMTP timeout
+│   ├── constants.ts        # Cookies, JWT, rate limit, sync worker, SMTP timeout
+│   └── logger.ts            # Logger pino + redaction (Phase 5)
 ├── utils/
 │   ├── AppError.ts         # Classe d'erreur métier + factory methods
 │   ├── asyncHandler.ts     # Wrapper async pour controllers
 │   ├── cookieHelpers.ts    # setRefreshCookie / clearRefreshCookie
 │   └── projections.ts      # ACCOUNT_SAFE_PROJECTION
 ├── middleware/
-│   ├── auth.ts             # requireAuth (JWT Bearer)
+│   ├── auth.ts             # requireAuth (JWT Bearer) + requireAuthSse (JWT query param)
 │   ├── errorHandler.ts     # Middleware centralisé (ZodError, Mongoose, AppError)
 │   ├── notFound.ts         # 404
-│   ├── rateLimit.ts        # authRateLimit (in-memory) + sendRateLimit (20/min)
-│   └── validate.ts         # Factory Zod body/params/query
+│   ├── rateLimit.ts        # globalRateLimit + authRateLimit + sendRateLimit (express-rate-limit v7)
+│   ├── requestLogger.ts    # pino-http wrapper (Phase 5)
+│   └── validate.ts         # Factory Zod body/params/query (ZodError laissée au errorHandler)
 ├── models/
 │   ├── User.ts             # email + passwordHash (minimal)
 │   ├── RefreshToken.ts    # Rotation + TTL index + détection de réutilisation
 │   ├── Account.ts          # Multi-provider (imap, google_oauth, microsoft_oauth)
-│   └── Message.ts          # accountId, folder, uid, envelope, flags, size
+│   └── Message.ts          # accountId, folder, uid, envelope, flags, size + index textuel
 ├── schemas/
 │   ├── commonSchemas.ts    # emailSchema, passwordSchema, objectIdParamSchema
 │   ├── authSchemas.ts      # registerSchema, loginSchema
 │   ├── accountSchemas.ts   # createImapAccountSchema, toggleAccountActiveSchema
-│   ├── messageSchemas.ts   # list/send/flags/move/batch schemas
-│   └── folderSchemas.ts    # create/rename folder schemas
+│   ├── messageSchemas.ts   # list/send/flags/move/batch/search schemas
+│   ├── folderSchemas.ts    # create/rename folder schemas
+│   └── draftSchemas.ts     # create/update/delete draft schemas (Phase 5)
 ├── services/
 │   ├── security/
 │   │   └── encryptionService.ts   # AES-256-GCM (encrypt/decrypt)
@@ -83,25 +87,34 @@ backend/src/
 │   │   ├── sendService.ts         # Envoi SMTP (Nodemailer + MailComposer) + Sent
 │   │   ├── folderService.ts       # CRUD dossiers IMAP (list, create, rename, delete)
 │   │   ├── specialFolders.ts      # Détection dossiers spéciaux (specialUse + fallbacks + cache)
-│   │   └── messageActionService.ts # Flags, delete, move, batch, markAsJunk
+│   │   ├── messageActionService.ts # Flags, delete, move, batch, markAsJunk
+│   │   ├── searchService.ts       # Recherche MongoDB + parser d'opérateurs (Phase 5)
+│   │   └── draftService.ts        # Brouillons IMAP (messageAppend + flag \Draft) (Phase 5)
+│   ├── realtime/
+│   │   ├── eventPublisher.ts      # Publisher Redis Pub/Sub (worker→API) (Phase 5)
+│   │   └── eventSubscriber.ts     # Subscriber Redis + filtrage par userId (Phase 5)
 │   └── sync/
 │       ├── syncManager.ts         # Cycle de vie d'un compte (connect, sync, idle, reconnex)
 │       ├── accountRegistry.ts     # Polling des comptes actifs → SyncManager
 │       ├── initialSync.ts         # Fetch 50 derniers messages INBOX (idempotent)
-│       ├── idleLoop.ts            # Listeners exists/expunge/flags + IDLE
+│       ├── idleLoop.ts            # Listeners exists/expunge/flags + IDLE + publishEvent
 │       ├── reconcileFolder.ts     # Reconciliation bornée (expunge sans UID)
 │       └── messageMapper.ts       # FetchMessageObject → MessageInput (pur)
 ├── controllers/
 │   ├── authController.ts
 │   ├── accountsController.ts
-│   ├── messagesController.ts     # list, getOne, getAttachment, send, flags, delete, move, junk, batch
-│   └── foldersController.ts      # list, create, status, rename, delete
+│   ├── messagesController.ts     # list, search, getOne, getAttachment, send, flags, delete, move, junk, batch
+│   ├── foldersController.ts      # list, create, status, rename, delete
+│   ├── draftsController.ts       # create, update, remove (Phase 5)
+│   └── eventsController.ts       # SSE stream (Phase 5)
 ├── routes/
 │   ├── authRoutes.ts             # /api/auth/*
 │   ├── accountsRoutes.ts         # /api/accounts/*
-│   ├── messagesRoutes.ts         # /api/accounts/:accountId/messages + send
-│   └── foldersRoutes.ts          # /api/accounts/:accountId/folders
-├── app.ts                        # Bootstrap Express + Mongoose
+│   ├── messagesRoutes.ts         # /api/accounts/:accountId/messages + send + search
+│   ├── foldersRoutes.ts          # /api/accounts/:accountId/folders
+│   ├── draftsRoutes.ts           # /api/accounts/:accountId/drafts (Phase 5)
+│   └── eventsRoutes.ts           # /api/events (SSE) (Phase 5)
+├── app.ts                        # Bootstrap Express + Mongoose + Helmet + pino + graceful shutdown
 └── worker.ts                     # Process séparé pour le sync worker
 ```
 
@@ -127,11 +140,16 @@ backend/src/
 | `POST` | `/api/accounts/:accountId/messages/:folder/:uid/move` | JWT | Déplacer vers un autre dossier |
 | `POST` | `/api/accounts/:accountId/messages/:folder/:uid/junk` | JWT | Marquer comme spam (déplacer vers Junk) |
 | `POST` | `/api/accounts/:accountId/messages/batch` | JWT | Action en masse (markRead/Unread/flag/unflag/delete/move/markAsJunk) |
+| `GET` | `/api/accounts/:accountId/messages/search` | JWT | Recherche de messages (plein texte + opérateurs + filtres) |
 | `GET` | `/api/accounts/:accountId/folders` | JWT | Lister les dossiers IMAP |
 | `POST` | `/api/accounts/:accountId/folders` | JWT | Créer un dossier |
 | `GET` | `/api/accounts/:accountId/folders/:path/status` | JWT | Compteurs d'un dossier |
 | `PATCH` | `/api/accounts/:accountId/folders/:path` | JWT | Renommer un dossier |
 | `DELETE` | `/api/accounts/:accountId/folders/:path` | JWT | Supprimer un dossier |
+| `POST` | `/api/accounts/:accountId/drafts` | JWT | Créer un brouillon (IMAP append dans Drafts) |
+| `PATCH` | `/api/accounts/:accountId/drafts/:uid` | JWT | Modifier un brouillon (delete + append) |
+| `DELETE` | `/api/accounts/:accountId/drafts/:uid` | JWT | Supprimer un brouillon |
+| `GET` | `/api/events` | JWT (query param) | Connexion SSE pour notifications temps réel |
 | `GET` | `/api/health` | — | Health check |
 
 ### 2.3 Modèles de données
@@ -208,6 +226,18 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Qualité :** Architecture API-side distincte du worker (pool IMAP dédié, pas de partage de connexions). Services indépendants d'Express. Discipline PEEK maintenue. Détection robuste des dossiers spéciaux avec cache. HTML sanitizé avant envoi au frontend. Toute la logique métier est testée.
 
+### Phase 5 — Sécurité + Recherche + Brouillons + Temps réel
+
+**Livrés :**
+
+- [x] **Sécurité backend** : `helmet()` (headers HTTP, CSP désactivé pour API REST). Logger structuré `pino` + `pino-http` avec redaction automatique (authorization, cookie, password, token, encryptedPassword, encryptedRefreshToken, req.body). Migration des rate limiters vers `express-rate-limit` v7 (global 100 req/15 min/IP + auth 10 req/15 min + send 20 req/min, headers draft-7, bypass en test). JWT algorithm pinning `HS256` sur `jwt.verify` (auth + authService). Graceful shutdown API (SIGTERM/SIGINT + `server.close` + `imapPool.closeAll` + `mongoose.disconnect` + safety net 10s). Fix `validate` middleware : la `ZodError` est laissée passer au `errorHandler` (préserve les `fieldErrors` au lieu d'encapsuler en `AppError`). Index `{accountId, folder, date: -1}` sur `Message` pour optimiser la liste paginée par dossier.
+- [x] **Recherche de messages** : Index textuel MongoDB `{subject: 'text', 'from.address': 'text', 'to.address': 'text'}` avec poids (subject: 3, from: 2, to: 1). `searchService` avec parser d'opérateurs (`from:alice`, `to:bob`, `subject:test`, `is:unread`, `is:flagged`, `has:attachment`, `before:2026-01-01`, `since:2026-01-01`). Filtres structurés (folder, seen, flagged, hasAttachments, from, to, subject, since, before). Endpoint `GET /:accountId/messages/search` avec pagination. Tri par score textuel si `$text` présent, sinon par date décroissante.
+- [x] **Brouillons** : Stockage IMAP via `messageAppend` dans le dossier Drafts (détecté via `findDraftsFolder` + fallback "Drafts"). Flag `\Draft` appliqué au message appendé. Création (append uniquement), modification (delete ancien + append nouveau), suppression. `draftService` réutilise `imapPool` avec release en `finally`. `MailComposer` pour construire le raw MIME (RFC 822). Endpoints CRUD `POST/PATCH/DELETE /:accountId/drafts`.
+- [x] **Temps réel SSE** : Endpoint `GET /api/events` (Server-Sent Events, unidirectionnel serveur→client). Communication worker→API via Redis Pub/Sub (channel `hellomail:events`). `eventPublisher` (côté worker) publie les événements `message:new`, `message:deleted`, `message:flags`, `account:syncError`. `eventSubscriber` (côté API) souscrit et filtre par `userId`. Auth SSE via `requireAuthSse` (token JWT en query param — EventSource ne supporte pas les headers custom). Heartbeat 30s pour maintenir la connexion. `idleLoop` reçoit maintenant `userId` en paramètre pour le routage des événements. Les événements ne contiennent jamais de sujet/corps d'email (uniquement UID, folder, flags, errorMsg).
+- [x] **Tests** : 40 nouveaux tests (227 total, 22 fichiers). Tests unitaires (searchService parser + recherche, draftService, eventPublisher, eventSubscriber) + tests d'intégration (draftsController). Coverage : 88.92% lignes, 77.14% branches, 83.56% fonctions, 87.35% statements.
+
+**Qualité :** Sécurité renforcée sans breaking change fonctionnel. Logger structuré avec redaction — aucun secret dans les logs. Rate limit global + limiters existants migrés vers une lib maintenu. Recherche performante via index textuel MongoDB. Brouillons cohérents multi-client (stockés sur le serveur IMAP). SSE simple et unidirectionnel, Redis prépare le scaling horizontal. Discipline PEEK maintenue. Les événements temps réel ne fuient jamais de données sensibles.
+
 ---
 
 ## 4. Analyse de la dette technique et risques
@@ -216,17 +246,17 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 | # | Dette | Sévérité | Fichier(s) | Description |
 |---|-------|----------|------------|-------------|
-| D1 | **Aucun test** → ✅ Résolu (Phase 3) | ✅ Résolue | — | Vitest installé. 187 tests (16 fichiers). Coverage 86.93% lignes, 75.52% branches, 89.21% fonctions, 87.82% statements. Tests unitaires + intégration (Supertest + mongodb-memory-server). |
-| D2 | **Rate limit in-memory** | 🟠 Moyenne | `middleware/rateLimit.ts` | Map en mémoire, pas de partage multi-instance. Ne survit pas à un restart. Dette explicitement documentée. |
-| D3 | **Logging console.log** | 🟠 Moyenne | `app.ts`, `worker.ts`, tous services sync | `console.log`/`console.error` partout. Pas de logger structuré, pas de redaction automatique. Risque de fuite de données sensibles dans les logs. |
-| D4 | **Pas de Helmet** | 🟠 Moyenne | `app.ts` | Aucun header de sécurité HTTP (X-Content-Type-Options, X-Frame-Options, HSTS, etc.). |
+| D1 | **Aucun test** → ✅ Résolu (Phase 3 + 5) | ✅ Résolue | — | Vitest installé. 227 tests (22 fichiers). Coverage 88.92% lignes, 77.14% branches, 83.56% fonctions, 87.35% statements. Tests unitaires + intégration (Supertest + mongodb-memory-server). |
+| D2 | **Rate limit in-memory** | ⚠️ Partiellement résolu (Phase 5) | `middleware/rateLimit.ts` | Migration vers `express-rate-limit` v7 (store in-memory par défaut, headers draft-7). Le store reste en mémoire (Map) — migration vers Redis prévue pour le scaling horizontal. |
+| D3 | **Logging console.log** | ✅ Résolue (Phase 5) | `config/logger.ts`, `middleware/requestLogger.ts` | Logger structuré `pino` + `pino-http` avec redaction automatique des champs sensibles. Tous les `console.log`/`console.error` remplacés par `logger.info`/`logger.error`. Logs JSON en production, prettifiés en dev. |
+| D4 | **Pas de Helmet** | ✅ Résolue (Phase 5) | `app.ts` | `helmet()` activé avec `contentSecurityPolicy: false` (API REST, pas de HTML rendu côté serveur) et `crossOriginEmbedderPolicy: false` (compatibilité pièces jointes). |
 | D5 | **Sync INBOX uniquement** | 🟠 Moyenne | `syncManager.ts` l.133, `idleLoop.ts` | La sync ne couvre que INBOX. Les dossiers Sent, Drafts, Trash, etc. ne sont pas synchronisés. |
 | D6 | **InitialSync limitée à 50 messages** | 🟡 Faible | `initialSync.ts`, `constants.ts` | Seuls les 50 derniers messages sont fetchés à la sync initiale. Pas de pagination arrière pour récupérer l'historique. |
-| D7 | **Pas de validation `algorithm` sur JWT verify** | 🟡 Faible | `authService.ts` l.47, `auth.ts` l.33 | `jwt.verify` sans `{ algorithms: ['HS256'] }` — vulnérabilité théorique à l'algorithme confusion (RS256 → HS256). |
-| D8 | **`validate` middleware perd les détails Zod** | 🟡 Faible | `validate.ts` l.31 | `AppError.badRequest('Erreur de validation des données')` — les détails Zod sont perdus (le `errorHandler` gère `ZodError` directement, mais `validate` l'encapsule en `AppError` avant). Incohérence : le `errorHandler` attend `ZodError` mais `validate` lance `AppError`. |
-| D9 | **Pas de gestion des graceful shutdown côté API** | 🟡 Faible | `app.ts` | Pas de handler SIGTERM/SIGINT sur le process API (contrairement au worker qui les a). |
+| D7 | **Pas de validation `algorithm` sur JWT verify** | ✅ Résolue (Phase 5) | `authService.ts`, `auth.ts` | `jwt.verify` avec `{ algorithms: ['HS256'] }` — épinglage de l'algorithme pour empêcher l'algorithme confusion (RS256 → HS256). |
+| D8 | **`validate` middleware perd les détails Zod** | ✅ Résolue (Phase 5) | `validate.ts` | La `ZodError` est maintenant laissée passer au `errorHandler` centralisé (qui la gère avec `err.flatten().fieldErrors`) — les détails Zod sont retournés au client. |
+| D9 | **Pas de gestion des graceful shutdown côté API** | ✅ Résolue (Phase 5) | `app.ts` | Handler `SIGTERM`/`SIGINT` : `server.close()` + `imapPool.closeAll()` + `mongoose.disconnect()` avec safety net de 10s. |
 | D10 | **`messagesController.list` sans validation de `folder`** | 🟡 Faible | `messagesController.ts` l.10 | `folder` est validé par Zod (default INBOX) mais aucune vérification que le dossier existe côté IMAP. Un dossier inexistant retourne simplement une liste vide. |
-| D11 | **Pas d'index sur `Message.folder`** | 🟡 Faible | `Message.ts` | L'index `{accountId, folder, uid}` existe mais pas d'index composé `{accountId, folder, date:-1}` pour optimiser la liste paginée par dossier. |
+| D11 | **Pas d'index sur `Message.folder`** | ✅ Résolue (Phase 5) | `Message.ts` | Index `{accountId, folder, date: -1}` ajouté pour optimiser la liste paginée par dossier. |
 | D12 | **`as any` dans authService et validate** | 🟡 Faible | `authService.ts` l.89,95, `validate.ts` l.23,26 | Casts `as any` pour contourner le typage strict. |
 
 ### 4.2 Risques
@@ -480,7 +510,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 7 — Sécurité backend (Helmet, logging, rate limit global) 🟠 IMPORTANTE
+### Étape 7 — Sécurité backend (Helmet, logging, rate limit global) ✅ LIVRÉ (Phase 5)
 
 **Pourquoi :** Le backend manque de plusieurs contrôles de sécurité essentiels avant une mise en production.
 
@@ -535,7 +565,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 8 — Recherche de messages 🟠 IMPORTANTE
+### Étape 8 — Recherche de messages ✅ LIVRÉ (Phase 5)
 
 **Pourquoi :** La recherche est un must-have d'un webmail. Actuellement, seul le tri par date est possible.
 
@@ -564,7 +594,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 9 — Brouillons et sauvegarde automatique 🟠 IMPORTANTE
+### Étape 9 — Brouillons et sauvegarde automatique ✅ LIVRÉ (Phase 5)
 
 **Pourquoi :** La sauvegarde automatique des brouillons est attendue dans tout webmail moderne.
 
@@ -584,7 +614,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 10 — Notifications temps réel (WebSocket / SSE) 🟠 IMPORTANTE
+### Étape 10 — Notifications temps réel (WebSocket / SSE) ✅ LIVRÉ (Phase 5)
 
 **Pourquoi :** Actuellement, le frontend doit poller l'API pour détecter les nouveaux messages. Avec le sync worker qui reçoit les notifications IDLE en temps réel, il faut propager cette information au frontend.
 
@@ -742,16 +772,16 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Le produit est utilisable end-to-end.
 
-### Phase 5 — Sécurité + Recherche + Temps réel
+### Phase 5 — Sécurité + Recherche + Temps réel ✅ LIVRÉ
 
-| Étape | Priorité | Effort estimé |
-|-------|----------|---------------|
-| 7. Sécurité backend (Helmet, pino, rate limit) | 🟠 IMPORTANTE | Faible |
-| 8. Recherche de messages | 🟠 IMPORTANTE | Moyen |
-| 9. Brouillons + auto-save | 🟠 IMPORTANTE | Faible |
-| 10. Notifications temps réel (SSE) | 🟠 IMPORTANTE | Moyen |
+| Étape | Priorité | Effort estimé | État |
+|-------|----------|---------------|------|
+| 7. Sécurité backend (Helmet, pino, rate limit) | 🟠 IMPORTANTE | Faible | ✅ Livré |
+| 8. Recherche de messages | 🟠 IMPORTANTE | Moyen | ✅ Livré |
+| 9. Brouillons + auto-save | 🟠 IMPORTANTE | Faible | ✅ Livré |
+| 10. Notifications temps réel (SSE) | 🟠 IMPORTANTE | Moyen | ✅ Livré |
 
-**Objectif :** Le produit est prêt pour une bêta.
+**Objectif :** Le produit est prêt pour une bêta. ✅ Atteint.
 
 ### Phase 6 — OAuth + 2FA + Contacts + Polish
 
@@ -806,14 +836,14 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Déplacer | ✅ | Phase 3 | messageActionService.moveMessage |
 | Actions en masse | ✅ | Phase 3 | batch (markRead/Unread/flag/unflag/delete/move/markAsJunk) |
 | Marquer comme spam | ✅ | Phase 3 | markAsJunk (individuelle + batch) |
-| Recherche | ❌ | Phase 5 | Non implémenté |
+| Recherche | ✅ | Phase 5 | Index textuel MongoDB + parser d'opérateurs (from:/to:/is:/has:/before:/since:) |
 | **Envoi** | | | |
 | Composer un message | ✅ | Phase 3 | sendService (Nodemailer) |
 | Répondre (reply) | ✅ | Phase 3 | inReplyTo + references dans le schéma |
 | Transférer (forward) | ✅ | Phase 3 | Schéma supporte les champs reply/forward |
 | Pièces jointes (upload) | ✅ | Phase 3 | base64 → Buffer, limite 30mb |
 | Sauvegarde Sent | ✅ | Phase 3 | IMAP append, dossier détecté via specialUse |
-| Brouillons + auto-save | ❌ | Phase 5 | Non implémenté |
+| Brouillons + auto-save | ✅ | Phase 5 | Stockage IMAP Drafts via messageAppend, flag \Draft, CRUD endpoints |
 | CC / BCC | ✅ | Phase 3 | Supportés dans sendEmailSchema |
 | Signature | ❌ | — | Non implémenté |
 | **Dossiers** | | | |
@@ -828,14 +858,14 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Rate limit envoi | ✅ | Phase 3 | 20 req/min/IP (sendRateLimit) |
 | Sanitization HTML | ✅ | Phase 3 | isomorphic-dompurify + jsdom |
 | Pool IMAP API (lazy) | ✅ | Phase 3 | imapPool (verrou par compte, TTL 5 min) |
-| Rate limit global | ❌ | Phase 5 | Non implémenté |
-| Helmet | ❌ | Phase 5 | Non implémenté |
-| Logging structuré | ❌ | Phase 5 | console.log uniquement |
-| JWT algorithm pinning | ❌ | Phase 5 | Manquant |
+| Rate limit global | ✅ | Phase 5 | express-rate-limit v7, 100 req/15 min/IP, headers draft-7 |
+| Helmet | ✅ | Phase 5 | helmet() activé (CSP désactivé pour API REST) |
+| Logging structuré | ✅ | Phase 5 | pino + pino-http, redaction automatique, JSON en prod |
+| JWT algorithm pinning | ✅ | Phase 5 | algorithms: ['HS256'] sur verify |
 | **Temps réel** | | | |
-| Notifications push (SSE/WS) | ❌ | Phase 5 | Non implémenté |
+| Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | **Tests** | | | |
-| Tests unitaires | ✅ | Phase 3 | 187 tests, coverage 86.93% lignes |
+| Tests unitaires | ✅ | Phase 3 + 5 | 227 tests, coverage 88.92% lignes |
 | Tests d'intégration | ✅ | Phase 3 | Supertest + mongodb-memory-server |
 | **Frontend** | | | |
 | Interface web | ❌ | Phase 4 | N'existe pas |

@@ -37,6 +37,13 @@ Aucun sujet ou corps d'email ne doit apparaître dans les logs en production
 sensibles. Logger uniquement des informations génériques (UID, compte,
 nombre de messages, erreurs technique).
 
+**Logger structuré** (Phase 5) : utiliser `logger` (pino) depuis
+`config/logger.ts`, jamais `console.log`/`console.error`. La redaction
+automatique retire les champs sensibles (`authorization`, `cookie`,
+`password`, `token`, `encryptedPassword`, `encryptedRefreshToken`,
+`req.body`). En développement, les logs sont prettifiés ; en production,
+au format JSON.
+
 ### Séparation des responsabilités
 
 Une classe/fonction par responsabilité, pas de logique éparpillée :
@@ -72,3 +79,35 @@ de doute.
 `qresync: true` est activé sur le client ImapFlow. Si le serveur ne supporte
 pas QRESYNC, ImapFlow fait un fallback gracieux. Sans QRESYNC, les événements
 EXPUNGE ne contiennent pas d'UID — `reconcileFolder` prend le relais.
+
+## Publication d'événements temps réel (Phase 5)
+
+Le worker publie des événements vers l'API via Redis Pub/Sub pour alimenter
+le SSE côté frontend. La publication se fait via `publishEvent()` depuis
+`services/realtime/eventPublisher.ts`.
+
+### Points de publication
+
+- `idleLoop.ts` (handler `exists`) → `message:new` après upsert d'un nouveau message.
+- `idleLoop.ts` (handler `expunge`) → `message:deleted` après suppression en base.
+- `idleLoop.ts` (handler `flags`) → `message:flags` après mise à jour des flags.
+- `syncManager.ts` (désactivation auto) → `account:syncError` quand un compte est désactivé après trop d'échecs.
+
+### Paramètre `userId`
+
+`runIdleLoop` reçoit maintenant `userId` en paramètre (en plus de `accountId`
+et `folder`). Ce `userId` est inclus dans chaque événement publié pour que
+l'API puisse router l'événement vers le bon client SSE (filtrage par
+`userId` côté `eventSubscriber`).
+
+### Discipline des payloads
+
+Les payloads d'événements ne contiennent **jamais** de sujet ou corps
+d'email — uniquement des métadonnées minimales (UID, folder, flags, errorMsg).
+Cette discipline est cohérente avec la règle de logs ci-dessus.
+
+### Best-effort
+
+La publication est best-effort : `publishEvent` catch ses propres erreurs et
+n'interrompt jamais la synchronisation. Une panne Redis ne doit pas stopper
+le worker. En mode test, aucune connexion Redis n'est établie (bypass).

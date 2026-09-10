@@ -4,7 +4,7 @@ API REST pour la gestion de comptes email (IMAP/SMTP) avec chiffrement des ident
 
 ## Stack
 
-Node.js ESM + Express 4 + MongoDB/Mongoose 9 + Zod 4 + JWT (jsonwebtoken) + bcryptjs + AES-256-GCM (node:crypto) + ImapFlow + Nodemailer + isomorphic-dompurify + Vitest.
+Node.js ESM + Express 4 + MongoDB/Mongoose 9 + Zod 4 + JWT (jsonwebtoken) + bcryptjs + AES-256-GCM (node:crypto) + ImapFlow + Nodemailer + isomorphic-dompurify + Helmet + pino/pino-http + express-rate-limit + ioredis + Vitest.
 
 ## Commandes
 
@@ -13,7 +13,7 @@ pnpm --filter backend dev         # tsx watch src/app.ts
 pnpm --filter backend build       # tsc → dist/
 pnpm --filter backend typecheck   # tsc --noEmit
 pnpm --filter backend start       # node dist/app.js
-pnpm --filter backend test          # vitest run (187 tests)
+pnpm --filter backend test          # vitest run (227 tests)
 pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 ```
 
@@ -21,30 +21,32 @@ pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 
 ```
 src/
-├── config/         env.ts (validation Zod fail-fast) + constants.ts (cookies, JWT, rate limit, SMTP timeout)
+├── config/         env.ts (validation Zod fail-fast) + constants.ts (cookies, JWT, rate limit, SMTP timeout) + logger.ts (pino + redaction)
 ├── utils/          AppError, asyncHandler, cookieHelpers, projections (ACCOUNT_SAFE_PROJECTION)
-├── middleware/      errorHandler, notFound, auth (requireAuth JWT), rateLimit (auth + send), validate (Zod)
-├── models/         User (minimal), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate), Message
-├── schemas/        commonSchemas, authSchemas, accountSchemas, messageSchemas (list/send/flags/move/batch), folderSchemas
+├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit), validate (Zod), requestLogger (pino-http)
+├── models/         User (minimal), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate), Message (index textuel)
+├── schemas/        commonSchemas, authSchemas, accountSchemas, messageSchemas (list/send/flags/move/batch/search), folderSchemas, draftSchemas
 ├── services/
 │   ├── security/   encryptionService (AES-256-GCM, fail-fast si clé invalide)
 │   ├── auth/       authService (register, login, refreshTokens, logout, generateTokens)
 │   ├── email/      connectionTest, imapPool, sanitize, messageFetchService, attachmentService,
-│   │               sendService, folderService, specialFolders, messageActionService
+│   │               sendService, folderService, specialFolders, messageActionService, searchService, draftService
+│   ├── realtime/   eventPublisher (Redis Pub/Sub worker→API), eventSubscriber (filtrage par userId)
 │   └── accounts/   accountService (create, list, delete, toggle)
-├── controllers/    authController, accountsController, messagesController, foldersController
-├── routes/         authRoutes, accountsRoutes, messagesRoutes, foldersRoutes
+├── controllers/    authController, accountsController, messagesController, foldersController, draftsController, eventsController
+├── routes/         authRoutes, accountsRoutes, messagesRoutes, foldersRoutes, draftsRoutes, eventsRoutes
 ├── test/           globalSetup (MongoMemoryServer partagé), setup (clearDb)
-└── app.ts          bootstrap Mongoose + Express + CORS + trust proxy + errorHandler
+└── app.ts          bootstrap Mongoose + Express + Helmet + pino-http + CORS + trust proxy + rate limit global + graceful shutdown + errorHandler
 ```
 
 ## Patterns
 
 - **AppError** : toutes les erreurs métier héritent de `AppError` (utils/AppError.ts). Factory methods : `badRequest`, `unauthorized`, `notFound`, `conflict`, `unprocessable`, `tooManyRequests`.
-- **errorHandler** : middleware centralisé en dernier. ZodError → 400, Mongoose ValidationError → 400, AppError → statusCode, sinon 500. Ne loggue jamais `req.body`.
+- **errorHandler** : middleware centralisé en dernier. ZodError → 400 (avec `fieldErrors` détaillés), Mongoose ValidationError → 400, AppError → statusCode, sinon 500. Ne loggue jamais `req.body`.
 - **asyncHandler** : wrapper générique qui élimine le try/catch dans les controllers. `router.post('/', asyncHandler(controller.create))`.
-- **validate** : factory Zod pour body/params/query. Ne loggue que les issues Zod, jamais `req.body` brut.
-- **requireAuth** : middleware JWT au niveau route (pas au niveau montage dans app.ts).
+- **validate** : factory Zod pour body/params/query. Ne loggue que les issues Zod, jamais `req.body` brut. La `ZodError` est laissée passer au `errorHandler` (préserve les `fieldErrors` détaillés pour le frontend).
+- **requireAuth** : middleware JWT au niveau route (pas au niveau montage dans app.ts). Pinning `algorithms: ['HS256']`.
+- **requireAuthSse** : auth JWT via query param `?token=...` pour EventSource (ne supporte pas les headers custom). Même pinning HS256.
 - **commonSchemas** : `emailSchema`, `passwordSchema`, `objectIdParamSchema` réutilisés entre authSchemas et accountSchemas.
 - **ACCOUNT_SAFE_PROJECTION** : exclusion systématique des champs secrets (`encryptedPassword`, `encryptedRefreshToken`) des réponses API.
 
@@ -108,15 +110,64 @@ src/
 - `batchAction` : markRead, markUnread, flag, unflag, delete, move, markAsJunk (max 100 UIDs).
 - Synchronise la base après chaque opération IMAP. Libère le pool en `finally`.
 
+## Services email (Phase 5)
+
+### searchService — Recherche de messages
+
+- Index textuel MongoDB `{subject: 'text', 'from.address': 'text', 'to.address': 'text'}` avec poids (subject: 3, from: 2, to: 1).
+- `parseSearchQuery(q)` : extrait les opérateurs (`from:alice`, `to:bob`, `subject:test`, `is:unread`/`is:read`/`is:flagged`/`is:unflagged`, `has:attachment`, `before:2026-01-01`, `since:2026-01-01`) et le texte libre restant.
+- `searchMessages(account, query)` : combine `$text` (plein texte) + filtres structurés (folder, from, to, subject, seen, flagged, hasAttachments, since, before). Tri par score textuel si `$text`, sinon par date décroissante. Pagination via `skip`/`limit`.
+- Les filtres explicites (query params) priment sur les opérateurs parsés de `q`.
+- Les regex (`from`, `to`, `subject`) sont insensibles à la casse — l'index textuel ne gère pas les regex.
+
+### draftService — Brouillons IMAP
+
+- Stockage IMAP via `client.append(draftsPath, rawMime, ['\\Draft'])` dans le dossier Drafts.
+- Dossier Drafts détecté via `specialFolders.findDraftsFolder` (specialUse \\Drafts + fallbacks) + fallback "Drafts".
+- `saveDraft(account, input, existingUid?)` : création (append uniquement) ou modification (delete ancien + append nouveau).
+- `deleteDraft(account, uid)` : suppression via `messageDelete(uid, { uid: true })`.
+- `MailComposer` construit le raw MIME (RFC 822) avec `disableUrlAccess`/`disableFileAccess`.
+- `append()` ne retourne pas toujours l'UID — le frontend doit refetch la liste si `uid` est absent.
+- Réutilise `imapPool` avec release en `finally`. Vérifie l'appartenance du compte côté controller.
+
+## Services realtime (Phase 5)
+
+### eventPublisher — Publisher Redis Pub/Sub (worker→API)
+
+- Publie sur le canal `hellomail:events` via `ioredis`.
+- Types d'événements : `message:new`, `message:deleted`, `message:flags`, `account:syncError`.
+- Les événements ne contiennent **jamais** de sujet/corps d'email (uniquement UID, folder, flags, errorMsg).
+- Non bloquant : une erreur Redis n'interrompt pas la synchronisation (best-effort).
+- Bypass en mode test (aucune connexion Redis).
+- `closePublisher()` à appeler au shutdown du worker.
+
+### eventSubscriber — Subscriber Redis (côté API)
+
+- Une seule connexion Redis en mode subscribe (ne peut pas publier sur la même connexion).
+- Filtrage par `userId` côté API (le canal Redis est global).
+- `subscribeToUserEvents(userId, callback)` → retourne une fonction de désinscription.
+- `closeSubscriber()` à appeler au shutdown de l'API.
+- Nettoyage automatique des callbacks quand le client SSE se déconnecte.
+
 ## Sécurité
 
 - **Chiffrement** : AES-256-GCM via node:crypto. Clé `ENCRYPTION_KEY` (64 hex chars) en env. IV aléatoire 12 octets par appel. Fail-fast si clé invalide.
 - **Refresh token** : cookie httpOnly (`sameSite: strict`, `path: /api/auth`). Rotation à chaque refresh. Détection de réutilisation → révocation globale.
-- **Rate limiting** : `authRateLimit` (10 req/15 min/IP) sur `/login` + `/register`. `sendRateLimit` (20 req/min/IP) sur `/send`. In-memory (Map). Dépend de `trust proxy` en prod. Bypass en mode test. Dette : migrer vers Redis si scaling horizontal.
+- **Helmet** : `helmet()` activé sur l'app Express. `contentSecurityPolicy: false` (API REST, pas de HTML rendu côté serveur). `crossOriginEmbedderPolicy: false` (compatibilité pièces jointes).
+- **Logger structuré** : `pino` + `pino-http`. Redaction automatique des champs sensibles (`authorization`, `cookie`, `password`, `token`, `encryptedPassword`, `encryptedRefreshToken`, `req.body`). Logs JSON en production, prettifiés en développement. `LOG_LEVEL` configurable via env.
+- **Rate limiting** : `globalRateLimit` (100 req/15 min/IP) sur toute l'API. `authRateLimit` (10 req/15 min/IP) sur `/login` + `/register`. `sendRateLimit` (20 req/min/IP) sur `/send`. Via `express-rate-limit` v7, headers `RateLimit-*` (draft-7). In-memory (Map). Dépend de `trust proxy` en prod. Bypass en mode test. Dette : migrer le store vers Redis si scaling horizontal.
+- **JWT pinning** : `algorithms: ['HS256']` sur tous `jwt.verify` (auth + authService). Empêche l'algorithme confusion (RS256 → HS256).
 - **trust proxy** : `app.set('trust proxy', 1)` en production. Suppose un seul hop de proxy (nginx direct). Ajuster si la chaîne grandit (usurpation d'IP via X-Forwarded-For).
 - **CORS** : `cors({ origin: env.FRONTEND_URL, credentials: true })`. Origin explicite obligatoire avec credentials.
 - **Sanitization HTML** : tout corps HTML d'email est sanitizé via `isomorphic-dompurify` avant envoi au frontend.
 - **Pool IMAP** : `readOnly: true` pour la lecture (préserve `\Seen`). `BODY.PEEK` via ImapFlow. Verrou par compte.
+- **Redis** : dépendance d'infrastructure pour le temps réel (SSE). `REDIS_URL` en env. Connexions lazy (publisher côté worker, subscriber côté API). Best-effort : une panne Redis ne stoppe pas la synchronisation.
+
+## Graceful shutdown (Phase 5)
+
+- **API** (`app.ts`) : handler `SIGTERM`/`SIGINT` → `server.close()` + `imapPool.closeAll()` + `mongoose.disconnect()` + `closeSubscriber()`. Safety net de 10s pour forcer l'arrêt. Évite les arrêts multiples via flag `isShuttingDown`.
+- **Worker** (`worker.ts`) : `accountRegistry.shutdown()` (stop tous les `SyncManager`) + `closePublisher()` + `mongoose.disconnect()`.
+- Logs de shutdown via `logger` (pino), jamais `console.log`.
 
 ## Flow comptes
 
@@ -142,16 +193,17 @@ src/
 - Détection de vol : token révoqué réutilisé → révocation globale de tous les tokens de l'utilisateur.
 - Refresh lu exclusivement depuis `req.cookies[COOKIE_REFRESH_TOKEN]` — jamais depuis le body.
 
-## Tests (Phase 3)
+## Tests (Phase 3 + 5)
 
 - **Vitest** 5.0.0 + `@vitest/coverage-v8` + `mongodb-memory-server` + `supertest`.
-- **187 tests** (16 fichiers). Coverage : 86.93% lignes, 75.52% branches, 89.21% fonctions, 87.82% statements.
+- **227 tests** (22 fichiers). Coverage : 88.92% lignes, 77.14% branches, 83.56% fonctions, 87.35% statements.
 - **Thresholds** : 80% lignes/fonctions/statements, 75% branches.
 - **globalSetup.ts** : démarre un seul `MongoMemoryServer` partagé entre tous les fichiers d'intégration.
 - **setup.ts** : `clearDb()` vide les collections entre les tests (préserve les index).
-- **Tests unitaires** : encryption, mapper, validate, errorHandler, sanitize, imapPool, messageFetch, attachment, send, folder, messageAction, specialFolders, messageSchemas.
-- **Tests d'intégration** : auth, accounts, messages, folders (Supertest + Express + mongodb-memory-server).
+- **Tests unitaires** : encryption, mapper, validate, errorHandler, sanitize, imapPool, messageFetch, attachment, send, folder, messageAction, specialFolders, messageSchemas, searchService (parser + recherche), draftService, eventPublisher, eventSubscriber.
+- **Tests d'intégration** : auth, accounts, messages, folders, drafts (Supertest + Express + mongodb-memory-server).
 - **Mocks ImapFlow** : classe constructable (pas de arrow function), `vi.hoisted()` pour éviter les problèmes de hoisting Vitest.
+- **Mocks ioredis** : classe constructable (pas de arrow function). `closeSubscriber()` en `beforeEach` pour recréer l'instance singleton.
 - **Coverage exclusions** : tests, app bootstrap, worker bootstrap, env config, test setup, et modules sync worker (Phase 2, hors scope Phase 3).
 - **fileParallelism: false** + **maxWorkers: 2** pour éviter les conflits MongoMemoryServer.
 
@@ -169,3 +221,8 @@ src/
 - Libération du pool IMAP en `finally` pour garantir la libération du verrou.
 - Vérifier l'appartenance du compte (`userId`) avant tout accès aux messages/dossiers.
 - Les comptes d'autrui retournent 404 (pas 403, pour éviter la fuite d'information).
+- **Logger** : utiliser `logger` (pino) partout, jamais `console.log`/`console.error`. Redaction automatique des champs sensibles.
+- **JWT** : toujours `algorithms: ['HS256']` sur `jwt.verify`.
+- **Événements temps réel** : ne jamais inclure de sujet/corps d'email dans les payloads Redis (uniquement UID, folder, flags, errorMsg).
+- **Redis best-effort** : une panne Redis ne doit jamais stopper la synchronisation — `publishEvent` catch ses erreurs.
+- **SSE** : auth via `requireAuthSse` (token en query param). Mitigation future : token SSE à courte durée via endpoint dédié.
