@@ -24,6 +24,8 @@ export interface IUserDocument extends Document {
   currentWebauthnChallenge?: string;
   // --- Préférences utilisateur (Phase 9) ---
   preferences?: IUserPreferences;
+  // --- Contenu prédéfini (presets) ---
+  defaultsSeededAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,6 +83,9 @@ const userSchema = new Schema<IUserDocument>(
         type: Number,
         default: 5,
       },
+    },
+    defaultsSeededAt: {
+      type: Date,
     },
   },
   {

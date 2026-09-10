@@ -8,6 +8,7 @@ export interface MailTag {
   name: string;
   color: string;
   order: number;
+  isPreset?: boolean;
   createdAt: string;
   updatedAt: string;
 }

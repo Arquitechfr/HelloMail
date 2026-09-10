@@ -6,6 +6,7 @@ import { setupTestDb, teardownTestDb, clearDb } from '../test/setup.js';
 import rulesRoutes from '../routes/rulesRoutes.js';
 import { authRoutes } from '../routes/authRoutes.js';
 import { errorHandler } from '../middleware/errorHandler.js';
+import { PRESET_RULES } from '../services/seed/presetData.js';
 
 function createApp(): express.Express {
   const app = express();
@@ -47,13 +48,14 @@ describe('Rules routes (intégration)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('GET /api/rules avec auth → 200 avec liste vide', async () => {
+  it('GET /api/rules avec auth → 200 avec les règles prédéfinies semées au register', async () => {
     const res = await request(app)
       .get('/api/rules')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual([]);
+    expect(res.body.data).toHaveLength(PRESET_RULES.length);
+    expect(res.body.data.every((r: { isPreset?: boolean }) => r.isPreset)).toBe(true);
   });
 
   it('POST /api/rules crée une règle → 201', async () => {
@@ -70,7 +72,7 @@ describe('Rules routes (intégration)', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.name).toBe('Trier devis');
-    expect(res.body.data.order).toBe(0);
+    expect(res.body.data.order).toBe(PRESET_RULES.length);
   });
 
   it('POST /api/rules sans condition → 400', async () => {
@@ -132,7 +134,7 @@ describe('Rules routes (intégration)', () => {
     const getRes = await request(app)
       .get('/api/rules')
       .set('Authorization', `Bearer ${token}`);
-    expect(getRes.body.data.length).toBe(0);
+    expect(getRes.body.data.length).toBe(PRESET_RULES.length);
   });
 
   it('POST /api/rules/reorder réordonne les règles → 200', async () => {
@@ -165,7 +167,7 @@ describe('Rules routes (intégration)', () => {
     const listRes = await request(app)
       .get('/api/rules')
       .set('Authorization', `Bearer ${token}`);
-    expect(listRes.body.data[0].name).toBe('R2');
-    expect(listRes.body.data[1].name).toBe('R1');
+    const names = listRes.body.data.map((r: { name: string }) => r.name);
+    expect(names.indexOf('R2')).toBeLessThan(names.indexOf('R1'));
   });
 });

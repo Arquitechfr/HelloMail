@@ -7,6 +7,7 @@ import templatesRoutes from '../routes/templatesRoutes.js';
 import { authRoutes } from '../routes/authRoutes.js';
 import { accountsRoutes } from '../routes/accountsRoutes.js';
 import { errorHandler } from '../middleware/errorHandler.js';
+import { PRESET_TEMPLATES } from '../services/seed/presetData.js';
 
 vi.mock('../services/email/connectionTest.js', () => ({
   testImapConnection: vi.fn().mockResolvedValue(undefined),
@@ -66,13 +67,14 @@ describe('Templates routes (intégration)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('GET /api/templates avec auth → 200 avec liste vide', async () => {
+  it('GET /api/templates avec auth → 200 avec les modèles prédéfinis semés au register', async () => {
     const res = await request(app)
       .get('/api/templates')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual([]);
+    expect(res.body.data).toHaveLength(PRESET_TEMPLATES.length);
+    expect(res.body.data.every((t: { isPreset?: boolean }) => t.isPreset)).toBe(true);
   });
 
   it('POST /api/templates crée un modèle valide → 201', async () => {
@@ -199,22 +201,23 @@ describe('Templates routes (intégration)', () => {
         accountId,
       });
 
-    // L'autre utilisateur ne voit aucun modèle
+    // L'autre utilisateur ne voit que ses modèles prédéfinis
     const otherRes = await request(app)
       .get('/api/templates')
       .set('Authorization', `Bearer ${tokenOther}`);
-    expect(otherRes.body.data).toHaveLength(0);
+    expect(otherRes.body.data).toHaveLength(PRESET_TEMPLATES.length);
+    expect(otherRes.body.data.every((t: { title: string }) => !t.title.includes('User 1'))).toBe(true);
 
-    // L'utilisateur principal sans filtre voit les 2
+    // L'utilisateur principal sans filtre voit les 2 + ses presets
     const allRes = await request(app)
       .get('/api/templates')
       .set('Authorization', `Bearer ${token}`);
-    expect(allRes.body.data).toHaveLength(2);
+    expect(allRes.body.data).toHaveLength(PRESET_TEMPLATES.length + 2);
 
-    // L'utilisateur principal avec filtre voit le global et le spécifique à ce compte
+    // L'utilisateur principal avec filtre voit les presets globaux, le global et le spécifique à ce compte
     const filterRes = await request(app)
       .get(`/api/templates?accountId=${accountId}`)
       .set('Authorization', `Bearer ${token}`);
-    expect(filterRes.body.data).toHaveLength(2);
+    expect(filterRes.body.data).toHaveLength(PRESET_TEMPLATES.length + 2);
   });
 });

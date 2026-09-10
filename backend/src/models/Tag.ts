@@ -5,6 +5,7 @@ export interface ITagDocument extends Document {
   name: string;
   color: string;
   order: number;
+  isPreset: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +33,10 @@ const tagSchema = new Schema<ITagDocument>(
     order: {
       type: Number,
       default: 0,
+    },
+    isPreset: {
+      type: Boolean,
+      default: false,
     },
   },
   {

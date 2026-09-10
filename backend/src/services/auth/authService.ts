@@ -6,6 +6,7 @@ import { AppError } from '../../utils/AppError.js';
 import { UserModel, IUserDocument, IUserPreferences } from '../../models/User.js';
 import { RefreshTokenModel } from '../../models/RefreshToken.js';
 import { verify2FALogin, is2FAEnabled } from './twoFactorService.js';
+import { seedUserDefaults } from '../seed/defaultContentService.js';
 
 export interface TokenPair {
   accessToken: string;
@@ -29,6 +30,8 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(data.password, 12);
     const user = await UserModel.create({ email: data.email, passwordHash });
 
+    await seedUserDefaults(user._id);
+
     return this.generateTokens(user);
   }
 
@@ -49,6 +52,8 @@ export class AuthService {
       const twoFactorTempToken = this.generateTwoFactorTempToken(user);
       return { requiresTwoFactor: true, twoFactorTempToken };
     }
+
+    await seedUserDefaults(user._id);
 
     return { tokenPair: await this.generateTokens(user) };
   }
@@ -72,6 +77,8 @@ export class AuthService {
     if (!isValid) {
       throw AppError.unauthorized('Code 2FA invalide');
     }
+
+    await seedUserDefaults(user._id);
 
     return this.generateTokens(user);
   }
@@ -106,6 +113,8 @@ export class AuthService {
     if (!user) {
       throw AppError.unauthorized('Utilisateur introuvable');
     }
+
+    await seedUserDefaults(user._id);
 
     return this.generateTokens(user);
   }

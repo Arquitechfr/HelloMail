@@ -277,6 +277,11 @@ export function TemplateManager() {
                       {tpl.shortcut}
                     </span>
                   )}
+                  {tpl.isPreset && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      Prédéfini
+                    </span>
+                  )}
                   {tpl.accountId ? (
                     <span className="text-[10px] text-muted-foreground border border-border px-1.5 py-0.2 rounded shrink-0">
                       Compte spécifique

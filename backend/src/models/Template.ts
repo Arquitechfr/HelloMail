@@ -9,6 +9,7 @@ export interface ITemplateDocument extends Document {
   bodyText: string;
   shortcut?: string;
   order: number;
+  isPreset: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +57,10 @@ const templateSchema = new Schema<ITemplateDocument>(
     order: {
       type: Number,
       default: 0,
+    },
+    isPreset: {
+      type: Boolean,
+      default: false,
     },
   },
   {

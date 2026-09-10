@@ -195,6 +195,11 @@ export function RulesList() {
                       <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border/50">
                         {getAccountEmail(rule.accountId)}
                       </span>
+                      {rule.isPreset && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                          Prédéfini
+                        </span>
+                      )}
                       {rule.isActive ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-emerald-500 font-medium">
                           <CheckCircle2 className="size-3" /> Active

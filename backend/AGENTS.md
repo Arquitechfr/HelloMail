@@ -24,13 +24,14 @@ src/
 ├── config/         env.ts (validation Zod fail-fast) + constants.ts (cookies, JWT, rate limit, SMTP timeout) + logger.ts (pino + redaction)
 ├── utils/          AppError, asyncHandler, cookieHelpers, projections (ACCOUNT_SAFE_PROJECTION)
 ├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit + RedisStore Phase 7), validate (Zod), requestLogger (pino-http), metricsMiddleware (Prometheus instrumentation, Phase 6)
-├── models/         User (2FA TOTP + WebAuthn, Phase 6, preferences Phase 9), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7), Message (inReplyTo, index textuel, indexes conversation, tags Phase 9, snoozedUntil Phase 9), Contact (index textuel + unique, Phase 6), Rule (moteur de tri, Phase 8), Tag (libellés colorés, Phase 9), Template (modèles d'emails & réponses types, Phase 9)
+├── models/         User (2FA TOTP + WebAuthn, Phase 6, preferences Phase 9, defaultsSeededAt presets Phase 9), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7), Message (inReplyTo, index textuel, indexes conversation, tags Phase 9, snoozedUntil Phase 9), Contact (index textuel + unique, Phase 6), Rule (moteur de tri, Phase 8, isPreset Phase 9), Tag (libellés colorés, Phase 9, isPreset), Template (modèles d'emails & réponses types, Phase 9, isPreset)
 ├── schemas/        commonSchemas, authSchemas (register, login, verify2FA, preferences Phase 9), accountSchemas (+ signature, autoconfig Phase 7), messageSchemas (list/send/flags/move/batch/search/fetchMore + receipt + snooze Phase 9), tagSchemas (Phase 9), templateSchemas (Phase 9), folderSchemas, draftSchemas, contactSchemas, ruleSchemas (Phase 8)
 ├── services/
 │   ├── security/   encryptionService (AES-256-GCM, fail-fast si clé invalide)
 │   ├── auth/       authService, twoFactorService (TOTP), webauthnService (passkeys), oauthService (Google XOAUTH2), microsoftOAuthService (Microsoft XOAUTH2, Phase 7)
 │   ├── email/      connectionTest, imapPool (XOAUTH2 Google/Microsoft), sanitize, messageFetchService, attachmentService (PJ + stream RFC 822 .eml), threadService (regroupement inReplyTo + sujet), sendService (XOAUTH2 + MDN), receiptService (RFC 3798, Phase 8), ruleService (moteur de règles, Phase 8), tagService (gestion libellés & propagation cascade, Phase 9), snoozeService (mise en sommeil & boucle de réveil, Phase 9), folderService, specialFolders, messageActionService, searchService, draftService, fetchMoreService
 │   ├── templates/  templateService (gestion modèles d'emails & réponses types, Phase 9)
+│   ├── seed/       presetData (tags/règles/modèles prédéfinis) + defaultContentService (seed idempotent, Phase 9 Lot 9.6)
 │   ├── contacts/   contactService (CRUD + recherche/autocomplétion, Phase 6)
 │   ├── observability/ metricsService (Prometheus prom-client, Phase 6)
 │   ├── realtime/   eventPublisher (Redis Pub/Sub worker→API), eventSubscriber (filtrage par userId)
@@ -214,6 +215,16 @@ src/
 - `GET /api/health` (enrichi MongoDB/Redis) + `GET /api/metrics` (Prometheus).
 - `pollingSync` : connexion IMAP dédiée au polling des dossiers spéciaux.
 
+## Service seed — Contenu prédéfini (Phase 9 Lot 9.6)
+
+### defaultContentService — Presets tags / règles / modèles
+
+- `seedUserDefaults(userId)` : seme 8 tags colorés, 4 règles actives à actions sûres (`applyTag`/`markAsRead`/`markAsFlagged` uniquement — jamais `moveToFolder`/`markAsJunk`/`delete`) et 6 modèles d'emails FR avec raccourcis, définis dans `presetData.ts`.
+- Appelé depuis `authService` : `register` (nouveaux utilisateurs), `login`, `verifyTwoFactor` et `refreshTokens` (rétroactivité lazy pour les comptes existants).
+- Idempotent : flag `User.defaultsSeededAt` positionné après le premier seed — jamais re-semé, même si l'utilisateur supprime un preset. Déduplication par nom/titre (insensible à la casse) pour préserver le contenu utilisateur homonyme.
+- Champ `isPreset: true` sur les documents semés (badge « Prédéfini » côté frontend).
+- Jamais de throw : un échec de seed est logué mais ne bloque pas l'authentification.
+
 ## Sécurité & Performance
 
 - **Chiffrement** : AES-256-GCM via node:crypto (`ENCRYPTION_KEY` 64 hex chars, IV 12 octets).
@@ -240,7 +251,7 @@ src/
 ## Tests (Phases 3, 5, 6 & 7)
 
 - **Vitest** 5.0.0 + `@vitest/coverage-v8` + `mongodb-memory-server` + `supertest`.
-- **339 tests** (34 fichiers). Thresholds : 80% lignes/fonctions/statements, 75% branches.
+- **422 tests** (45 fichiers). Thresholds : 80% lignes/fonctions/statements, 75% branches.
 - Nouveaux tests Phase 7 : `autoconfigService.test.ts`, `microsoftOAuthService.test.ts`, `accountSignature.test.ts`.
 - Mocks propres : `ImapFlow`, `ioredis`, `otplib`, `rate-limit-redis` mockable / fallback.
 - `fileParallelism: false` + `maxWorkers: 2` pour MongoMemoryServer.

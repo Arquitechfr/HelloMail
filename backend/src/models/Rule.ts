@@ -28,6 +28,7 @@ export interface IRule {
   conditions: IRuleCondition[];
   actions: IRuleAction[];
   stopProcessing: boolean;
+  isPreset: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -117,6 +118,10 @@ const ruleSchema = new Schema<IRule>(
       validate: [(val: IRuleAction[]) => val.length > 0, 'Au moins une action est requise'],
     },
     stopProcessing: {
+      type: Boolean,
+      default: false,
+    },
+    isPreset: {
       type: Boolean,
       default: false,
     },

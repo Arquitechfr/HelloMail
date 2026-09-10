@@ -37,6 +37,7 @@ export interface MailRule {
   conditions: RuleCondition[];
   actions: RuleAction[];
   stopProcessing: boolean;
+  isPreset?: boolean;
   createdAt: string;
   updatedAt: string;
 }

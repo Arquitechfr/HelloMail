@@ -12,6 +12,7 @@ export interface EmailTemplate {
   bodyText: string;
   shortcut?: string;
   order: number;
+  isPreset?: boolean;
   createdAt: string;
   updatedAt: string;
 }

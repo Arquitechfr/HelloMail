@@ -249,6 +249,11 @@ export function TagManager() {
                   <span className="text-xs font-medium text-foreground truncate">
                     {tag.name}
                   </span>
+                  {tag.isPreset && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
+                      Prédéfini
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button

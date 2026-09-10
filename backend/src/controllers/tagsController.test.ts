@@ -9,6 +9,7 @@ import { accountsRoutes } from '../routes/accountsRoutes.js';
 import { messagesRoutes } from '../routes/messagesRoutes.js';
 import { MessageModel } from '../models/Message.js';
 import { errorHandler } from '../middleware/errorHandler.js';
+import { PRESET_TAGS } from '../services/seed/presetData.js';
 
 vi.mock('../services/email/connectionTest.js', () => ({
   testImapConnection: vi.fn().mockResolvedValue(undefined),
@@ -69,13 +70,14 @@ describe('Tags routes (intégration)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('GET /api/tags avec auth → 200 avec liste vide', async () => {
+  it('GET /api/tags avec auth → 200 avec les libellés prédéfinis semés au register', async () => {
     const res = await request(app)
       .get('/api/tags')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual([]);
+    expect(res.body.data).toHaveLength(PRESET_TAGS.length);
+    expect(res.body.data.every((t: { isPreset?: boolean }) => t.isPreset)).toBe(true);
   });
 
   it('POST /api/tags crée un libellé → 201', async () => {
@@ -93,12 +95,12 @@ describe('Tags routes (intégration)', () => {
     await request(app)
       .post('/api/tags')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Important' });
+      .send({ name: 'Prioritaire' });
 
     const res = await request(app)
       .post('/api/tags')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'important' });
+      .send({ name: 'prioritaire' });
 
     expect(res.status).toBe(409);
   });
@@ -139,7 +141,7 @@ describe('Tags routes (intégration)', () => {
       .get('/api/tags')
       .set('Authorization', `Bearer ${token}`);
 
-    expect(listRes.body.data).toHaveLength(0);
+    expect(listRes.body.data).toHaveLength(PRESET_TAGS.length);
   });
 
   it('PATCH /:accountId/messages/:folder/:uid/tags applique des tags à un message → 200', async () => {
