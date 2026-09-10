@@ -30,7 +30,33 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
   const token = authHeader.substring(7);
 
   try {
-    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET) as { sub: string };
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as { sub: string };
+    req.user = { id: decoded.sub };
+    next();
+  } catch {
+    next(AppError.unauthorized('Session expirée ou token invalide'));
+  }
+}
+
+/**
+ * Middleware d'authentification JWT pour les connexions SSE.
+ *
+ * EventSource (côté navigateur) ne supporte pas les headers custom — le token
+ * JWT est passé en query param `?token=...` au lieu du header Authorization.
+ *
+ * Note : le token est visible dans les logs serveur (nginx, etc.). Mitigation
+ * future : émettre un token SSE à courte durée via un endpoint dédié.
+ */
+export function requireAuthSse(req: Request, _res: Response, next: NextFunction): void {
+  const token = req.query.token as string | undefined;
+
+  if (!token) {
+    next(AppError.unauthorized('Authentification requise'));
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] }) as { sub: string };
     req.user = { id: decoded.sub };
     next();
   } catch {

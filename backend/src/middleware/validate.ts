@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
-import { AppError } from '../utils/AppError.js';
+import { ZodSchema } from 'zod';
+import { logger } from '../config/logger.js';
 
 interface ValidationTargets {
   body?: ZodSchema;
@@ -12,6 +12,10 @@ interface ValidationTargets {
  * Factory de validation Zod pour body, params et query.
  * Ne loggue jamais req.body brut (peut contenir des secrets en clair).
  * Loggue uniquement les issues Zod (chemins + messages).
+ *
+ * La ZodError est laissée passer au errorHandler centralisé (qui la gère
+ * avec `err.flatten().fieldErrors`) — ne l'encapsule pas en AppError pour
+ * préserver les détails de validation retournés au client.
  */
 export function validate(schemas: ValidationTargets) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
@@ -27,9 +31,10 @@ export function validate(schemas: ValidationTargets) {
       }
       next();
     } catch (error) {
-      if (error instanceof ZodError) {
-        next(AppError.badRequest('Erreur de validation des données'));
-        return;
+      // Laisse passer la ZodError au errorHandler (gère les fieldErrors).
+      // Loggue les issues Zod pour le debug, jamais req.body brut.
+      if (error && typeof error === 'object' && 'issues' in error) {
+        logger.warn({ issues: (error as { issues: unknown }).issues }, 'Erreur de validation');
       }
       next(error);
     }

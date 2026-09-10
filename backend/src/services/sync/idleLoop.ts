@@ -1,8 +1,10 @@
 import type { ImapFlow, ExistsEvent, ExpungeEvent, FlagsEvent } from 'imapflow';
 import { env } from '../../config/env.js';
+import { logger } from '../../config/logger.js';
 import { MessageModel } from '../../models/Message.js';
 import { mapFetchResultToMessage } from './messageMapper.js';
 import { reconcileFolder } from './reconcileFolder.js';
+import { publishEvent } from '../realtime/eventPublisher.js';
 
 const FETCH_QUERY = {
   uid: true,
@@ -19,10 +21,14 @@ const FETCH_QUERY = {
  * ImapFlow gère l'auto-IDLE : quand un handler exécute une commande (fetch/fetchOne),
  * la lib envoie DONE en interne, exécute la commande, puis re-rentre en IDLE auto
  * après autoIdleDelay. Ne pas improviser ce comportement (voir doc ImapFlow).
+ *
+ * Les événements temps réel (message:new, message:deleted, message:flags) sont
+ * publiés via Redis Pub/Sub pour propagation au frontend via SSE.
  */
 export async function runIdleLoop(
   client: ImapFlow,
   accountId: string,
+  userId: string,
   folder: string,
   stopSignal: AbortSignal,
 ): Promise<void> {
@@ -35,7 +41,7 @@ export async function runIdleLoop(
   const endLoop = (reason: string): void => {
     if (ended) return;
     ended = true;
-    console.log(`[sync] Compte ${accountId} : boucle IDLE terminée (${reason})`);
+    logger.info({ accountId, reason }, 'Boucle IDLE terminée');
     resolveEnd();
   };
 
@@ -53,15 +59,24 @@ export async function runIdleLoop(
             { $set: messageInput },
             { upsert: true },
           );
+          // Notifie le frontend du nouveau message.
+          publishEvent({
+            type: 'message:new',
+            accountId,
+            userId,
+            payload: { folder: messageInput.folder, uid: messageInput.uid },
+          }).catch(() => {});
         } catch (error) {
-          console.error(
-            `[sync] Compte ${accountId} : erreur upsert UID ${msg.uid} — ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+          logger.error(
+            { accountId, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+            'Erreur upsert UID',
           );
         }
       }
     } catch (error) {
-      console.error(
-        `[sync] Compte ${accountId} : erreur fetch nouveaux messages (${range}) — ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+      logger.error(
+        { accountId, range, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Erreur fetch nouveaux messages',
       );
     }
   };
@@ -72,13 +87,19 @@ export async function runIdleLoop(
       try {
         await MessageModel.deleteOne({ accountId, folder, uid: data.uid });
         if (env.NODE_ENV !== 'production') {
-          console.log(
-            `[sync] Compte ${accountId} : message UID ${data.uid} supprimé (expunge)`,
-          );
+          logger.info({ accountId, uid: data.uid }, 'Message supprimé (expunge)');
         }
+        // Notifie le frontend de la suppression.
+        publishEvent({
+          type: 'message:deleted',
+          accountId,
+          userId,
+          payload: { folder, uid: data.uid },
+        }).catch(() => {});
       } catch (error) {
-        console.error(
-          `[sync] Compte ${accountId} : erreur suppression UID ${data.uid} — ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+        logger.error(
+          { accountId, uid: data.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+          'Erreur suppression UID',
         );
       }
     } else {
@@ -86,8 +107,9 @@ export async function runIdleLoop(
       try {
         await reconcileFolder(client, accountId, folder);
       } catch (error) {
-        console.error(
-          `[sync] Compte ${accountId} : erreur reconciliation expunge — ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+        logger.error(
+          { accountId, error: error instanceof Error ? error.message : 'erreur inconnue' },
+          'Erreur reconciliation expunge',
         );
       }
     }
@@ -103,9 +125,7 @@ export async function runIdleLoop(
         const msg = await client.fetchOne(data.seq, { uid: true });
         if (!msg || !msg.uid) {
           if (env.NODE_ENV !== 'production') {
-            console.warn(
-              `[sync] Compte ${accountId} : flags event seq ${data.seq} sans UID récupérable, ignoré`,
-            );
+            logger.warn({ accountId, seq: data.seq }, 'Flags event sans UID récupérable, ignoré');
           }
           return;
         }
@@ -113,21 +133,26 @@ export async function runIdleLoop(
       }
 
       const flagsSet = data.flags ?? new Set<string>();
+      const flags = {
+        seen: flagsSet.has('\\Seen'),
+        answered: flagsSet.has('\\Answered'),
+        flagged: flagsSet.has('\\Flagged'),
+      };
       await MessageModel.updateOne(
         { accountId, folder, uid },
-        {
-          $set: {
-            flags: {
-              seen: flagsSet.has('\\Seen'),
-              answered: flagsSet.has('\\Answered'),
-              flagged: flagsSet.has('\\Flagged'),
-            },
-          },
-        },
+        { $set: { flags } },
       );
+      // Notifie le frontend du changement de flags.
+      publishEvent({
+        type: 'message:flags',
+        accountId,
+        userId,
+        payload: { folder, uid, flags },
+      }).catch(() => {});
     } catch (error) {
-      console.error(
-        `[sync] Compte ${accountId} : erreur maj flags seq ${data.seq} — ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+      logger.error(
+        { accountId, seq: data.seq, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Erreur maj flags',
       );
     }
   };
@@ -135,7 +160,7 @@ export async function runIdleLoop(
   // --- Listeners de fin de connexion ---
   const onClose = (): void => endLoop('connexion fermée');
   const onError = (err: Error): void => {
-    console.error(`[sync] Compte ${accountId} : erreur connexion IMAP — ${err.message}`);
+    logger.error({ accountId, error: err.message }, 'Erreur connexion IMAP');
     endLoop('erreur connexion');
   };
   const onAbort = (): void => endLoop('stop signal');
@@ -147,7 +172,7 @@ export async function runIdleLoop(
   client.on('error', onError);
   stopSignal.addEventListener('abort', onAbort);
 
-  console.log(`[sync] Compte ${accountId} : boucle IDLE démarrée sur ${folder}`);
+  logger.info({ accountId, folder }, 'Boucle IDLE démarrée');
 
   try {
     await idleEnded;

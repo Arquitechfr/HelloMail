@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import { validate } from './validate.js';
 import { AppError } from '../utils/AppError.js';
 
@@ -27,7 +27,7 @@ describe('validate middleware', () => {
     expect(req.body).toEqual({ name: 'Alice' });
   });
 
-  it('rejette un body invalide avec AppError.badRequest', async () => {
+  it('rejette un body invalide avec ZodError (passée au errorHandler)', async () => {
     const schema = z.object({ name: z.string().min(1, 'Nom requis') });
     const { req, res, next } = mockReqRes({ body: { name: '' } });
 
@@ -35,9 +35,8 @@ describe('validate middleware', () => {
 
     expect(next).toHaveBeenCalledTimes(1);
     const error = next.mock.calls[0][0];
-    expect(error).toBeInstanceOf(AppError);
-    expect(error.statusCode).toBe(400);
-    expect(error.message).toBe('Erreur de validation des données');
+    expect(error).toBeInstanceOf(ZodError);
+    expect(error.issues[0].message).toBe('Nom requis');
   });
 
   it('valide les params', async () => {

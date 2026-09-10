@@ -7,6 +7,7 @@ import { AuthenticatedRequest } from '../middleware/auth.js';
 import { fetchMessageDetail } from '../services/email/messageFetchService.js';
 import { fetchAttachmentStream } from '../services/email/attachmentService.js';
 import { sendEmail } from '../services/email/sendService.js';
+import { searchMessages } from '../services/email/searchService.js';
 import {
   updateFlags as updateMessageFlags,
   deleteMessage,
@@ -45,6 +46,18 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
     limit,
     total,
   });
+});
+
+export const search = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const result = await searchMessages(account, req.query as never);
+  res.status(200).json(result);
 });
 
 export const getOne = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {

@@ -1,5 +1,5 @@
 import { ImapFlow } from 'imapflow';
-import { env } from '../../config/env.js';
+import { logger } from '../../config/logger.js';
 import {
   MAX_CONSECUTIVE_SYNC_FAILURES,
   SYNC_BACKOFF_BASE_MS,
@@ -10,6 +10,7 @@ import { AccountModel, type IAccountDocument } from '../../models/Account.js';
 import { decrypt } from '../security/encryptionService.js';
 import { runInitialSync } from './initialSync.js';
 import { runIdleLoop } from './idleLoop.js';
+import { publishEvent } from '../realtime/eventPublisher.js';
 
 /**
  * Gère le cycle de vie de synchronisation d'un compte IMAP :
@@ -102,7 +103,7 @@ export class SyncManager {
         });
 
         await this.client.connect();
-        console.log(`[sync] Compte ${accountId} : connexion IMAP établie`);
+        logger.info({ accountId }, 'Connexion IMAP établie');
 
         // 3. Sync initiale (idempotente).
         await runInitialSync(this.client, accountId);
@@ -119,7 +120,7 @@ export class SyncManager {
 
         // Si stop() a été appelé pendant initialSync, on sort proprement.
         if (this.abortController.signal.aborted) {
-          console.log(`[sync] Compte ${accountId} : stop pendant sync initiale, arrêt propre`);
+          logger.info({ accountId }, 'Stop pendant sync initiale, arrêt propre');
           break;
         }
 
@@ -130,6 +131,7 @@ export class SyncManager {
         await runIdleLoop(
           this.client,
           accountId,
+          String(this.account.userId),
           'INBOX',
           this.abortController.signal,
         );
@@ -165,9 +167,7 @@ export class SyncManager {
         }
 
         this.consecutiveFailures++;
-        console.error(
-          `[sync] Compte ${accountId} : échec n°${this.consecutiveFailures} — ${errorMsg}`,
-        );
+        logger.warn({ accountId, failures: this.consecutiveFailures, error: errorMsg }, 'Échec de sync');
 
         // Met à jour lastSyncError en base.
         try {
@@ -181,19 +181,27 @@ export class SyncManager {
 
         // Désactivation automatique après trop d'échecs consécutifs.
         if (this.consecutiveFailures > MAX_CONSECUTIVE_SYNC_FAILURES) {
-          console.error(
-            `[sync] Compte ${accountId} : désactivé après ${this.consecutiveFailures} échecs consécutifs`,
-          );
+          logger.error({ accountId, failures: this.consecutiveFailures }, 'Compte désactivé après échecs consécutifs');
           try {
             await AccountModel.updateOne(
               { _id: this.account._id },
               { isActive: false, lastSyncError: `Désactivé : ${errorMsg}` },
             );
           } catch (dbError) {
-            console.error(
-              `[sync] Compte ${accountId} : impossible de désactiver le compte en base — ${dbError instanceof Error ? dbError.message : 'erreur inconnue'}`,
+            logger.error(
+              { accountId, error: dbError instanceof Error ? dbError.message : 'erreur inconnue' },
+              'Impossible de désactiver le compte en base',
             );
           }
+          // Notifie le frontend de l'erreur de sync via Redis Pub/Sub.
+          publishEvent({
+            type: 'account:syncError',
+            accountId,
+            userId: String(this.account.userId),
+            payload: { error: errorMsg, disabled: true },
+          }).catch(() => {
+            // Non bloquant — Redis peut être indisponible.
+          });
           this.running = false;
           break;
         }
@@ -203,7 +211,7 @@ export class SyncManager {
           SYNC_BACKOFF_BASE_MS * Math.pow(2, this.consecutiveFailures - 1),
           SYNC_BACKOFF_MAX_MS,
         );
-        console.log(`[sync] Compte ${accountId} : reconnexion dans ${backoffMs}ms`);
+        logger.info({ accountId, backoffMs }, 'Reconnexion dans');
 
         await this.sleep(backoffMs);
       }
@@ -214,9 +222,7 @@ export class SyncManager {
     this.clearStableTimer();
     this.stableTimer = setTimeout(() => {
       if (this.consecutiveFailures > 0) {
-        console.log(
-          `[sync] Compte ${this.account._id} : connexion stable, reset du compteur d'échecs`,
-        );
+        logger.info({ accountId: String(this.account._id) }, 'Connexion stable, reset du compteur d\'échecs');
         this.consecutiveFailures = 0;
       }
     }, STABLE_CONNECTION_RESET_MS);

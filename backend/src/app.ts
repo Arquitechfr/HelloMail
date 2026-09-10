@@ -1,18 +1,25 @@
 import express from 'express';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import { env } from './config/env.js';
+import { logger } from './config/logger.js';
+import { requestLogger } from './middleware/requestLogger.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { accountsRoutes } from './routes/accountsRoutes.js';
 import { messagesRoutes } from './routes/messagesRoutes.js';
 import { foldersRoutes } from './routes/foldersRoutes.js';
+import { draftsRoutes } from './routes/draftsRoutes.js';
+import { eventsRoutes } from './routes/eventsRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { globalRateLimit } from './middleware/rateLimit.js';
+import { imapPool } from './services/email/imapPool.js';
 
 async function bootstrap(): Promise<void> {
   await mongoose.connect(env.MONGO_URI);
-  console.log('Connecté à MongoDB');
+  logger.info('Connecté à MongoDB');
 
   const app = express();
 
@@ -22,12 +29,21 @@ async function bootstrap(): Promise<void> {
     app.set('trust proxy', 1);
   }
 
+  // Sécurité : headers HTTP (Helmet). CSP désactivée (API REST, pas de HTML rendu côté serveur).
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+  // Logging structuré des requêtes HTTP (pino-http).
+  app.use(requestLogger);
+
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 
   // Limite étendue pour l'envoi d'emails avec pièces jointes (jusqu'à 30 Mo).
   app.use('/api/accounts/:accountId/send', express.json({ limit: '30mb' }));
+
+  // Rate limit global sur l'API (100 req/15 min/IP). Bypass en mode test.
+  app.use('/api', globalRateLimit);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
@@ -37,16 +53,54 @@ async function bootstrap(): Promise<void> {
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/accounts', messagesRoutes);
   app.use('/api/accounts', foldersRoutes);
+  app.use('/api/accounts', draftsRoutes);
+  app.use('/api', eventsRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
 
-  app.listen(env.PORT, () => {
-    console.log(`HelloMail démarré sur le port ${env.PORT}`);
+  const server = app.listen(env.PORT, () => {
+    logger.info(`HelloMail démarré sur le port ${env.PORT}`);
   });
+
+  // Graceful shutdown : SIGTERM/SIGINT arrêtent proprement le serveur.
+  let shuttingDown = false;
+  const gracefulShutdown = (signal: string): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info(`Signal ${signal} reçu, fermeture en cours...`);
+
+    // Safety net : forcer la sortie après 10s si le graceful shutdown bloque.
+    const forceExit = setTimeout(() => {
+      logger.error('Timeout du graceful shutdown, sortie forcée');
+      process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+
+    server.close(async () => {
+      try {
+        await imapPool.closeAll();
+        logger.info('Pool IMAP fermé');
+      } catch (error) {
+        logger.error({ error }, 'Erreur fermeture pool IMAP');
+      }
+
+      try {
+        await mongoose.disconnect();
+        logger.info('Déconnecté de MongoDB');
+      } catch (error) {
+        logger.error({ error }, 'Erreur déconnexion MongoDB');
+      }
+
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 bootstrap().catch((error) => {
-  console.error('Échec du démarrage du serveur :', error);
+  logger.error({ error }, 'Échec du démarrage du serveur');
   process.exit(1);
 });

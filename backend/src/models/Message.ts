@@ -105,6 +105,16 @@ messageSchema.index({ accountId: 1, folder: 1, uid: 1 }, { unique: true });
 // Index pour le tri de la liste par date décroissante.
 messageSchema.index({ accountId: 1, date: -1 });
 
+// Index pour la liste paginée par dossier (optimise find({accountId, folder}).sort({date: -1})).
+messageSchema.index({ accountId: 1, folder: 1, date: -1 });
+
+// Index textuel pour la recherche plein texte (subject + from + to).
+// Poids : subject (3) > from (2) > to (1) pour prioriser le sujet dans le score.
+messageSchema.index(
+  { subject: 'text', 'from.address': 'text', 'to.address': 'text' },
+  { name: 'message_text_search', weights: { subject: 3, 'from.address': 2, 'to.address': 1 } },
+);
+
 export const MessageModel: mongoose.Model<IMessageDocument> =
   (mongoose.models.Message as mongoose.Model<IMessageDocument>) ||
   mongoose.model<IMessageDocument>('Message', messageSchema);

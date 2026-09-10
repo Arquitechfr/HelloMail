@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import mongoose from 'mongoose';
 import { AppError } from '../utils/AppError.js';
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 
 /**
  * Middleware de gestion d'erreurs centralisé.
@@ -42,7 +43,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  console.error('Erreur non gérée :', err.message, err.stack);
+  logger.error({ error: err.message, stack: err.stack }, 'Erreur non gérée');
   res.status(500).json({
     error: {
       message: env.NODE_ENV === 'production' ? 'Une erreur interne est survenue' : String(err),

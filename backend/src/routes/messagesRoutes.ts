@@ -14,6 +14,8 @@ import {
   deleteMessageQuerySchema,
   batchActionSchema,
   messageActionParamsSchema,
+  searchParamsSchema,
+  searchQuerySchema,
 } from '../schemas/messageSchemas.js';
 
 const router = Router();
@@ -91,6 +93,14 @@ router.get(
   requireAuth,
   validate({ params: listMessagesParamsSchema, query: listMessagesQuerySchema }),
   messagesController.list,
+);
+
+// Recherche de messages (avant /:accountId/messages pour éviter conflit).
+router.get(
+  '/:accountId/messages/search',
+  requireAuth,
+  validate({ params: searchParamsSchema, query: searchQuerySchema }),
+  messagesController.search,
 );
 
 export const messagesRoutes = router;

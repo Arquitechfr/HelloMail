@@ -44,7 +44,7 @@ export class AuthService {
     let decoded: { sub: string; tokenId: string };
 
     try {
-      decoded = jwt.verify(rawRefreshToken, env.JWT_REFRESH_SECRET) as { sub: string; tokenId: string };
+      decoded = jwt.verify(rawRefreshToken, env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as { sub: string; tokenId: string };
     } catch {
       throw AppError.unauthorized('Refresh token expiré ou invalide');
     }

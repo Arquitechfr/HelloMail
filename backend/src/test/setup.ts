@@ -1,30 +1,42 @@
 import mongoose from 'mongoose';
 
 /**
- * Réutilise la connexion mongoose globale établie par globalSetup.ts.
- * Ne démarre pas de nouveau MongoMemoryServer — la connexion est partagée.
+ * Connecte mongoose au MongoMemoryServer démarré par globalSetup.ts.
  *
- * En l'absence de globalSetup (ex: tests unitaires isolés), ne fait rien.
+ * globalSetup s'exécute dans un contexte séparé — la connexion mongoose n'est
+ * PAS partagée avec les workers. On lit l'URI depuis process.env.MONGO_URI
+ * (positionnée par globalSetup) et on connecte mongoose ici, dans le worker.
+ *
+ * Idempotent : si mongoose est déjà connecté, ne fait rien.
  */
 export async function setupTestDb(): Promise<void> {
-  // La connexion est établie par globalSetup.ts. Si elle n'est pas active
-  // (ex: test unitaire sans globalSetup), on ne fait rien — les tests
-  // d'intégration échoueront explicitement si la DB n'est pas disponible.
   if (mongoose.connection.readyState === 1) {
-    return;
+    return; // Déjà connecté.
   }
 
-  // Fallback : si pas de connexion globale, on attend un peu (le globalSetup
-  // peut encore être en cours de démarrage).
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const uri = process.env.MONGO_URI;
+  if (!uri) {
+    throw new Error(
+      'MONGO_URI non défini — globalSetup.ts n\'a pas démarré le MongoMemoryServer. ' +
+      'Vérifiez que globalSetup est configuré dans vitest.config.ts.',
+    );
+  }
+
+  // Déconnecte toute connexion stale d'un test précédent.
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
+
+  await mongoose.connect(uri);
 }
 
 /**
- * Ne ferme pas la connexion globale — elle est gérée par globalSetup.ts.
- * Vide juste les collections si demandé.
+ * Ne ferme pas la connexion — elle est réutilisée par le fichier de test suivant.
+ * La fermeture finale est gérée par globalSetup.ts teardown().
  */
 export async function teardownTestDb(): Promise<void> {
-  // La fermeture est gérée par globalSetup.ts. Ne rien faire ici.
+  // No-op : la connexion persiste entre les fichiers de test.
+  // globalSetup.teardown() ferme mongoose + MongoMemoryServer à la fin.
 }
 
 /**

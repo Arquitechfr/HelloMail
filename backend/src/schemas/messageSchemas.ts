@@ -119,3 +119,37 @@ export const messageActionParamsSchema = z.object({
   folder: folderSchema,
   uid: uidSchema,
 });
+
+/**
+ * Params pour la route de recherche (accountId uniquement).
+ */
+export const searchParamsSchema = z.object({
+  accountId: accountIdSchema,
+});
+
+/**
+ * Schéma de validation des query params pour la recherche de messages.
+ *
+ * `q` : recherche plein texte (utilise l'index textuel MongoDB).
+ * Les opérateurs (`from:alice`, `to:bob`, `subject:test`, `is:unread`,
+ * `is:flagged`, `has:attachment`, `before:2026-01-01`, `since:2026-01-01`)
+ * sont parsés côté service par `parseSearchQuery`.
+ *
+ * Les filtres explicites (`from`, `to`, `subject`, `seen`, `flagged`,
+ * `hasAttachments`, `since`, `before`) peuvent aussi être passés directement
+ * en query params pour une recherche structurée sans opérateurs.
+ */
+export const searchQuerySchema = z.object({
+  q: z.string().trim().min(1).max(200).optional(),
+  folder: z.string().max(255).optional(),
+  from: z.string().trim().max(255).optional(),
+  to: z.string().trim().max(255).optional(),
+  subject: z.string().trim().max(998).optional(),
+  seen: z.coerce.boolean().optional(),
+  flagged: z.coerce.boolean().optional(),
+  hasAttachments: z.coerce.boolean().optional(),
+  since: z.coerce.date().optional(),
+  before: z.coerce.date().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});

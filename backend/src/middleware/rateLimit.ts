@@ -1,115 +1,67 @@
 import { Request, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
 import { AppError } from '../utils/AppError.js';
 import { env } from '../config/env.js';
 import {
   RATE_LIMIT_AUTH_WINDOW_MS,
   RATE_LIMIT_AUTH_MAX,
+  RATE_LIMIT_GLOBAL_WINDOW_MS,
+  RATE_LIMIT_GLOBAL_MAX,
   SEND_RATE_LIMIT_WINDOW_MS,
   SEND_RATE_LIMIT_MAX,
 } from '../config/constants.js';
 
-interface RateLimitEntry {
-  count: number;
-  resetTime: number;
+/** Bypass commun pour tous les limiters en mode test. */
+const skipInTest = (): boolean => env.NODE_ENV === 'test';
+
+/** Handler commun : lève une AppError tooManyRequests au lieu de la réponse par défaut. */
+function createHandler(message?: string) {
+  return (req: Request, res: Response, next: NextFunction, _options: unknown): void => {
+    const retryAfter = Math.ceil(RATE_LIMIT_AUTH_WINDOW_MS / 1000);
+    res.set('Retry-After', String(retryAfter));
+    next(message ? AppError.tooManyRequests(message) : AppError.tooManyRequests());
+  };
 }
 
-const store = new Map<string, RateLimitEntry>();
-
 /**
- * Rate limiting in-memory sur les routes d'auth sensibles (login, register).
- * - Fenêtre glissante de 15 min, max 10 requêtes par IP.
- * - Stockage Map en mémoire (ne survit pas à un restart, pas de partage multi-instance).
- * - Bypass total en mode test.
+ * Rate limit global sur toute l'API — 100 req/15 min/IP.
+ * Headers RateLimit-* (draft-7). Bypass en mode test.
  *
  * Dépend de `app.set('trust proxy', 1)` en production pour que req.ip
  * reflète l'IP réelle du client derrière le reverse proxy.
- * Dette technique : migrer vers Redis si scaling horizontal.
+ * Dette technique : store in-memory (Map) — migrer vers Redis si scaling horizontal.
  */
-export function authRateLimit(req: Request, res: Response, next: NextFunction): void {
-  if (env.NODE_ENV === 'test') {
-    next();
-    return;
-  }
-
-  const key = `auth:${req.ip || 'unknown'}`;
-  const now = Date.now();
-
-  // Cleanup des entrées expirées
-  for (const [k, entry] of store) {
-    if (entry.resetTime < now) {
-      store.delete(k);
-    }
-  }
-
-  const entry = store.get(key);
-
-  if (!entry) {
-    store.set(key, { count: 1, resetTime: now + RATE_LIMIT_AUTH_WINDOW_MS });
-    next();
-    return;
-  }
-
-  if (entry.resetTime < now) {
-    store.set(key, { count: 1, resetTime: now + RATE_LIMIT_AUTH_WINDOW_MS });
-    next();
-    return;
-  }
-
-  entry.count++;
-
-  if (entry.count > RATE_LIMIT_AUTH_MAX) {
-    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-    res.set('Retry-After', String(retryAfter));
-    next(AppError.tooManyRequests());
-    return;
-  }
-
-  next();
-}
+export const globalRateLimit = rateLimit({
+  windowMs: RATE_LIMIT_GLOBAL_WINDOW_MS,
+  max: RATE_LIMIT_GLOBAL_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: createHandler() as never,
+});
 
 /**
- * Rate limiting in-memory sur l'envoi d'emails (anti-spam).
- * - Fenêtre de 1 min, max 20 envois par IP.
- * - Bypass total en mode test.
+ * Rate limit sur les routes d'auth sensibles (login, register) — 10 req/15 min/IP.
+ * Bypass en mode test.
  */
-export function sendRateLimit(req: Request, res: Response, next: NextFunction): void {
-  if (env.NODE_ENV === 'test') {
-    next();
-    return;
-  }
+export const authRateLimit = rateLimit({
+  windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
+  max: RATE_LIMIT_AUTH_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: createHandler() as never,
+});
 
-  const key = `send:${req.ip || 'unknown'}`;
-  const now = Date.now();
-
-  // Cleanup des entrées expirées
-  for (const [k, entry] of store) {
-    if (entry.resetTime < now) {
-      store.delete(k);
-    }
-  }
-
-  const entry = store.get(key);
-
-  if (!entry) {
-    store.set(key, { count: 1, resetTime: now + SEND_RATE_LIMIT_WINDOW_MS });
-    next();
-    return;
-  }
-
-  if (entry.resetTime < now) {
-    store.set(key, { count: 1, resetTime: now + SEND_RATE_LIMIT_WINDOW_MS });
-    next();
-    return;
-  }
-
-  entry.count++;
-
-  if (entry.count > SEND_RATE_LIMIT_MAX) {
-    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-    res.set('Retry-After', String(retryAfter));
-    next(AppError.tooManyRequests('Trop d\'envois, réessayez dans quelques minutes'));
-    return;
-  }
-
-  next();
-}
+/**
+ * Rate limit sur l'envoi d'emails (anti-spam) — 20 req/min/IP.
+ * Bypass en mode test.
+ */
+export const sendRateLimit = rateLimit({
+  windowMs: SEND_RATE_LIMIT_WINDOW_MS,
+  max: SEND_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: createHandler('Trop d\'envois, réessayez dans quelques minutes') as never,
+});

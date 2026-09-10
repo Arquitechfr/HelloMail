@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import type { IAccountDocument } from '../../models/Account.js';
 import { AppError } from '../../utils/AppError.js';
+import { logger } from '../../config/logger.js';
 import { decrypt } from '../security/encryptionService.js';
 import { imapPool } from './imapPool.js';
 import { findSentFolder } from './specialFolders.js';
@@ -161,8 +162,8 @@ async function saveToSent(account: IAccountDocument, rawMime: Buffer): Promise<v
     } finally {
       imapPool.release(accountId);
     }
-  } catch {
+  } catch (error) {
     // La sauvegarde dans Sent est best-effort : ne pas faire échouer l'envoi.
-    console.error(`[send] Compte ${accountId} : échec sauvegarde Sent (non bloquant)`);
+    logger.warn({ accountId, error: error instanceof Error ? error.message : 'erreur inconnue' }, 'Échec sauvegarde Sent (non bloquant)');
   }
 }

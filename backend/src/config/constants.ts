@@ -8,6 +8,14 @@ export const JWT_REFRESH_EXPIRES_IN_DAYS = env.JWT_REFRESH_EXPIRES_IN_DAYS;
 export const RATE_LIMIT_AUTH_WINDOW_MS = 15 * 60 * 1000;
 export const RATE_LIMIT_AUTH_MAX = 10;
 
+// --- Rate limit global (Phase 5) ---
+
+/** Fenêtre du rate limit global (ms). */
+export const RATE_LIMIT_GLOBAL_WINDOW_MS = 15 * 60 * 1000;
+
+/** Nombre max de requêtes par fenêtre par IP (global). */
+export const RATE_LIMIT_GLOBAL_MAX = 100;
+
 // --- Sync worker (Phase 2) ---
 
 /** Intervalle de polling des comptes actifs (ms). */
