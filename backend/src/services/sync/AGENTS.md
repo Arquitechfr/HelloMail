@@ -54,7 +54,7 @@ Une classe/fonction par responsabilité, pas de logique éparpillée :
 - `pollingSync` — polling des dossiers spéciaux via 2e connexion IMAP (Phase 6)
 - `reconcileFolder` — reconciliation bornée sur expunge sans UID
 - `reconcileAllFolders` — reconciliation multi-dossiers au démarrage (INBOX + dossiers spéciaux)
-- `messageMapper` — transformation pure FetchMessageObject → MessageInput
+- `messageMapper` — transformation pure FetchMessageObject → MessageInput (inclut `inReplyTo` pour le threading Phase 8)
 
 Garder cette séparation pour faciliter l'extraction future (Redis/BullMQ,
 change streams, multi-dossiers, sharding multi-worker).
@@ -144,10 +144,11 @@ Le polling fetch uniquement `envelope`, `flags`, `bodyStructure`, `size` —
 jamais `BODY[]` ni `RFC822` sans PEEK. La discipline PEEK de la connexion
 principale s'applique identiquement à la connexion de polling.
 
-### OAuth Google XOAUTH2 (Phase 6)
+### OAuth Google & Microsoft XOAUTH2 (Phases 6 & 7)
 
-Si le compte a `provider: 'google_oauth'`, le `SyncManager` authentifie
+Si le compte a `provider: 'google_oauth'` ou `provider: 'microsoft_oauth'`, le `SyncManager` authentifie
 IMAP via XOAUTH2 (access token à la place du mot de passe). L'access token
-est renouvelé automatiquement via `oauthService.getValidGoogleAccessToken`
-(qui utilise le refresh token chiffré stocké en base). La connexion de
+est renouvelé automatiquement via `oauthService.getValidGoogleAccessToken` ou
+`microsoftOAuthService.getValidMicrosoftAccessToken` (qui utilisent le refresh token chiffré stocké en base). La connexion de
 polling utilise le même mécanisme d'authentification XOAUTH2.
+
