@@ -39,7 +39,7 @@ async function bootstrap(): Promise<void> {
   }
 
   // Sécurité : headers HTTP (Helmet). CSP désactivée (API REST, pas de HTML rendu côté serveur).
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   // Logging structuré des requêtes HTTP (pino-http).
   app.use(requestLogger);

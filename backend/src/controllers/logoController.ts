@@ -11,6 +11,7 @@ import { getLogo, extractDomain } from '../services/logo/logoService.js';
  * - 404 propre si aucun logo n'est trouvé, permettant le fallback frontend sur les initiales.
  */
 export async function getLogoHandler(req: Request, res: Response): Promise<void> {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   const rawParam = req.params.domain;
   const domain = extractDomain(rawParam);
 

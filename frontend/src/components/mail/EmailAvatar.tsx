@@ -59,7 +59,7 @@ export function EmailAvatar({
 }: EmailAvatarProps) {
   const domain = directDomain || extractDomain(email);
   const initials = getInitials(name ?? undefined, email ?? undefined);
-  const logoUrl = domain ? `/api/logos/${encodeURIComponent(domain)}` : undefined;
+  const logoUrl = domain ? `/api/logos/${encodeURIComponent(domain)}?v=1` : undefined;
 
   return (
     <Avatar size={size} className={cn("overflow-hidden shrink-0", className)}>
@@ -68,7 +68,7 @@ export function EmailAvatar({
           src={logoUrl}
           alt={alt ?? name ?? email ?? "Logo"}
           className={cn(
-            "aspect-square size-full object-contain p-0.5 bg-background/50 transition-opacity duration-150",
+            "aspect-square size-full object-cover transition-opacity duration-150",
             imageClassName,
           )}
         />
