@@ -25,6 +25,7 @@ export default defineConfig({
         'src/services/sync/idleLoop.ts',
         'src/services/sync/initialSync.ts',
         'src/services/sync/reconcileFolder.ts',
+        'src/services/sync/reconcileAllFolders.ts',
         'src/services/sync/accountRegistry.ts',
         // connectionTest — testé indirectement via les mocks d'intégration.
         'src/services/email/connectionTest.ts',

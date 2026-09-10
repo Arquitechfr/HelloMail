@@ -8,7 +8,8 @@ import {
 } from '../../config/constants.js';
 import { AccountModel, type IAccountDocument } from '../../models/Account.js';
 import { decrypt } from '../security/encryptionService.js';
-import { runInitialSync } from './initialSync.js';
+import { runInitialSyncAll } from './initialSync.js';
+import { reconcileAllFolders } from './reconcileAllFolders.js';
 import { runIdleLoop } from './idleLoop.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
 
@@ -100,13 +101,34 @@ export class SyncManager {
           qresync: true,
           disableAutoIdle: false,
           autoIdleDelay: 15_000,
+          // Relance l'IDLE toutes les 30s pour maintenir la connexion active
+          // (évite les Socket timeouts). ImapFlow n'expose pas d'option keepalive.
+          maxIdleTime: 30_000,
         });
 
         await this.client.connect();
         logger.info({ accountId }, 'Connexion IMAP établie');
 
-        // 3. Sync initiale (idempotente).
-        await runInitialSync(this.client, accountId);
+        // 3. Sync initiale (idempotente) — INBOX + dossiers spéciaux (Sent, Drafts, Trash, Junk, Archive).
+        const syncedCount = await runInitialSyncAll(this.client, accountId, this.account);
+
+        // 3b. Reconciliation multi-dossiers — supprime les messages fantômes
+        // (supprimés distamment entre deux connexions du worker). Bornée aux UID
+        // trackés en base, pas de SEARCH ALL. Voir services/sync/AGENTS.md.
+        const deletedCount = await reconcileAllFolders(this.client, accountId, this.account);
+        if (deletedCount > 0) {
+          logger.info({ accountId, deleted: deletedCount }, 'Reconciliation : messages fantômes supprimés');
+        }
+
+        // Publie un événement si des messages ont été synchronisés (rattrapage après reconnexion).
+        if (syncedCount > 0 || deletedCount > 0) {
+          publishEvent({
+            type: 'message:new',
+            accountId,
+            userId: String(this.account.userId),
+            payload: { folder: 'INBOX' },
+          }).catch(() => {});
+        }
 
         // Marque la sync comme réussie : met à jour lastSyncedAt et efface lastSyncError.
         try {

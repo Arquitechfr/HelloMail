@@ -1,0 +1,330 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   HelloMail — Design System (source de vérité unique)
+   Modifier ici pour changer le design global de l'app.
+   Sections : 1. @theme  2. shadcn vars  3. glass vars
+             4. aurora vars  5. utilitaires  6. base
+   ============================================================ */
+
+/* --- 1. Tailwind v4 @theme (génère les utilitaires) --- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-glass: var(--glass-bg);
+  --color-glass-strong: var(--glass-bg-strong);
+  --color-glass-border: var(--glass-border);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* --- 2. Variables shadcn/ui — Thème clair --- */
+:root {
+  --background: oklch(0.98 0.005 240);
+  --foreground: oklch(0.20 0.02 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.20 0.02 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.20 0.02 240);
+  --primary: oklch(0.55 0.20 260);
+  --primary-foreground: oklch(0.98 0.01 260);
+  --secondary: oklch(0.95 0.01 240);
+  --secondary-foreground: oklch(0.25 0.02 240);
+  --muted: oklch(0.95 0.01 240);
+  --muted-foreground: oklch(0.50 0.02 240);
+  --accent: oklch(0.93 0.02 260);
+  --accent-foreground: oklch(0.30 0.05 260);
+  --destructive: oklch(0.58 0.24 27);
+  --border: oklch(0.90 0.01 240);
+  --input: oklch(0.90 0.01 240);
+  --ring: oklch(0.55 0.20 260);
+  --chart-1: oklch(0.65 0.20 260);
+  --chart-2: oklch(0.60 0.15 200);
+  --chart-3: oklch(0.55 0.18 300);
+  --chart-4: oklch(0.70 0.15 160);
+  --chart-5: oklch(0.65 0.20 30);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.97 0.01 240);
+  --sidebar-foreground: oklch(0.20 0.02 240);
+  --sidebar-primary: oklch(0.55 0.20 260);
+  --sidebar-primary-foreground: oklch(0.98 0.01 260);
+  --sidebar-accent: oklch(0.93 0.02 260);
+  --sidebar-accent-foreground: oklch(0.30 0.05 260);
+  --sidebar-border: oklch(0.90 0.01 240);
+  --sidebar-ring: oklch(0.55 0.20 260);
+
+  /* --- 3. Variables glass — Thème clair --- */
+  --glass-bg: rgba(255, 255, 255, 0.60);
+  --glass-bg-strong: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --glass-blur: 16px;
+  --glass-saturate: 150%;
+
+  /* --- 4. Variables aurora — Thème clair --- */
+  --aurora-color-1: oklch(0.75 0.15 260);
+  --aurora-color-2: oklch(0.80 0.12 200);
+  --aurora-color-3: oklch(0.72 0.18 300);
+  --aurora-opacity: 0.35;
+  --aurora-duration: 25s;
+}
+
+/* --- 2b. Variables shadcn/ui — Thème sombre --- */
+.dark {
+  --background: oklch(0.15 0.02 260);
+  --foreground: oklch(0.95 0.01 240);
+  --card: oklch(0.20 0.02 260);
+  --card-foreground: oklch(0.95 0.01 240);
+  --popover: oklch(0.20 0.02 260);
+  --popover-foreground: oklch(0.95 0.01 240);
+  --primary: oklch(0.65 0.20 260);
+  --primary-foreground: oklch(0.15 0.02 260);
+  --secondary: oklch(0.27 0.02 260);
+  --secondary-foreground: oklch(0.95 0.01 240);
+  --muted: oklch(0.27 0.02 260);
+  --muted-foreground: oklch(0.68 0.02 240);
+  --accent: oklch(0.32 0.04 260);
+  --accent-foreground: oklch(0.90 0.03 260);
+  --destructive: oklch(0.70 0.19 22);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.65 0.20 260);
+  --chart-1: oklch(0.65 0.20 260);
+  --chart-2: oklch(0.60 0.15 200);
+  --chart-3: oklch(0.55 0.18 300);
+  --chart-4: oklch(0.70 0.15 160);
+  --chart-5: oklch(0.65 0.20 30);
+  --sidebar: oklch(0.18 0.02 260);
+  --sidebar-foreground: oklch(0.95 0.01 240);
+  --sidebar-primary: oklch(0.65 0.20 260);
+  --sidebar-primary-foreground: oklch(0.15 0.02 260);
+  --sidebar-accent: oklch(0.32 0.04 260);
+  --sidebar-accent-foreground: oklch(0.90 0.03 260);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.65 0.20 260);
+
+  /* --- 3b. Variables glass — Thème sombre --- */
+  --glass-bg: rgba(20, 25, 45, 0.50);
+  --glass-bg-strong: rgba(20, 25, 45, 0.70);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.30);
+
+  /* --- 4b. Variables aurora — Thème sombre --- */
+  --aurora-color-1: oklch(0.45 0.20 260);
+  --aurora-color-2: oklch(0.40 0.15 200);
+  --aurora-color-3: oklch(0.42 0.18 300);
+  --aurora-opacity: 0.25;
+}
+
+/* --- 5. Utilitaires glass --- */
+@utility glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+@utility glass-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* --- 6. Base + aurora background --- */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    position: relative;
+    min-height: 100vh;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Fond aurora : gradient animé fixed derrière tout (matière pour le glass blur) */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.aurora-bg::before,
+.aurora-bg::after {
+  content: "";
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: var(--aurora-opacity);
+  animation: aurora-rotate var(--aurora-duration) ease-in-out infinite;
+}
+
+.aurora-bg::before {
+  top: -20vw;
+  left: -10vw;
+  background: radial-gradient(circle, var(--aurora-color-1), transparent 70%);
+}
+
+.aurora-bg::after {
+  bottom: -20vw;
+  right: -10vw;
+  background: radial-gradient(circle, var(--aurora-color-2), transparent 70%);
+  animation-delay: calc(var(--aurora-duration) / -2);
+}
+
+.aurora-bg-3 {
+  position: absolute;
+  top: 30%;
+  left: 40%;
+  width: 50vw;
+  height: 50vw;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: var(--aurora-opacity);
+  background: radial-gradient(circle, var(--aurora-color-3), transparent 70%);
+  animation: aurora-rotate var(--aurora-duration) ease-in-out infinite reverse;
+  animation-delay: calc(var(--aurora-duration) / -3);
+}
+
+@keyframes aurora-rotate {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(10vw, 5vw) scale(1.1); }
+  66% { transform: translate(-5vw, 10vw) scale(0.9); }
+}
+
+/* Scrollbar discrète */
+@layer base {
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 3px;
+    opacity: 0.3;
+  }
+  ::-webkit-scrollbar-thumb:hover { opacity: 0.5; }
+}
+
+/* --- 7. Éditeur de texte riche (TipTap) --- */
+.tiptap-content {
+  line-height: 1.6;
+}
+.tiptap-content p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+.tiptap-content p { margin: 0.25rem 0; }
+.tiptap-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.tiptap-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.tiptap-content blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.tiptap-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.tiptap-content code {
+  background: var(--muted);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  font-family: var(--font-geist-mono);
+  font-size: 0.875em;
+}
+.tiptap-content pre {
+  background: var(--muted);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.tiptap-content pre code {
+  background: transparent;
+  padding: 0;
+}
+/* Coloration syntaxique lowlight (hljs-compatible) */
+.tiptap-content .hljs-comment, .tiptap-content .hljs-quote { color: var(--muted-foreground); font-style: italic; }
+.tiptap-content .hljs-keyword, .tiptap-content .hljs-selector-tag, .tiptap-content .hljs-built_in { color: oklch(0.55 0.2 270); }
+.tiptap-content .hljs-string, .tiptap-content .hljs-attr { color: oklch(0.55 0.18 145); }
+.tiptap-content .hljs-number, .tiptap-content .hljs-literal { color: oklch(0.6 0.2 60); }
+.tiptap-content .hljs-title, .tiptap-content .hljs-section, .tiptap-content .hljs-name { color: oklch(0.6 0.18 250); }
+.tiptap-content .hljs-attribute, .tiptap-content .hljs-variable, .tiptap-content .hljs-template-variable { color: oklch(0.6 0.18 30); }
+.tiptap-content .hljs-type, .tiptap-content .hljs-class .hljs-title { color: oklch(0.6 0.18 200); }
+.tiptap-content .hljs-meta { color: var(--muted-foreground); }
+.tiptap-content .hljs-deletion { color: oklch(0.55 0.22 25); }
+.tiptap-content .hljs-addition { color: oklch(0.55 0.18 145); }
+.tiptap-content .hljs-emphasis { font-style: italic; }
+.tiptap-content .hljs-strong { font-weight: 700; }
+.tiptap-content h1 { font-size: 1.5em; font-weight: 700; margin: 0.5rem 0; }
+.tiptap-content h2 { font-size: 1.25em; font-weight: 700; margin: 0.5rem 0; }
+.tiptap-content h3 { font-size: 1.1em; font-weight: 600; margin: 0.5rem 0; }
+.tiptap-content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}

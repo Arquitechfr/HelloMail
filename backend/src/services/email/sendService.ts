@@ -1,11 +1,14 @@
 import nodemailer from 'nodemailer';
+import type { ImapFlow } from 'imapflow';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import type { IAccountDocument } from '../../models/Account.js';
+import { MessageModel } from '../../models/Message.js';
 import { AppError } from '../../utils/AppError.js';
 import { logger } from '../../config/logger.js';
 import { decrypt } from '../security/encryptionService.js';
 import { imapPool } from './imapPool.js';
 import { findSentFolder } from './specialFolders.js';
+import { mapFetchResultToMessage } from '../sync/messageMapper.js';
 import { SMTP_TIMEOUT_MS } from '../../config/constants.js';
 
 export interface SendEmailInput {
@@ -141,11 +144,17 @@ export async function sendEmail(
 }
 
 /**
- * Sauvegarde le raw MIME dans le dossier Sent via IMAP append.
+ * Sauvegarde le raw MIME dans le dossier Sent via IMAP append, puis fait miroir
+ * dans MongoDB pour que le message apparaisse immédiatement dans la liste Sent
+ * (sans attendre la sync initiale du worker à la prochaine reconnexion).
  *
  * Détecte le dossier Sent via specialUse (\\Sent) avec fallbacks sur les noms
  * courants (Sent, Sent Items, Envoyés, etc.). Si aucun dossier Sent n'est trouvé,
  * tente "Sent" comme dernier recours.
+ *
+ * Miroir MongoDB best-effort : si l'UID n'est pas retourné par `append` (certains
+ * serveurs IMAP ne le fournissent pas) ou si le fetch échoue, le message sera
+ * rattrapé par la sync initiale du worker au prochain démarrage.
  *
  * Non bloquant : une erreur de sauvegarde ne fait pas échouer l'envoi.
  */
@@ -157,13 +166,67 @@ async function saveToSent(account: IAccountDocument, rawMime: Buffer): Promise<v
     const sentPath = (await findSentFolder(account)) ?? 'Sent';
 
     const client = await imapPool.acquire(account);
+    let appendResult: { uid?: number } | undefined;
     try {
-      await client.append(sentPath, rawMime, ['\\Seen']);
+      appendResult = (await client.append(sentPath, rawMime, ['\\Seen'])) as { uid?: number } | undefined;
     } finally {
       imapPool.release(accountId);
+    }
+
+    // Miroir dans MongoDB : récupère l'enveloppe du message appendé pour l'upsert.
+    // Best-effort — si l'UID est absent ou le fetch échoue, le worker rattrapera
+    // à la prochaine sync initiale (le dossier Sent est désormais syncé au démarrage).
+    if (appendResult?.uid) {
+      await mirrorSentToMongo(client, account, accountId, sentPath, appendResult.uid);
+    } else {
+      logger.info(
+        { accountId, folder: sentPath },
+        'Append Sent sans UID — miroir MongoDB reporté à la prochaine sync worker',
+      );
     }
   } catch (error) {
     // La sauvegarde dans Sent est best-effort : ne pas faire échouer l'envoi.
     logger.warn({ accountId, error: error instanceof Error ? error.message : 'erreur inconnue' }, 'Échec sauvegarde Sent (non bloquant)');
+  }
+}
+
+/**
+ * Récupère l'enveloppe du message appendé et l'upsert dans MongoDB.
+ * Ouvre le dossier Sent en readOnly (lecture seule — préserve les flags).
+ * Best-effort : catche ses propres erreurs et log seulement.
+ */
+async function mirrorSentToMongo(
+  client: ImapFlow,
+  account: IAccountDocument,
+  accountId: string,
+  sentPath: string,
+  uid: number,
+): Promise<void> {
+  try {
+    await client.mailboxOpen(sentPath, { readOnly: true });
+    const msg = await client.fetchOne(uid, {
+      uid: true,
+      envelope: true,
+      flags: true,
+      bodyStructure: true,
+      size: true,
+    }, { uid: true });
+
+    if (!msg) {
+      logger.warn({ accountId, folder: sentPath, uid }, 'Miroir Sent : message non trouvé après append');
+      return;
+    }
+
+    const messageInput = mapFetchResultToMessage(accountId, sentPath, msg);
+    await MessageModel.updateOne(
+      { accountId, folder: messageInput.folder, uid: messageInput.uid },
+      { $set: messageInput },
+      { upsert: true },
+    );
+  } catch (error) {
+    logger.warn(
+      { accountId, folder: sentPath, uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'Miroir Sent MongoDB échoué (non bloquant — rattrapé par sync worker)',
+    );
   }
 }

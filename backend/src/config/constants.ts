@@ -6,7 +6,7 @@ export const JWT_ACCESS_EXPIRES_IN = env.JWT_ACCESS_EXPIRES_IN;
 export const JWT_REFRESH_EXPIRES_IN_DAYS = env.JWT_REFRESH_EXPIRES_IN_DAYS;
 
 export const RATE_LIMIT_AUTH_WINDOW_MS = 15 * 60 * 1000;
-export const RATE_LIMIT_AUTH_MAX = 10;
+export const RATE_LIMIT_AUTH_MAX = env.NODE_ENV === 'production' ? 10 : 100;
 
 // --- Rate limit global (Phase 5) ---
 
@@ -14,7 +14,7 @@ export const RATE_LIMIT_AUTH_MAX = 10;
 export const RATE_LIMIT_GLOBAL_WINDOW_MS = 15 * 60 * 1000;
 
 /** Nombre max de requêtes par fenêtre par IP (global). */
-export const RATE_LIMIT_GLOBAL_MAX = 100;
+export const RATE_LIMIT_GLOBAL_MAX = env.NODE_ENV === 'production' ? 100 : 1000;
 
 // --- Sync worker (Phase 2) ---
 
@@ -50,7 +50,7 @@ export const SMTP_TIMEOUT_MS = 30_000;
 export const SEND_RATE_LIMIT_WINDOW_MS = 60_000;
 
 /** Nombre max d'envois par fenêtre par IP. */
-export const SEND_RATE_LIMIT_MAX = 20;
+export const SEND_RATE_LIMIT_MAX = env.NODE_ENV === 'production' ? 20 : 200;
 
 /** Taille maximale totale d'un message envoyé (bytes, avant base64). */
 export const SEND_MAX_TOTAL_SIZE_BYTES = 25 * 1024 * 1024;

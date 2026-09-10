@@ -3,16 +3,22 @@ import DOMPurify from 'isomorphic-dompurify';
 /**
  * Configuration de sanitization pour les corps d'emails HTML.
  *
- * Restrictive : neutralise <script>, <style>, <form>, les event handlers,
- * les URIs javascript:/data:, et n'autorise que les schémas sûrs
- * (https, mailto, tel, cid pour les images inline, ancres #).
+ * Neutralise <script>, <form>, les event handlers et les URIs dangereuses
+ * (javascript:, data:), mais préserve les styles (inline et <style>) et
+ * les images (http/https) pour un rendu fidèle des emails.
+ *
+ * Sécurité :
+ * - <script> interdit → pas d'exécution de code.
+ * - Event handlers (on*) interdits → pas de déclencheurs.
+ * - L'iframe sandbox (allow-same-origin sans allow-scripts) isole le rendu.
+ * - DOMPurify neutralise les attaques CSS (expression(), behavior, etc.).
  */
 const SANITIZE_CONFIG = {
   USE_PROFILES: { html: true },
-  FORBID_TAGS: ['script', 'style', 'form', 'input', 'meta', 'link', 'base', 'object', 'embed'],
+  FORBID_TAGS: ['script', 'form', 'input', 'meta', 'link', 'base', 'object', 'embed'],
   FORBID_ATTR: [
     'onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout',
-    'onfocus', 'onblur', 'style', 'srcset', 'formaction',
+    'onfocus', 'onblur', 'formaction',
   ],
   ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|tel:|cid:|#)/i,
 };

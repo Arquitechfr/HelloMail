@@ -33,7 +33,7 @@ export const eventsController = {
 
     // Souscrit aux événements de l'utilisateur.
     const unsubscribe = subscribeToUserEvents(req.user.id, (event) => {
-      res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`);
+      res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
     });
 
     logger.info({ userId: req.user.id }, 'Connexion SSE établie');

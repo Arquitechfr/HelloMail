@@ -1,5 +1,5 @@
 import type { ImapFlow } from 'imapflow';
-import { env } from '../../config/env.js';
+import { logger } from '../../config/logger.js';
 import { MessageModel } from '../../models/Message.js';
 
 /**
@@ -28,6 +28,11 @@ export async function reconcileFolder(
 
   const knownUids = knownDocs.map((doc) => doc.uid);
 
+  // Ouvre le dossier en readOnly avant le fetch — le client peut être positionné
+  // sur un autre dossier (ex: après runInitialSyncAll qui parcourt plusieurs dossiers).
+  // Sans cette ouverture, le fetch UID retournerait des résultats du mauvais dossier.
+  await client.mailboxOpen(folder, { readOnly: true });
+
   // Fetch ces UID sur le serveur pour vérifier lesquels existent encore.
   const returnedUids = new Set<number>();
   for await (const msg of client.fetch(knownUids, { uid: true }, { uid: true })) {
@@ -47,11 +52,10 @@ export async function reconcileFolder(
     uid: { $in: missingUids },
   });
 
-  if (env.NODE_ENV !== 'production') {
-    console.log(
-      `[sync] Compte ${accountId} : reconciliation ${result.deletedCount} message(s) supprimé(s) (expunge sans UID)`,
-    );
-  }
+  logger.info(
+    { accountId, folder, deleted: result.deletedCount },
+    'Reconciliation : messages supprimés (absents d\'IMAP)',
+  );
 
   return result.deletedCount;
 }

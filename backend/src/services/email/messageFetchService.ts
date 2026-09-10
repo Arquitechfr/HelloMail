@@ -49,10 +49,15 @@ function parseBodyStructure(
   const type = node.type.toLowerCase();
 
   if (!node.childNodes || node.childNodes.length === 0) {
-    if (node.part && type === 'text/plain' && parts.text === undefined) {
-      parts.text = node.part;
-    } else if (node.part && type === 'text/html' && parts.html === undefined) {
-      parts.html = node.part;
+    // Pour un message non-multipart (text/plain ou text/html simple), ImapFlow
+    // peut retourner `part: ''` (vide) pour le noeud racine. Fallback "1" pour
+    // pouvoir télécharger le corps via BODY.PEEK[1].
+    const part = node.part || '1';
+
+    if (type === 'text/plain' && parts.text === undefined) {
+      parts.text = part;
+    } else if (type === 'text/html' && parts.html === undefined) {
+      parts.html = part;
     } else if (node.part && node.disposition === 'attachment') {
       parts.attachments.push({
         filename: node.dispositionParameters?.filename ?? node.parameters?.name ?? 'sans-nom',

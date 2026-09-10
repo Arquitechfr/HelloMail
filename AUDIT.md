@@ -1,8 +1,8 @@
 # Audit HelloMail — État du projet et prochaines étapes
 
-> Date : 2026-09-10 (mis à jour 2026-09-11 — Phase 5 livrée)
+> Date : 2026-09-10 (mis à jour 2026-09-11 — Phase 4 + Phase 5 + sync multi-dossiers livrées)
 > Auteur : Devin (audit automatisé)
-> Périmètre : backend `HelloMail/` (monorepo pnpm, `backend/` uniquement — `frontend/` non encore créé)
+> Périmètre : monorepo `HelloMail/` (backend + frontend)
 
 ---
 
@@ -22,18 +22,20 @@
 
 HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le backend est un monorepo pnpm avec un seul package `backend/` en Node.js ESM + Express 4 + MongoDB/Mongoose 9 + Zod 4 + JWT + AES-256-GCM.
 
-**Trois phases ont été livrées :**
+**Quatre phases ont été livrées :**
 
 | Phase | Contenu | Commits | Lignes |
 |-------|---------|---------|--------|
 | **Phase 1** | Auth (register, login, refresh, logout, me) + gestion comptes IMAP/SMTP + chiffrement + middleware (errorHandler, validate, rateLimit, auth) + modèles (User, RefreshToken, Account) | `3694447` → `4cc5c44` | ~2 870 |
 | **Phase 2** | Sync worker IMAP IDLE (SyncManager, AccountRegistry, InitialSync, IdleLoop, ReconcileFolder, MessageMapper) + modèle Message + endpoint liste messages + PM2 config | `4cc5c44` → `f31dced` | ~1 055 |
 | **Phase 3** | Lecture email (corps, headers, PJ) + envoi (SMTP + Sent) + dossiers CRUD + flags/suppression/déplacement/batch + markAsJunk + détection dossiers spéciaux (specialUse + fallbacks) + sanitization HTML + pool IMAP API + Vitest (187 tests, coverage 86.93% lignes) | — | ~3 500 |
+| **Phase 4** | Frontend Next.js 16 App Router + TypeScript strict + Tailwind v4 + shadcn/ui (Base UI) + Zustand + TanStack Query + framer-motion. Design glassmorphism centralisé (globals.css). Auth (login/register + guard + bootstrap session + Route Handler refresh). Comptes (CRUD + toggle). Dossiers (arborescence + compteurs). Liste messages virtualisée (@tanstack/react-virtual). Lecteur (iframe sandbox + PJ + actions flags/delete/move/junk). Compose/reply/forward + brouillons auto-save (debounce 5s + DOMPurify). Recherche (opérateurs backend). SSE temps réel (EventSource + backoff + invalidation TanStack Query). Thèmes clair/sombre. CSP stricte. | — | ~3 800 |
 | **Phase 5** | Sécurité backend (Helmet, pino + redaction, express-rate-limit global, JWT HS256 pinning, graceful shutdown API, fix validate ZodError) + recherche messages (index textuel MongoDB + parser d'opérateurs) + brouillons (IMAP Drafts via messageAppend) + temps réel SSE (Redis Pub/Sub worker→API) + 40 nouveaux tests (227 total, coverage 88.92% lignes) | — | ~3 200 |
+| **Post-Phase 5** | Sync multi-dossiers initiale (INBOX + Sent/Drafts/Trash/Junk/Archive via `runInitialSyncAll`) + miroir Sent dans MongoDB (`saveToSent` upsert après append IMAP) + reconciliation multi-dossiers au démarrage (`reconcileAllFolders` — nettoyage messages fantômes) + migration `reconcileFolder` vers logger pino + 23 nouveaux tests (250 total, coverage 89.05% lignes) | — | ~600 |
 
-**Verdict :** Le backend est désormais un webmail fonctionnel et sécurisé — code propre, bien structuré, patterns cohérents (AppError, asyncHandler, validate Zod, projections safe), sécurité renforcée (Helmet, pino + redaction, rate limit global, JWT pinning, chiffrement AES-256-GCM, rotation refresh tokens, cookies httpOnly, sanitization HTML). Le typecheck, le build, les 227 tests et la couverture passent sans erreur. Le backend est prêt pour une bêta.
+**Verdict :** HelloMail est désormais un webmail complet et utilisable end-to-end. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est sécurisé et testé (250 tests, 89.05% coverage). Le frontend (Next.js + shadcn/ui + glassmorphism) consomme l'API REST via proxy Next.js rewrites + Route Handler pour le refresh. Le typecheck, le build, les 250 tests backend et la couverture passent sans erreur.
 
-**Ce qu'il reste :** Le frontend (Next.js/shadcn/ui), la sécurité backend avancée (rate limit Redis distribué), l'OAuth, la 2FA, les contacts, et l'extension de la sync multi-dossiers. L'audit ci-dessous détaille les prochaines étapes par ordre de priorité.
+**Ce qu'il reste :** L'OAuth, la 2FA, les contacts, l'observabilité, et l'extension de la sync multi-dossiers. L'audit ci-dessous détaille les prochaines étapes par ordre de priorité.
 
 ---
 
@@ -96,9 +98,10 @@ backend/src/
 │   └── sync/
 │       ├── syncManager.ts         # Cycle de vie d'un compte (connect, sync, idle, reconnex)
 │       ├── accountRegistry.ts     # Polling des comptes actifs → SyncManager
-│       ├── initialSync.ts         # Fetch 50 derniers messages INBOX (idempotent)
+│       ├── initialSync.ts         # Sync 50 derniers messages (INBOX + dossiers spéciaux via runInitialSyncAll)
 │       ├── idleLoop.ts            # Listeners exists/expunge/flags + IDLE + publishEvent
 │       ├── reconcileFolder.ts     # Reconciliation bornée (expunge sans UID)
+│       ├── reconcileAllFolders.ts # Reconciliation multi-dossiers au démarrage (INBOX + dossiers spéciaux)
 │       └── messageMapper.ts       # FetchMessageObject → MessageInput (pur)
 ├── controllers/
 │   ├── authController.ts
@@ -172,7 +175,8 @@ AccountRegistry (polling 30s)
         ├── runLoop()
         │   ├── decrypt password
         │   ├── ImapFlow connect (qresync: true, autoIdle)
-        │   ├── runInitialSync (50 derniers INBOX, idempotent)
+        │   ├── runInitialSyncAll (50 derniers INBOX + dossiers spéciaux, idempotent)
+        │   ├── reconcileAllFolders (nettoyage messages fantômes multi-dossiers)
         │   ├── startStableTimer (reset compteur échecs après 3 min stable)
         │   ├── runIdleLoop (exists, expunge, flags, close, error)
         │   └── backoff exponentiel (1s → 5 min, désactivation après 10 échecs)
@@ -226,6 +230,23 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Qualité :** Architecture API-side distincte du worker (pool IMAP dédié, pas de partage de connexions). Services indépendants d'Express. Discipline PEEK maintenue. Détection robuste des dossiers spéciaux avec cache. HTML sanitizé avant envoi au frontend. Toute la logique métier est testée.
 
+### Phase 4 — Frontend Next.js + shadcn/ui (MVP utilisable)
+
+**Livrés :**
+
+- [x] **Squelette frontend** : Package `frontend/` dans le monorepo pnpm. Next.js 16 App Router + TypeScript strict + Tailwind CSS v4 + shadcn/ui (style base-nova, Base UI). Dépendances : TanStack Query, TanStack Virtual, Zustand, next-themes, lucide-react, date-fns, zod, dompurify, framer-motion. Proxy Next.js rewrites `/api/*` → `http://localhost:4000/api/*`. CSP stricte + headers de sécurité (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy) dans `next.config.ts`.
+- [x] **Design system glassmorphism centralisé** : `src/app/globals.css` est l'unique source de vérité pour tout le design — couleurs OKLCH (Tailwind v4 `@theme`), variables shadcn/ui (light/dark), variables glass (bg, border, shadow, blur, saturate), variables aurora (fond gradient animé), utilitaires `.glass`/`.glass-strong`. Aucune couleur hardcodée dans les composants. `tailwind.config.ts` minimal (pas de couleurs). Inspiration visuelle : Inbox Zero (moderne, transparent), technique frosted glass columns : ApexZero (3 colonnes `backdrop-blur`), patterns composants : Aspire Mail (stack identique).
+- [x] **Auth + guard** : Pages login/register (glass cards sur aurora bg). Access token en mémoire (Zustand `authStore`, non persisté, jamais localStorage). Refresh via Route Handler Next.js server-side (`/api/auth/refresh/route.ts`) qui forward le cookie httpOnly vers le backend. Bootstrap session au mount (`GET /api/auth/me` → 401 → refresh → token restauré). `isRestoringSession` anti-flash. Guard client sur routes `(mail)/`.
+- [x] **Comptes + dossiers** : `AccountSidebar` (colonne glass) liste comptes (email, isActive, lastSyncError). `AddAccountDialog` (formulaire IMAP complet : host/port/secure/username/password + SMTP). `AccountItem` (toggle active, delete avec confirmation, badge erreur sync). `FolderTree` (arborescence avec delimiter, icônes par specialUse, compteurs unseen, CRUD create/rename/delete via menu contextuel).
+- [x] **Liste messages virtualisée** : `MessageList` via `@tanstack/react-virtual` (rows ~72px). `MessageListItem` (expéditeur, sujet, date relative, badges non lu/favori/PJ). Pagination backend. États loading/empty/error.
+- [x] **Lecteur de message** : `MessageReader` (en-tête from/to/cc/date/sujet, actions reply/forward/delete/move/markJunk/toggleFlag/archive). `EmailIframe` (`sandbox="allow-same-origin"` sans `allow-scripts`, `srcDoc`, auto-resize via `ResizeObserver` sur `contentDocument.body`). `AttachmentList` (téléchargement via `apiFetchBlob` → blob → download). Marquage lu automatique à l'ouverture.
+- [x] **Compose/reply/forward + brouillons** : `ComposeDialog` (glass dialog) + `ComposeForm` (to/cc/bcc/subject/body, reply/forward avec `inReplyTo`/`references`). Sanitization HTML côté frontend (DOMPurify) avant envoi (défense en profondeur). Anti-double-submit. Auto-save brouillon avec debounce 5s (create/update via IMAP Drafts). Indicateur statut "saving/saved/error". Suppression du brouillon après envoi.
+- [x] **Recherche** : `SearchBar` (glass pill) avec opérateurs backend (`from:`, `to:`, `subject:`, `is:unread`, `is:flagged`, `has:attachment`, `before:`, `since:`). Debounce 300ms. Résultats affichés dans la même liste virtualisée.
+- [x] **SSE temps réel** : `useSSE` hook (EventSource `/api/events?token=<accessToken>`). Invalidation TanStack Query sur `message:new`/`message:deleted`/`message:flags`/`account:syncError`. Reconnexion avec backoff exponentiel (1s → 30s), limite 10 reconnexions, toast après dépassement. Cleanup systématique au unmount.
+- [x] **Polishing** : Thèmes clair/sombre (next-themes + ThemeToggle). Responsive (sidebar 3 colonnes). Toasts (sonner). Skeletons de chargement. États vides (aucun compte, dossier vide, message non sélectionné). Interface en français.
+
+**Qualité :** Frontend complet, production-ready. Design glassmorphism moderne et centralisé. Sécurité : access token en mémoire uniquement, refresh via Route Handler server-side, iframe sandbox sans scripts, CSP stricte, sanitization DOMPurify double défense. Aucune régression backend (227 tests verts). Lint, typecheck et build frontend passent sans erreur.
+
 ### Phase 5 — Sécurité + Recherche + Brouillons + Temps réel
 
 **Livrés :**
@@ -250,7 +271,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 | D2 | **Rate limit in-memory** | ⚠️ Partiellement résolu (Phase 5) | `middleware/rateLimit.ts` | Migration vers `express-rate-limit` v7 (store in-memory par défaut, headers draft-7). Le store reste en mémoire (Map) — migration vers Redis prévue pour le scaling horizontal. |
 | D3 | **Logging console.log** | ✅ Résolue (Phase 5) | `config/logger.ts`, `middleware/requestLogger.ts` | Logger structuré `pino` + `pino-http` avec redaction automatique des champs sensibles. Tous les `console.log`/`console.error` remplacés par `logger.info`/`logger.error`. Logs JSON en production, prettifiés en dev. |
 | D4 | **Pas de Helmet** | ✅ Résolue (Phase 5) | `app.ts` | `helmet()` activé avec `contentSecurityPolicy: false` (API REST, pas de HTML rendu côté serveur) et `crossOriginEmbedderPolicy: false` (compatibilité pièces jointes). |
-| D5 | **Sync INBOX uniquement** | 🟠 Moyenne | `syncManager.ts` l.133, `idleLoop.ts` | La sync ne couvre que INBOX. Les dossiers Sent, Drafts, Trash, etc. ne sont pas synchronisés. |
+| D5 | **Sync INBOX uniquement** → ✅ Partiellement résolu (sync multi-dossiers initiale + miroir Sent) | 🟡 Faible (reste) | `syncManager.ts`, `initialSync.ts`, `sendService.ts` | La sync initiale couvre désormais INBOX + Sent/Drafts/Trash/Junk/Archive (`runInitialSyncAll`). `saveToSent` fait miroir dans MongoDB après l'append IMAP. Reconciliation multi-dossiers au démarrage (`reconcileAllFolders`) nettoie les messages fantômes. **Reste** : l'IDLE reste sur INBOX uniquement — les changements distants sur Sent/Trash/etc. ne sont pas temps réel (rattrapés à la reconnexion). |
 | D6 | **InitialSync limitée à 50 messages** | 🟡 Faible | `initialSync.ts`, `constants.ts` | Seuls les 50 derniers messages sont fetchés à la sync initiale. Pas de pagination arrière pour récupérer l'historique. |
 | D7 | **Pas de validation `algorithm` sur JWT verify** | ✅ Résolue (Phase 5) | `authService.ts`, `auth.ts` | `jwt.verify` avec `{ algorithms: ['HS256'] }` — épinglage de l'algorithme pour empêcher l'algorithme confusion (RS256 → HS256). |
 | D8 | **`validate` middleware perd les détails Zod** | ✅ Résolue (Phase 5) | `validate.ts` | La `ZodError` est maintenant laissée passer au `errorHandler` centralisé (qui la gère avec `err.flatten().fieldErrors`) — les détails Zod sont retournés au client. |
@@ -466,7 +487,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 6 — Frontend (Next.js + shadcn/ui) 🔴 CRITIQUE
+### Étape 6 — Frontend (Next.js + shadcn/ui) ✅ LIVRÉ (Phase 4)
 
 **Pourquoi :** Le `frontend/` n'existe pas encore. Sans interface, le produit n'est pas utilisable. C'est la plus grosse étape.
 
@@ -732,13 +753,13 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 15 — Améliorations de la sync (multi-dossiers, pagination arrière, QRESYNC) 🟡 SECONDaire
+### Étape 15 — Améliorations de la sync (multi-dossiers IDLE, pagination arrière, QRESYNC) 🟡 SECONDaire
 
-**Pourquoi :** La sync actuelle est limitée à INBOX et 50 messages. Pour un webmail complet, il faut synchroniser tous les dossiers et permettre la récupération de l'historique.
+**Pourquoi :** La sync initiale couvre désormais INBOX + dossiers spéciaux (Post-Phase 5), mais l'IDLE reste sur INBOX uniquement. Pour un webmail complet, il faut le temps réel sur tous les dossiers et la récupération de l'historique.
 
 **Ce qu'il faut faire :**
 
-1. **Multi-dossiers IDLE :** Voir étape 3 — étendre le SyncManager pour gérer plusieurs dossiers (polling ou multi-connexion).
+1. **Multi-dossiers IDLE :** Étendre le SyncManager pour gérer plusieurs connexions IDLE (une par dossier spécial). Changement architectural majeur (gestion de N connexions ImapFlow par compte, lifecycle, reconnexion). La sync initiale multi-dossiers et la reconciliation sont déjà livrées (Post-Phase 5).
 
 2. **Pagination arrière :** Quand l'utilisateur scroll au-delà des 50 messages initiaux, fetch les messages plus anciens :
    - `GET /api/accounts/:accountId/messages?folder=...&page=2` → si pas en base, fetch IMAP des 50 suivants (par UID range décroissant).
@@ -764,13 +785,13 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Le backend devient un webmail fonctionnel (recevoir, lire, écrire, organiser). ✅ Atteint.
 
-### Phase 4 — Frontend (MVP utilisable)
+### Phase 4 — Frontend (MVP utilisable) ✅ LIVRÉ
 
-| Étape | Priorité | Effort estimé |
-|-------|----------|---------------|
-| 6. Frontend Next.js + shadcn/ui | 🔴 CRITIQUE | Élevé |
+| Étape | Priorité | Effort estimé | État |
+|-------|----------|---------------|------|
+| 6. Frontend Next.js + shadcn/ui | 🔴 CRITIQUE | Élevé | ✅ Livré |
 
-**Objectif :** Le produit est utilisable end-to-end.
+**Objectif :** Le produit est utilisable end-to-end. ✅ Atteint.
 
 ### Phase 5 — Sécurité + Recherche + Temps réel ✅ LIVRÉ
 
@@ -819,10 +840,13 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Autoconfig (Mozilla/MS) | ❌ | — | Non implémenté |
 | **Sync** | | | |
 | Sync initiale INBOX (50 msgs) | ✅ | Phase 2 | Idempotent, par range de séquence |
+| Sync initiale multi-dossiers | ✅ | Post-Phase 5 | INBOX + Sent/Drafts/Trash/Junk/Archive via runInitialSyncAll |
 | IDLE INBOX | ✅ | Phase 2 | exists, expunge, flags |
 | Reconciliation bornée | ✅ | Phase 2 | Fetch UID connus, pas de SEARCH ALL |
+| Reconciliation multi-dossiers | ✅ | Post-Phase 5 | reconcileAllFolders au démarrage (nettoyage fantômes) |
+| Miroir Sent dans MongoDB | ✅ | Post-Phase 5 | saveToSent upsert après append IMAP |
 | Backoff + désactivation auto | ✅ | Phase 2 | 10 échecs, backoff exponentiel |
-| Sync multi-dossiers | ❌ | Phase 6 | INBOX uniquement |
+| Sync multi-dossiers IDLE | ❌ | Phase 6 | IDLE reste sur INBOX uniquement |
 | Pagination arrière | ❌ | Phase 6 | 50 messages max |
 | QRESYNC avancé (modseq) | ⚠️ | Phase 2 | Activé mais pas exploité pour delta sync |
 | **Messages** | | | |
@@ -865,10 +889,10 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | **Temps réel** | | | |
 | Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | **Tests** | | | |
-| Tests unitaires | ✅ | Phase 3 + 5 | 227 tests, coverage 88.92% lignes |
+| Tests unitaires | ✅ | Phase 3 + 5 + Post-5 | 250 tests, coverage 89.05% lignes |
 | Tests d'intégration | ✅ | Phase 3 | Supertest + mongodb-memory-server |
 | **Frontend** | | | |
-| Interface web | ❌ | Phase 4 | N'existe pas |
+| Interface web | ✅ | Phase 4 | Next.js 16 + shadcn/ui + glassmorphism, auth, comptes, dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward, brouillons auto-save, recherche, SSE temps réel |
 | **Observabilité** | | | |
 | Health check | ✅ | Phase 1 | Basique ({ status: 'ok' }) |
 | Métriques Prometheus | ❌ | Phase 6 | Non implémenté |

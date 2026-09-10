@@ -7,6 +7,8 @@ const mockClient = {
   connect: vi.fn().mockResolvedValue(undefined),
   logout: vi.fn().mockResolvedValue(undefined),
   append: vi.fn().mockResolvedValue({ uid: 1 }),
+  mailboxOpen: vi.fn().mockResolvedValue({ exists: 1 }),
+  fetchOne: vi.fn(),
 };
 
 vi.mock('./imapPool.js', () => ({
@@ -25,6 +27,43 @@ const mockFindSentFolder = vi.fn().mockResolvedValue('Sent');
 
 vi.mock('./specialFolders.js', () => ({
   findSentFolder: mockFindSentFolder,
+}));
+
+// Mock de MessageModel.
+const mockMessageUpdateOne = vi.fn().mockResolvedValue({});
+
+vi.mock('../../models/Message.js', () => ({
+  MessageModel: {
+    updateOne: mockMessageUpdateOne,
+  },
+}));
+
+// Mock de mapFetchResultToMessage.
+const mockMapFetchResult = vi.fn().mockReturnValue({
+  accountId: 'acc1',
+  folder: 'Sent',
+  uid: 1,
+  subject: 'Test',
+  from: { address: 'user@test.com' },
+  to: [{ address: 'bob@test.com' }],
+  date: new Date('2026-01-15T10:00:00Z'),
+  flags: { seen: true, answered: false, flagged: false },
+  hasAttachments: false,
+  size: 1024,
+});
+
+vi.mock('../sync/messageMapper.js', () => ({
+  mapFetchResultToMessage: mockMapFetchResult,
+}));
+
+// Mock de logger.
+vi.mock('../../config/logger.js', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
 // Mock de nodemailer.
@@ -209,5 +248,65 @@ describe('sendEmail', () => {
     await sendEmail(makeAccount(), baseInput);
 
     expect(mockClient.append).toHaveBeenCalledWith('Sent', expect.any(Buffer), ['\\Seen']);
+  });
+
+  describe('miroir Sent dans MongoDB', () => {
+    it('upsert le message dans MongoDB après append (UID présent)', async () => {
+      mockClient.append.mockResolvedValueOnce({ uid: 42 });
+      mockClient.fetchOne.mockResolvedValueOnce({
+        uid: 42,
+        envelope: { subject: 'Test', from: [{ address: 'user@test.com' }], to: [{ address: 'bob@test.com' }], date: new Date('2026-01-15T10:00:00Z') },
+        flags: new Set(['\\Seen']),
+        bodyStructure: { type: 'text/plain', part: '1' },
+        size: 1024,
+      });
+
+      await sendEmail(makeAccount(), baseInput);
+
+      // Ouvre Sent en readOnly pour fetch l'enveloppe.
+      expect(mockClient.mailboxOpen).toHaveBeenCalledWith('Sent', { readOnly: true });
+      expect(mockClient.fetchOne).toHaveBeenCalledWith(42, expect.objectContaining({ uid: true }), { uid: true });
+      // Upsert dans MongoDB.
+      expect(mockMapFetchResult).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'Sent', expect.anything());
+      expect(mockMessageUpdateOne).toHaveBeenCalledTimes(1);
+    });
+
+    it('ne fait pas de miroir MongoDB si append retourne sans UID', async () => {
+      mockClient.append.mockResolvedValueOnce(undefined);
+
+      await sendEmail(makeAccount(), baseInput);
+
+      expect(mockClient.fetchOne).not.toHaveBeenCalled();
+      expect(mockMessageUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it('ne fait pas échouer l\'envoi si le miroir MongoDB échoue', async () => {
+      mockClient.append.mockResolvedValueOnce({ uid: 42 });
+      mockClient.fetchOne.mockRejectedValueOnce(new Error('IMAP fetch error'));
+
+      const result = await sendEmail(makeAccount(), baseInput);
+
+      expect(result.messageId).toBe('<abc@test.com>');
+      expect(mockMessageUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it('ne fait pas échouer l\'envoi si l\'upsert MongoDB échoue', async () => {
+      mockClient.append.mockResolvedValueOnce({ uid: 42 });
+      mockClient.fetchOne.mockResolvedValueOnce({ uid: 42, envelope: {}, flags: new Set(), bodyStructure: {}, size: 0 });
+      mockMessageUpdateOne.mockRejectedValueOnce(new Error('DB error'));
+
+      const result = await sendEmail(makeAccount(), baseInput);
+
+      expect(result.messageId).toBe('<abc@test.com>');
+    });
+
+    it('ne fait pas de miroir si le message n\'est pas trouvé après append', async () => {
+      mockClient.append.mockResolvedValueOnce({ uid: 42 });
+      mockClient.fetchOne.mockResolvedValueOnce(null);
+
+      await sendEmail(makeAccount(), baseInput);
+
+      expect(mockMessageUpdateOne).not.toHaveBeenCalled();
+    });
   });
 });

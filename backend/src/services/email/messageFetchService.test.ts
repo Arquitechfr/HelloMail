@@ -181,6 +181,39 @@ describe('fetchMessageDetail', () => {
     expect(result.attachments).toHaveLength(0);
   });
 
+  it('gère un message non-multipart avec part vide (régression : body non téléchargé)', async () => {
+    // ImapFlow retourne part: '' pour le noeud racine d'un message non-multipart.
+    const simpleHtmlNoPart: MessageStructureObject = {
+      type: 'text/html',
+      part: '',
+    } as MessageStructureObject;
+
+    mockClient.fetchOne.mockResolvedValueOnce({
+      uid: 350,
+      envelope: {
+        subject: 'Service notification',
+        from: [{ address: 'noreply@service.com' }],
+        to: [{ address: 'bob@test.com' }],
+        date: new Date('2026-01-15T10:00:00Z'),
+      },
+      flags: new Set(),
+      bodyStructure: simpleHtmlNoPart,
+      size: 200,
+      headers: Buffer.from(''),
+    });
+
+    mockClient.download.mockResolvedValueOnce({
+      content: (async function* () { yield Buffer.from('<p>Body du service</p>'); })(),
+    });
+
+    const result = await fetchMessageDetail(makeAccount(), 'INBOX', 350);
+
+    expect(result.text).toBeUndefined();
+    expect(result.html).toBe('<sanitized><p>Body du service</p></sanitized>');
+    // Vérifie que download a été appelé avec part '1' (fallback).
+    expect(mockClient.download).toHaveBeenCalledWith(350, '1', { uid: true });
+  });
+
   it('gère un envelope null (valeurs par défaut)', async () => {
     mockClient.fetchOne.mockResolvedValueOnce({
       uid: 400,
