@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreateAccount } from "@/lib/queries/accounts";
 import { useAutoconfig } from "@/lib/queries/autoconfig";
+import { ServerSettingsAccordion } from "@/components/accounts/ServerSettingsAccordion";
+import { AutoconfigBadge } from "@/components/accounts/AutoconfigBadge";
+import { OAuthQuickButtons } from "@/components/accounts/OAuthQuickButtons";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +18,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface AddAccountDialogProps {
@@ -26,13 +36,13 @@ interface AddAccountDialogProps {
 const INITIAL_FORM = {
   emailAddress: "",
   displayName: "",
+  password: "",
   imapHost: "",
-  imapPort: "993",
+  imapPort: "",
   imapSecure: true,
   imapUsername: "",
-  imapPassword: "",
   smtpHost: "",
-  smtpPort: "465",
+  smtpPort: "",
   smtpSecure: true,
 };
 
@@ -40,47 +50,59 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
   const router = useRouter();
   const createAccount = useCreateAccount();
   const [form, setForm] = useState(INITIAL_FORM);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [debouncedEmail, setDebouncedEmail] = useState("");
 
-  const { data: autoconfig, isFetching: autoconfigLoading } = useAutoconfig(form.emailAddress);
+  // Debounce email pour l'autoconfig (400ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedEmail(form.emailAddress.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form.emailAddress]);
 
-  const applyAutoconfig = () => {
-    if (!autoconfig?.imap || !autoconfig?.smtp) return;
-    setForm((prev) => ({
-      ...prev,
-      imapHost: autoconfig.imap?.host ?? prev.imapHost,
-      imapPort: String(autoconfig.imap?.port ?? prev.imapPort),
-      imapSecure: autoconfig.imap?.secure ?? prev.imapSecure,
-      smtpHost: autoconfig.smtp?.host ?? prev.smtpHost,
-      smtpPort: String(autoconfig.smtp?.port ?? prev.smtpPort),
-      smtpSecure: autoconfig.smtp?.secure ?? prev.smtpSecure,
-      imapUsername:
-        autoconfig.imap?.usernameRule === "localpart"
-          ? prev.emailAddress.split("@")[0]
-          : prev.emailAddress,
-    }));
-    toast.success("Paramètres IMAP & SMTP appliqués");
-  };
+  const { data: autoconfig, isFetching: autoconfigLoading } = useAutoconfig(debouncedEmail);
 
-  const update = (key: keyof typeof form, value: string | boolean) =>
+  // Valeurs effectives : saisie manuelle prioritaire, repli sur l'auto-détection
+  const effectiveImapHost = form.imapHost || (autoconfig?.detected ? autoconfig.imap?.host ?? "" : "");
+  const effectiveImapPort = form.imapPort || (autoconfig?.detected ? String(autoconfig.imap?.port ?? "993") : "993");
+  const effectiveImapSecure = form.imapSecure;
+  const effectiveImapUsername = form.imapUsername || (autoconfig?.detected && autoconfig.imap?.usernameRule === "localpart" ? form.emailAddress.split("@")[0] : form.emailAddress);
+  const effectiveSmtpHost = form.smtpHost || (autoconfig?.detected ? autoconfig.smtp?.host ?? "" : "");
+  const effectiveSmtpPort = form.smtpPort || (autoconfig?.detected ? String(autoconfig.smtp?.port ?? "465") : "465");
+  const effectiveSmtpSecure = form.smtpSecure;
+
+  const isDetectionFailed = !!(autoconfig && !autoconfig.detected && debouncedEmail.includes("@") && debouncedEmail.includes("."));
+  const isAdvancedOpen = showAdvanced || isDetectionFailed;
+
+  const update = (key: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!effectiveImapHost || !effectiveSmtpHost) {
+      setShowAdvanced(true);
+      toast.error("Veuillez spécifier les serveurs IMAP et SMTP");
+      return;
+    }
+
     createAccount.mutate(
       {
         emailAddress: form.emailAddress,
         displayName: form.displayName || undefined,
         imap: {
-          host: form.imapHost,
-          port: Number(form.imapPort),
-          secure: form.imapSecure,
-          username: form.imapUsername || form.emailAddress,
-          password: form.imapPassword,
+          host: effectiveImapHost,
+          port: Number(effectiveImapPort) || 993,
+          secure: effectiveImapSecure,
+          username: effectiveImapUsername || form.emailAddress,
+          password: form.password,
         },
         smtp: {
-          host: form.smtpHost,
-          port: Number(form.smtpPort),
-          secure: form.smtpSecure,
+          host: effectiveSmtpHost,
+          port: Number(effectiveSmtpPort) || 465,
+          secure: effectiveSmtpSecure,
         },
       },
       {
@@ -88,6 +110,7 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
           toast.success("Compte ajouté avec succès");
           onOpenChange(false);
           setForm(INITIAL_FORM);
+          setShowAdvanced(false);
           router.push(`/mail/${account._id}/INBOX`);
         },
         onError: (err) => {
@@ -102,65 +125,22 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border border-border bg-card max-h-[90vh] max-w-lg overflow-y-auto p-6 shadow-2xl rounded-xl">
         <DialogHeader>
-          <DialogTitle>Ajouter un compte</DialogTitle>
+          <DialogTitle>Ajouter un compte de messagerie</DialogTitle>
         </DialogHeader>
 
         {/* Connexion OAuth rapide (Google & Microsoft) */}
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="text-xs h-9"
-              onClick={() => {
-                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                window.location.href = "/api/accounts/oauth/google";
-              }}
-            >
-              Google Workspace
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="text-xs h-9"
-              onClick={() => {
-                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                window.location.href = "/api/accounts/oauth/microsoft";
-              }}
-            >
-              Microsoft 365
-            </Button>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Connexion sécurisée sans mot de passe d&apos;application via OAuth 2.0 (XOAUTH2).
-          </p>
-        </div>
+        <OAuthQuickButtons />
 
         <div className="my-2 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">ou IMAP standard</span>
+          <span className="text-xs text-muted-foreground">ou avec vos identifiants</span>
           <div className="h-px flex-1 bg-border" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="email">Adresse email</Label>
-              {autoconfigLoading && (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" /> Détection des paramètres...
-                </span>
-              )}
-              {autoconfig?.detected && (
-                <button
-                  type="button"
-                  onClick={applyAutoconfig}
-                  className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium hover:underline cursor-pointer"
-                >
-                  <Sparkles className="size-3" /> Appliquer ({autoconfig.source.toUpperCase()})
-                </button>
-              )}
-            </div>
+          {/* Adresse email */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Adresse email</Label>
             <Input
               id="email"
               type="email"
@@ -169,122 +149,90 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
               placeholder="vous@exemple.com"
               required
             />
+
+            <AutoconfigBadge
+              loading={autoconfigLoading}
+              detected={!!autoconfig?.detected}
+              source={autoconfig?.source}
+              imapHost={effectiveImapHost}
+              imapPort={effectiveImapPort}
+              smtpHost={effectiveSmtpHost}
+              smtpPort={effectiveSmtpPort}
+              hasTypedDomain={!!(autoconfig && !autoconfig.detected && debouncedEmail.includes("@"))}
+            />
           </div>
 
-          <div className="flex flex-col gap-2">
+          {/* Nom d'affichage (optionnel) */}
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="displayName">Nom d&apos;affichage (optionnel)</Label>
             <Input
               id="displayName"
               value={form.displayName}
               onChange={(e) => update("displayName", e.target.value)}
-              placeholder="Mon compte pro"
+              placeholder="Ex: Alex Dupont ou Pro"
             />
           </div>
 
-          <div className="my-2 border-t border-border" />
-
-          <h3 className="text-sm font-medium text-muted-foreground">Configuration IMAP</h3>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 flex flex-col gap-2">
-              <Label htmlFor="imapHost">Hôte IMAP</Label>
+          {/* Mot de passe unique */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Mot de passe</Label>
+            <div className="relative">
               <Input
-                id="imapHost"
-                value={form.imapHost}
-                onChange={(e) => update("imapHost", e.target.value)}
-                placeholder="imap.exemple.com"
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => update("password", e.target.value)}
+                placeholder="••••••••••••"
                 required
+                className="pr-10"
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="imapPort">Port</Label>
-              <Input
-                id="imapPort"
-                type="number"
-                value={form.imapPort}
-                onChange={(e) => update("imapPort", e.target.value)}
-                placeholder="993"
-                required
-              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                title={showPassword ? "Masquer" : "Afficher"}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              id="imapSecure"
-              type="checkbox"
-              checked={form.imapSecure}
-              onChange={(e) => update("imapSecure", e.target.checked)}
-              className="size-4 accent-primary"
-            />
-            <Label htmlFor="imapSecure" className="text-sm">
-              SSL/TLS
-            </Label>
+          {/* Bouton pour déplier/replier les paramètres avancés IMAP / SMTP */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!isAdvancedOpen)}
+              className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground py-1.5 transition-colors cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal className="size-3.5" />
+                Paramètres du serveur (Avancé)
+              </span>
+              {isAdvancedOpen ? (
+                <ChevronUp className="size-3.5" />
+              ) : (
+                <ChevronDown className="size-3.5" />
+              )}
+            </button>
+
+            {/* Accordéon avec les champs serveur */}
+            {isAdvancedOpen && (
+              <div className="pt-2">
+                <ServerSettingsAccordion
+                  imapHost={effectiveImapHost}
+                  imapPort={effectiveImapPort}
+                  imapSecure={effectiveImapSecure}
+                  imapUsername={effectiveImapUsername}
+                  smtpHost={effectiveSmtpHost}
+                  smtpPort={effectiveSmtpPort}
+                  smtpSecure={effectiveSmtpSecure}
+                  onUpdate={update}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="imapUsername">Nom d&apos;utilisateur IMAP</Label>
-            <Input
-              id="imapUsername"
-              value={form.imapUsername}
-              onChange={(e) => update("imapUsername", e.target.value)}
-              placeholder="Laisser vide pour utiliser l'email"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="imapPassword">Mot de passe IMAP</Label>
-            <Input
-              id="imapPassword"
-              type="password"
-              value={form.imapPassword}
-              onChange={(e) => update("imapPassword", e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="my-2 border-t border-border" />
-
-          <h3 className="text-sm font-medium text-muted-foreground">Configuration SMTP</h3>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 flex flex-col gap-2">
-              <Label htmlFor="smtpHost">Hôte SMTP</Label>
-              <Input
-                id="smtpHost"
-                value={form.smtpHost}
-                onChange={(e) => update("smtpHost", e.target.value)}
-                placeholder="smtp.exemple.com"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="smtpPort">Port</Label>
-              <Input
-                id="smtpPort"
-                type="number"
-                value={form.smtpPort}
-                onChange={(e) => update("smtpPort", e.target.value)}
-                placeholder="465"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              id="smtpSecure"
-              type="checkbox"
-              checked={form.smtpSecure}
-              onChange={(e) => update("smtpSecure", e.target.checked)}
-              className="size-4 accent-primary"
-            />
-            <Label htmlFor="smtpSecure" className="text-sm">
-              SSL/TLS
-            </Label>
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
@@ -293,8 +241,15 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
             >
               Annuler
             </Button>
-            <Button type="submit" disabled={createAccount.isPending}>
-              {createAccount.isPending ? <Loader2 className="size-4 animate-spin" /> : "Ajouter"}
+            <Button type="submit" disabled={createAccount.isPending} className="cursor-pointer">
+              {createAccount.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  Connexion...
+                </>
+              ) : (
+                "Ajouter le compte"
+              )}
             </Button>
           </DialogFooter>
         </form>

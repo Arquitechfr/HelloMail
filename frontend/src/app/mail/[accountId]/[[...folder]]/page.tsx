@@ -7,7 +7,6 @@ import { useUIStore } from "@/lib/stores/uiStore";
 import { AccountSidebar } from "@/components/mail/AccountSidebar";
 import { MessageList } from "@/components/mail/MessageList";
 import { MessageReader } from "@/components/mail/MessageReader";
-import { ComposePanel } from "@/components/mail/ComposePanel";
 import { Loader2 } from "lucide-react";
 
 export default function FolderPage() {
@@ -16,7 +15,7 @@ export default function FolderPage() {
   const folder = params.folder ? decodeURIComponent(params.folder.join("/")) : "INBOX";
 
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
-  const { setSelectedAccount, setSelectedFolder, selectedUid, composeOpen } = useUIStore();
+  const { setSelectedAccount, setSelectedFolder, selectedUid } = useUIStore();
 
   useEffect(() => {
     setSelectedAccount(accountId);
@@ -62,14 +61,8 @@ export default function FolderPage() {
   return (
     <>
       <AccountSidebar />
-      {composeOpen ? (
-        <ComposePanel />
-      ) : (
-        <>
-          <MessageList accountId={accountId} folder={folder} />
-          <MessageReader accountId={accountId} folder={folder} uid={selectedUid} />
-        </>
-      )}
+      <MessageList accountId={accountId} folder={folder} />
+      <MessageReader accountId={accountId} folder={folder} uid={selectedUid} />
     </>
   );
 }

@@ -10,8 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn, getInitials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/api-types";
+import { EmailAvatar } from "@/components/mail/EmailAvatar";
 import { MoreVertical, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,9 +58,12 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
       )}
       onClick={onSelect}
     >
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-        {getInitials(account.displayName, account.emailAddress)}
-      </div>
+      <EmailAvatar
+        email={account.emailAddress}
+        name={account.displayName}
+        className="size-8 shrink-0"
+        fallbackClassName="text-xs font-medium"
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">

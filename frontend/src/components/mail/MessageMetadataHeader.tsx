@@ -6,6 +6,7 @@ import type { MessageDetail } from "@/lib/api-types";
 import { useTags, useSetMessageTags } from "@/lib/queries/tags";
 import { TagBadge } from "./TagBadge";
 import { TagSelectPopover } from "./TagSelectPopover";
+import { EmailAvatar } from "./EmailAvatar";
 import { toast } from "sonner";
 
 interface MessageMetadataHeaderProps {
@@ -75,30 +76,38 @@ export function MessageMetadataHeader({
         </div>
       )}
 
-      <div className="flex flex-col gap-1 text-xs">
-        <div className="flex gap-2">
-          <span className="w-12 shrink-0 font-medium text-muted-foreground">De :</span>
-          <span className="text-foreground font-medium">
-            {message.from.name ? `${message.from.name} <${message.from.address}>` : message.from.address}
-          </span>
-        </div>
-        <div className="flex gap-2">
-          <span className="w-12 shrink-0 font-medium text-muted-foreground">À :</span>
-          <span className="text-foreground/90">
-            {message.to.map((t) => (t.name ? `${t.name} <${t.address}>` : t.address)).join(", ")}
-          </span>
-        </div>
-        {message.cc && message.cc.length > 0 && (
+      <div className="flex items-start gap-3">
+        <EmailAvatar
+          email={message.from.address}
+          name={message.from.name}
+          className="size-9 shrink-0 mt-0.5"
+          fallbackClassName="text-xs font-semibold"
+        />
+        <div className="flex flex-col gap-1 text-xs flex-1 min-w-0">
           <div className="flex gap-2">
-            <span className="w-12 shrink-0 font-medium text-muted-foreground">Cc :</span>
-            <span className="text-foreground/80">
-              {message.cc.map((t) => (t.name ? `${t.name} <${t.address}>` : t.address)).join(", ")}
+            <span className="w-12 shrink-0 font-medium text-muted-foreground">De :</span>
+            <span className="text-foreground font-medium truncate">
+              {message.from.name ? `${message.from.name} <${message.from.address}>` : message.from.address}
             </span>
           </div>
-        )}
-        <div className="flex gap-2">
-          <span className="w-12 shrink-0 font-medium text-muted-foreground">Date :</span>
-          <span className="text-muted-foreground font-mono">{formatDate(message.date)}</span>
+          <div className="flex gap-2">
+            <span className="w-12 shrink-0 font-medium text-muted-foreground">À :</span>
+            <span className="text-foreground/90 truncate">
+              {message.to.map((t) => (t.name ? `${t.name} <${t.address}>` : t.address)).join(", ")}
+            </span>
+          </div>
+          {message.cc && message.cc.length > 0 && (
+            <div className="flex gap-2">
+              <span className="w-12 shrink-0 font-medium text-muted-foreground">Cc :</span>
+              <span className="text-foreground/80 truncate">
+                {message.cc.map((t) => (t.name ? `${t.name} <${t.address}>` : t.address)).join(", ")}
+              </span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <span className="w-12 shrink-0 font-medium text-muted-foreground">Date :</span>
+            <span className="text-muted-foreground font-mono">{formatDate(message.date)}</span>
+          </div>
         </div>
       </div>
     </div>

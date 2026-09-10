@@ -22,6 +22,7 @@ export function AppHeader() {
   const isFetchingMessages = useIsFetching({ queryKey: ["messages"] }) > 0;
   const {
     openCompose,
+    openSearch,
     selectedFolder,
     toggleMobileSidebar,
     setShortcutsDialogOpen,
@@ -41,13 +42,6 @@ export function AppHeader() {
       toast.error("Échec de la synchronisation");
     } finally {
       setTimeout(() => setManualSyncing(false), 500);
-    }
-  };
-
-  const handleFocusSearch = () => {
-    const input = document.getElementById("mail-search-input");
-    if (input) {
-      input.focus();
     }
   };
 
@@ -121,7 +115,7 @@ export function AppHeader() {
           variant="outline"
           size="sm"
           className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border-border bg-card/60 hidden sm:flex items-center gap-1.5"
-          onClick={handleFocusSearch}
+          onClick={openSearch}
         >
           <Search className="size-3.5" />
           <span className="hidden lg:inline text-xs">Rechercher</span>

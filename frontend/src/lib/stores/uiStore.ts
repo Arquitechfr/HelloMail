@@ -20,6 +20,7 @@ interface UIState {
   composeRestoredData: RestoredComposeData | null;
   mobileSidebarOpen: boolean;
   shortcutsDialogOpen: boolean;
+  searchDialogOpen: boolean;
   selectedTag: string | null;
   desktopNotificationsEnabled: boolean;
   notificationSoundEnabled: boolean;
@@ -37,6 +38,9 @@ interface UIState {
   setMobileSidebarOpen: (open: boolean) => void;
   toggleMobileSidebar: () => void;
   setShortcutsDialogOpen: (open: boolean) => void;
+  setSearchDialogOpen: (open: boolean) => void;
+  openSearch: () => void;
+  closeSearch: () => void;
   setDesktopNotificationsEnabled: (enabled: boolean) => void;
   setNotificationSoundEnabled: (enabled: boolean) => void;
 }
@@ -54,6 +58,7 @@ export const useUIStore = create<UIState>()(
       composeRestoredData: null,
       mobileSidebarOpen: false,
       shortcutsDialogOpen: false,
+      searchDialogOpen: false,
       desktopNotificationsEnabled: true,
       notificationSoundEnabled: true,
       setSelectedAccount: (accountId) => set({ selectedAccountId: accountId }),
@@ -73,6 +78,9 @@ export const useUIStore = create<UIState>()(
       setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
       toggleMobileSidebar: () => set((state) => ({ mobileSidebarOpen: !state.mobileSidebarOpen })),
       setShortcutsDialogOpen: (open) => set({ shortcutsDialogOpen: open }),
+      setSearchDialogOpen: (open) => set({ searchDialogOpen: open }),
+      openSearch: () => set({ searchDialogOpen: true }),
+      closeSearch: () => set({ searchDialogOpen: false }),
       setDesktopNotificationsEnabled: (enabled) => set({ desktopNotificationsEnabled: enabled }),
       setNotificationSoundEnabled: (enabled) => set({ notificationSoundEnabled: enabled }),
     }),

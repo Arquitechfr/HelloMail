@@ -6,6 +6,7 @@ import { useContacts, useCreateContact, useDeleteContact } from "@/lib/queries/c
 import { useUIStore } from "@/lib/stores/uiStore";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { EmailAvatar } from "@/components/mail/EmailAvatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -90,6 +91,11 @@ export function ContactsManager() {
               key={contact.id}
               className="flex items-center gap-3 rounded-lg border border-border p-3"
             >
+              <EmailAvatar
+                email={contact.email}
+                name={contact.name}
+                className="size-9 shrink-0"
+              />
               <div className="flex flex-1 flex-col gap-1">
                 <span className="text-sm font-medium">{contact.name}</span>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">

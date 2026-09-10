@@ -35,7 +35,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **Conventional Commits** : `type(scope): description`.
 - **Tests obligatoires** : Vitest (404 tests, 43 fichiers). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
-- **Header fixe & architecture par page** : Header permanent unifié (`AppHeader`) et navigation modulaire (`/mail/settings`, `/mail/settings/security`, `/mail/settings/rules`, `/mail/contacts`).
+- **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
 ## Structure
 
@@ -65,5 +65,5 @@ HelloMail/
   - **Lot 9.1** : Étiquettes & Libellés colorés (Modèle `Tag`, validation Zod, service avec renommage/suppression en cascade, routes `/api/tags` et `/api/accounts/:accountId/messages/:folder/:uid/tags`, composant `TagBadge`, composant `TagSelectPopover`, gestionnaire complet `TagManager` dans `/mail/settings`, filtrage dynamique dans `MessageList` et `AccountSidebar`, action `applyTag` dans le moteur de règles).
   - **Lot 9.2** : Annulation d'envoi ("Undo Send" 5s-30s) (Préférence configurable 0-30s via `PATCH /api/auth/preferences`, dock interactif `UndoSendDock` avec compte à rebours en direct, jauge animée fluide, bouton "Annuler" et raccourci clavier `Z`, envoi immédiat anticipé, réouverture intégrale du formulaire avec destinataires, CC/BCC, sujet, HTML et pièces jointes intactes, protection `beforeunload`).
   - **Lot 9.3** : Modèles d'emails & Réponses types (Modèle `Template`, validation Zod, service multi-tenant & routes `/api/templates`, composant `TemplateInsertDropdown` intégré dans `ComposeForm` et `QuickReplyBar`, gestionnaire complet `TemplateManager` dans `/mail/settings`).
-  - **Lot 9.4** : Mise en sommeil d'emails ("Snooze") (`snoozedUntil` sur `Message`, masquage automatique boîte de réception, dossier virtuel "En sommeil" dans la sidebar, réveil périodique automatique dans le worker, popover interactif `SnoozeDropdown` avec 4 presets temporels et sélecteur personnalisé, bouton de réveil immédiat).
-  - Couverture : **404 tests Vitest, 43 fichiers, 0 `as any`**.
+  - **Lot 9.5** : Système de Logos Logo.dev (Endpoint `https://img.logo.dev/:domain` proxifié côté backend `/api/logos/:domain`, format PNG transparent, résolution retina 128px, fallback 404, cache bi-niveau mémoire in-process + Redis 7 jours, composant unifié `EmailAvatar` avec repli instantané sur les initiales, appliqué à la liste d'emails `MessageListItem`, au header utilisateur `UserDropdown`, aux comptes `AccountItem`, aux réglages `SettingsAccountsSection`, au lecteur `MessageMetadataHeader` et aux contacts `ContactsManager`, 0 clé exposée côté frontend).
+  - Couverture : **415 tests Vitest, 44 fichiers, 0 `as any`**.

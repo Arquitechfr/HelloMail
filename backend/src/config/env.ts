@@ -33,6 +33,8 @@ const envSchema = z.object({
     .string()
     .url('MICROSOFT_REDIRECT_URI doit être une URL valide')
     .default('http://localhost:4000/api/accounts/oauth/microsoft/callback'),
+  // --- Logo.dev (Phase 9) — optionnel, requis pour la récupération des logos ---
+  LOGO_DEV_TOKEN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

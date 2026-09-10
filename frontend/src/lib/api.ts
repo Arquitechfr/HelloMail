@@ -39,12 +39,14 @@ async function refreshToken(): Promise<string | null> {
         return null;
       }
 
-      const data = (await res.json()) as { accessToken: string };
-      // Met à jour le store — useAuthStore.setAuth a besoin d'un user, on le fetchera après.
+      const data = (await res.json()) as { accessToken: string; user?: import("@/lib/api-types").User };
+      // Met à jour le store avec le token et les données utilisateur
       const store = useAuthStore.getState();
       store.setRestoringSession(false);
-      // Stocke uniquement le token ici ; useMe récupérera l'user.
-      useAuthStore.setState({ accessToken: data.accessToken });
+      useAuthStore.setState({
+        accessToken: data.accessToken,
+        ...(data.user ? { user: data.user } : {}),
+      });
       return data.accessToken;
     } catch {
       useAuthStore.getState().clearAuth();

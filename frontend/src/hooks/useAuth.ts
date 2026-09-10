@@ -14,10 +14,10 @@ import type { User } from "@/lib/api-types";
  * Tant que le cookie refresh est valide (30j), la session est restaurée silencieusement.
  */
 export function useAuthBootstrap() {
-  const { accessToken, isRestoringSession, setAuth, setRestoringSession } = useAuthStore();
+  const { accessToken, user, isRestoringSession, setAuth, setRestoringSession } = useAuthStore();
 
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && user) {
       setRestoringSession(false);
       return;
     }
@@ -28,9 +28,12 @@ export function useAuthBootstrap() {
       try {
         const data = await apiFetch<{ user: User }>("/api/auth/me");
         if (!cancelled && data.user) {
-          // Le token a été rafraîchi par l'interceptor et stocké dans le store.
           const { accessToken: token } = useAuthStore.getState();
-          if (token) setAuth(token, data.user);
+          if (token) {
+            setAuth(token, data.user);
+          } else {
+            useAuthStore.setState({ user: data.user, isRestoringSession: false });
+          }
         }
       } catch (err) {
         if (cancelled) return;
@@ -46,7 +49,7 @@ export function useAuthBootstrap() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, setAuth, setRestoringSession]);
+  }, [accessToken, user, setAuth, setRestoringSession]);
 
   return { isRestoringSession, isAuthenticated: !!accessToken };
 }

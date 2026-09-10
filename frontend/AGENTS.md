@@ -84,13 +84,16 @@ frontend/src/
 ## Design system & Architecture UI Pro
 
 - **`globals.css` source de vérité** : variables shadcn (OKLCH), tokens glass et aurora. Aucune couleur hardcodée.
-- **Header fixe compact (`AppHeader`)** : barre d'outils permanente en haut contenant le logo HelloMail, statut live SSE, barre de recherche unifiée, actions rapides (Nouveau message, Rafraîchir, Raccourcis `?`, Thème) et menu profil (`UserDropdown`).
+- **Header fixe compact (`AppHeader`)** : barre d'outils permanente en haut contenant le logo HelloMail, statut live SSE, actions rapides (Nouveau message, Synchroniser, Recherche globale Cmd+K, Raccourcis `?`, Thème) et menu profil (`UserDropdown`).
+- **Recherche globale universelle (`GlobalSearchDialog`)** : palette Spotlight (Cmd+K / Ctrl+K ou bouton Rechercher) montée dans `MailLayout`, active sur toutes les pages (réglages, contacts, boîte...). Filtres d'opérateurs rapides (`is:unread`, `is:flagged`, `has:attachment`), sélecteur multi-comptes, aperçu des emails en direct, navigation flèches/Entrée et redirection directe vers le message.
+- **Fenêtre de rédaction universelle (`ComposePanel`)** : modale flottante globale montée dans `MailLayout`, accessible depuis n'importe quel écran (Boîte de réception, Hub de réglages, Carnet d'adresses) via le bouton "Nouveau message", le raccourci `C`, la réponse rapide ou l'action "Écrire" d'un contact. Contrôles plein écran/restaurer (`Maximize2`/`Minimize2`), fermeture rapide (`X` ou `Échap`), repli automatique sur le compte actif/par défaut sans quitter le contexte ni naviguer.
+- **Autoconfiguration email transparente & Formulaire épuré (`AddAccountDialog`)** : résolution automatique instantanée des serveurs IMAP et SMTP dès la saisie de l'email via `/api/accounts/autoconfig` (Mozilla ISPDB + DNS MX + heuristiques). Formulaire épuré affichant par défaut uniquement l'email, le mot de passe, le nom d'affichage et les boutons OAuth Google / Microsoft 365, avec panneau repliable "Paramètres du serveur (Avancé)" (`ServerSettingsAccordion`) pour les réglages manuels.
 - **Élimination des arrondis excessifs** : transition des "bulles isolées" vers un layout épuré, élégant, dense et moderne adapté à un webmail pro.
-- **Architecture par pages dédiées** :
-  - `/mail/settings` : gestion des signatures personnalisées par compte, réglages de notification, gestionnaire d'étiquettes / libellés colorés (`TagManager`), sélecteur d'annulation d'envoi (`UndoSendSettings`) et paramètres généraux.
-  - `/mail/settings/security` : configuration 2FA (TOTP avec QR code, Passkeys WebAuthn, codes de secours).
-  - `/mail/settings/rules` : moteur de règles de tri et filtres automatiques avec dialogue adaptatif grand écran.
-  - `/mail/contacts` : gestionnaire complet de carnet d'adresses avec recherche instantanée.
+- **Architecture des Réglages responsive (Master-Detail Hub)** :
+  - Fin du système d'onglets horizontaux empilés au profit d'un hub unifié responsive avec détection dynamique de la résolution d'écran (`useScreenSize`).
+  - `/mail/settings` : agencement Master-Detail avec navigation latérale catégorisée (`SettingsSidebar` avec badges dynamiques, recherche et indicateur de résolution), en-tête adaptatif (`SettingsHeader` avec breadcrumbs et sélecteur mobile) et conteneur fluide (`max-w-6xl`) tirant pleinement parti des grands écrans (grille 2/3 colonnes).
+  - Unification fluide de tous les modules : Profil & Comptes (`SettingsAccountsSection`), Signatures, Modèles, Règles, Libellés, Sécurité & 2FA, Contacts, Notifications et Préférences d'affichage (`SettingsAppearanceSection`).
+  - Compatibilité conservée : `/mail/settings/rules`, `/mail/settings/security` et `/mail/contacts` redirigent instantanément vers les sections correspondantes du hub unifié.
 - **Typographie robuste** : pile de polices système moderne assurant un rendu parfait sans risque de glyphes manquants pour les emails internationaux.
 
 ## Patterns & Fonctionnalités (Phases 6, 7, 8 & 9)

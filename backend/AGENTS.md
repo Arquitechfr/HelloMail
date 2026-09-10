@@ -252,7 +252,7 @@ src/
 - Jamais `req.body` dans les logs ni secrets en clair.
 - Zéro `as any` toléré dans le code de production.
 - OAuth : Google & Microsoft implémentés via XOAUTH2 (Phases 6 & 7).
-- Variables d'env : schéma Zod dans `env.ts` + `.env`/`.env.example`.
+- Variables d'env : schéma Zod dans `env.ts` + `.env`.
 - Services agnostiques d'Express (pas de req/res).
 - Libération systématique du pool IMAP en `finally`.
 - Isolation des comptes par `userId` (accès non autorisé → 404).

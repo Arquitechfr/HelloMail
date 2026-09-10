@@ -48,7 +48,13 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ];
 
 export function KeyboardShortcutsDialog() {
-  const { shortcutsDialogOpen, setShortcutsDialogOpen, openCompose, composeOpen } = useUIStore();
+  const {
+    shortcutsDialogOpen,
+    setShortcutsDialogOpen,
+    openCompose,
+    composeOpen,
+    openSearch,
+  } = useUIStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -59,6 +65,12 @@ export function KeyboardShortcutsDialog() {
         target?.isContentEditable ||
         target?.closest(".tiptap");
 
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        openSearch();
+        return;
+      }
+
       if (isInput) return;
 
       if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
@@ -67,12 +79,15 @@ export function KeyboardShortcutsDialog() {
       } else if ((e.key === "c" || e.key === "C") && !e.metaKey && !e.ctrlKey && !composeOpen) {
         e.preventDefault();
         openCompose("new");
+      } else if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        openSearch();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [shortcutsDialogOpen, setShortcutsDialogOpen, openCompose, composeOpen]);
+  }, [shortcutsDialogOpen, setShortcutsDialogOpen, openCompose, composeOpen, openSearch]);
 
   return (
     <Dialog open={shortcutsDialogOpen} onOpenChange={setShortcutsDialogOpen}>

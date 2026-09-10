@@ -24,7 +24,7 @@ export function useAutoconfig(email: string) {
 
   return useQuery({
     queryKey: ["autoconfig", email.trim().toLowerCase()],
-    queryFn: () => apiFetch<AutoconfigResult>(`/accounts/autoconfig?email=${encodeURIComponent(email.trim())}`),
+    queryFn: () => apiFetch<AutoconfigResult>(`/api/accounts/autoconfig?email=${encodeURIComponent(email.trim())}`),
     enabled: isValidEmail,
     staleTime: 1000 * 60 * 30, // 30 minutes de cache
     retry: false,

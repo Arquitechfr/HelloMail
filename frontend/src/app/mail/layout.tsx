@@ -7,6 +7,8 @@ import { useSSE } from "@/hooks/useSSE";
 import { AppHeader } from "@/components/mail/AppHeader";
 import { KeyboardShortcutsDialog } from "@/components/mail/KeyboardShortcutsDialog";
 import { UndoSendDock } from "@/components/mail/UndoSendDock";
+import { ComposePanel } from "@/components/mail/ComposePanel";
+import { GlobalSearchDialog } from "@/components/mail/GlobalSearchDialog";
 import { Loader2 } from "lucide-react";
 
 /**
@@ -42,6 +44,8 @@ export default function MailLayout({ children }: { children: React.ReactNode }) 
         </div>
         <KeyboardShortcutsDialog />
         <UndoSendDock />
+        <ComposePanel />
+        <GlobalSearchDialog />
       </div>
     </SSEWrapper>
   );

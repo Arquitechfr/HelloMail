@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { cn, formatRelativeDate, getInitials } from "@/lib/utils";
+import { cn, formatRelativeDate } from "@/lib/utils";
 import type { Message } from "@/lib/api-types";
 import { useTags } from "@/lib/queries/tags";
 import { TagBadge } from "./TagBadge";
+import { EmailAvatar } from "./EmailAvatar";
 import { Paperclip, Star, Clock } from "lucide-react";
 
 interface MessageListItemProps {
@@ -36,10 +37,13 @@ export function MessageListItem({ message, isSelected, onSelect }: MessageListIt
       )}
       onClick={onSelect}
     >
-      {/* Avatar / initiales */}
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary mt-0.5">
-        {getInitials(message.from.name, message.from.address)}
-      </div>
+      {/* Avatar / logo / initiales */}
+      <EmailAvatar
+        email={message.from.address}
+        name={message.from.name}
+        className="size-7 mt-0.5"
+        fallbackClassName="text-[11px]"
+      />
 
       {/* Contenu */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
