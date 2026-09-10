@@ -10,11 +10,12 @@ export interface IRuleCondition {
   value: string;
 }
 
-export type RuleActionType = 'moveToFolder' | 'markAsRead' | 'markAsFlagged' | 'markAsJunk' | 'delete';
+export type RuleActionType = 'moveToFolder' | 'markAsRead' | 'markAsFlagged' | 'markAsJunk' | 'delete' | 'applyTag';
 
 export interface IRuleAction {
   type: RuleActionType;
   folderName?: string;
+  tagName?: string;
 }
 
 export interface IRule {
@@ -58,10 +59,14 @@ const ruleActionSchema = new Schema<IRuleAction>(
   {
     type: {
       type: String,
-      enum: ['moveToFolder', 'markAsRead', 'markAsFlagged', 'markAsJunk', 'delete'],
+      enum: ['moveToFolder', 'markAsRead', 'markAsFlagged', 'markAsJunk', 'delete', 'applyTag'],
       required: true,
     },
     folderName: {
+      type: String,
+      trim: true,
+    },
+    tagName: {
       type: String,
       trim: true,
     },

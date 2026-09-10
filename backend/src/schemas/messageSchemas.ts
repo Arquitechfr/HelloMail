@@ -19,7 +19,8 @@ export const listMessagesParamsSchema = z.object({
  * Schéma de validation des query params de la route messages (liste).
  */
 export const listMessagesQuerySchema = z.object({
-  folder: folderSchema.default('INBOX'),
+  folder: folderSchema.optional(),
+  tag: z.string().trim().min(1).max(50).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

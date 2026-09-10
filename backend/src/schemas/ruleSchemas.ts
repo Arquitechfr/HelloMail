@@ -12,20 +12,24 @@ export const ruleConditionSchema = z.object({
 
 export const ruleActionSchema = z
   .object({
-    type: z.enum(['moveToFolder', 'markAsRead', 'markAsFlagged', 'markAsJunk', 'delete'], {
+    type: z.enum(['moveToFolder', 'markAsRead', 'markAsFlagged', 'markAsJunk', 'delete', 'applyTag'], {
       error: 'Type d\'action invalide',
     }),
     folderName: z.string().optional(),
+    tagName: z.string().optional(),
   })
   .refine(
     (data) => {
       if (data.type === 'moveToFolder' && (!data.folderName || data.folderName.trim() === '')) {
         return false;
       }
+      if (data.type === 'applyTag' && (!data.tagName || data.tagName.trim() === '')) {
+        return false;
+      }
       return true;
     },
     {
-      message: 'Le nom du dossier de destination est requis pour l\'action moveToFolder',
+      message: 'Paramètre requis manquant pour l\'action',
       path: ['folderName'],
     },
   );

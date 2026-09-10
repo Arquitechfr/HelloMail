@@ -230,6 +230,8 @@ export async function applyRulesToIncomingMessage(
         } else if (action.type === 'delete') {
           await imapClient.messageDelete(message.uid, { uid: true });
           await MessageModel.deleteOne({ _id: message._id });
+        } else if (action.type === 'applyTag' && action.tagName) {
+          await MessageModel.updateOne({ _id: message._id }, { $addToSet: { tags: action.tagName } });
         }
       } catch (actErr) {
         logger.error({ action: action.type, error: actErr instanceof Error ? actErr.message : 'inconnu' }, 'Erreur action de règle');

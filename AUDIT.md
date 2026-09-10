@@ -896,6 +896,17 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Expérience utilisateur professionnelle de niveau Thunderbird/Fastmail. ✅ Atteint.
 
+### Phase 9 — Productivité & Organisation Intelligente 🚀 EN COURS
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 27. Étiquettes & Libellés personnalisés colorés (Lot 9.1) | 🟠 IMPORTANTE | Moyen | 🚀 En cours (Modèle Tag, assignation, badges colorés, filtre sidebar) |
+| 28. Annulation d'envoi ("Undo Send" 5s-30s) (Lot 9.2) | 🟠 IMPORTANTE | Faible | ⏳ À venir (Toast interactif décompté, réouverture compose) |
+| 29. Modèles d'emails & Réponses types (Lot 9.3) | 🟡 SECONDaire | Moyen | ⏳ À venir (Modèle Template, insertion 1 clic compose & quick reply) |
+| 30. Mise en sommeil d'emails ("Snooze") (Lot 9.4) | 🟠 IMPORTANTE | Moyen | ⏳ À venir (snoozedUntil, worker de réveil, vue "En sommeil") |
+
+**Objectif :** Atteindre une productivité maximale équivalente à Superhuman / Gmail Pro.
+
 ---
 
 ## 7. Matrice de couverture fonctionnelle

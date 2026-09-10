@@ -24,6 +24,7 @@ export interface IMessageDocument extends Document {
   flags: MessageFlags;
   hasAttachments: boolean;
   size: number;
+  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +99,10 @@ const messageSchema = new Schema<IMessageDocument>(
       type: Number,
       default: 0,
     },
+    tags: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -106,6 +111,9 @@ const messageSchema = new Schema<IMessageDocument>(
 
 // Index unique composé : empêche les doublons sur resync.
 messageSchema.index({ accountId: 1, folder: 1, uid: 1 }, { unique: true });
+
+// Index pour filtrage par tag
+messageSchema.index({ accountId: 1, tags: 1 });
 
 // Index pour le tri de la liste par date décroissante.
 messageSchema.index({ accountId: 1, date: -1 });

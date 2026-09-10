@@ -21,7 +21,9 @@ import {
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
-  const folder = String(req.query.folder ?? 'INBOX');
+  const folderParam = req.query.folder ? String(req.query.folder) : undefined;
+  const tagParam = req.query.tag ? String(req.query.tag) : undefined;
+  const folder = folderParam ?? (tagParam ? undefined : 'INBOX');
   const page = Number(req.query.page ?? 1);
   const limit = Number(req.query.limit ?? 20);
 
@@ -32,15 +34,19 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
     throw AppError.notFound('Compte introuvable');
   }
 
+  const filter: Record<string, unknown> = { accountId };
+  if (folder) filter.folder = folder;
+  if (tagParam) filter.tags = tagParam;
+
   const skip = (page - 1) * limit;
 
   const [messages, total] = await Promise.all([
-    MessageModel.find({ accountId, folder })
+    MessageModel.find(filter)
       .sort({ date: -1 })
       .skip(skip)
       .limit(limit)
       .lean(),
-    MessageModel.countDocuments({ accountId, folder }),
+    MessageModel.countDocuments(filter),
   ]);
 
   res.status(200).json({

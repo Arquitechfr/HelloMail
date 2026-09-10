@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import * as messagesController from '../controllers/messagesController.js';
+import * as tagsController from '../controllers/tagsController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { sendRateLimit } from '../middleware/rateLimit.js';
+import { setMessageTagsSchema } from '../schemas/tagSchemas.js';
 import {
   listMessagesParamsSchema,
   listMessagesQuerySchema,
@@ -110,6 +112,14 @@ router.post(
   requireAuth,
   validate({ params: getOneParamsSchema }),
   messagesController.sendReceipt,
+);
+
+// Modification des étiquettes (tags) d'un message.
+router.patch(
+  '/:accountId/messages/:folder/:uid/tags',
+  requireAuth,
+  validate({ params: getOneParamsSchema, body: setMessageTagsSchema }),
+  tagsController.setMessageTags,
 );
 
 // Lecture d'un message complet (corps + headers + structure PJ).
