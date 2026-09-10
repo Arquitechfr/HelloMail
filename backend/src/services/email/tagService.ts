@@ -125,7 +125,7 @@ export async function setMessageTags(
   const message = await MessageModel.findOneAndUpdate(
     { accountId: account._id, folder, uid },
     { $set: { tags } },
-    { new: true },
+    { returnDocument: 'after' },
   );
   if (!message) {
     throw AppError.notFound('Message introuvable');

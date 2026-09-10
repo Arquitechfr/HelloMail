@@ -57,23 +57,42 @@ describe('tagService', () => {
     expect(tags[1]?.name).toBe('Tag B');
   });
 
-  it('met à jour un tag et répercute le renommage dans les messages', async () => {
-    const account = await AccountModel.create({
+  async function createTestAccount(email: string) {
+    return AccountModel.create({
       userId: new Types.ObjectId(userId),
-      emailAddress: 'test@example.com',
-      imap: { host: 'imap.test.com', port: 993, secure: true, username: 'u', encryptedPassword: 'p' },
-      smtp: { host: 'smtp.test.com', port: 465, secure: true },
+      provider: 'imap',
+      emailAddress: email,
+      imapConfig: {
+        host: 'imap.test.com',
+        port: 993,
+        secure: true,
+        smtpHost: 'smtp.test.com',
+        smtpPort: 465,
+        smtpSecure: true,
+        username: 'u',
+        encryptedPassword: { iv: 'iv', authTag: 'tag', ciphertext: 'cipher' },
+      },
     });
+  }
 
-    const msg = await MessageModel.create({
-      accountId: account._id,
+  async function createTestMessage(accountId: Types.ObjectId, uid: number, tags: string[] = []) {
+    return MessageModel.create({
+      accountId,
       folder: 'INBOX',
-      uid: 42,
+      uid,
+      subject: 'Test Subject',
+      from: { address: 'sender@example.com' },
+      to: [{ address: 'dest@example.com' }],
       date: new Date(),
       flags: { seen: false, answered: false, flagged: false },
       size: 100,
-      tags: ['Projet X', 'Important'],
+      tags,
     });
+  }
+
+  it('met à jour un tag et répercute le renommage dans les messages', async () => {
+    const account = await createTestAccount('test@example.com');
+    const msg = await createTestMessage(account._id, 42, ['Projet X', 'Important']);
 
     const tag = await createUserTag(userId, { name: 'Projet X' });
     const updated = await updateUserTag(userId, tag._id.toString(), { name: 'Projet Alpha', color: '#10b981' });
@@ -88,22 +107,8 @@ describe('tagService', () => {
   });
 
   it('supprime un tag et le retire de tous les messages', async () => {
-    const account = await AccountModel.create({
-      userId: new Types.ObjectId(userId),
-      emailAddress: 'test2@example.com',
-      imap: { host: 'imap.test.com', port: 993, secure: true, username: 'u', encryptedPassword: 'p' },
-      smtp: { host: 'smtp.test.com', port: 465, secure: true },
-    });
-
-    const msg = await MessageModel.create({
-      accountId: account._id,
-      folder: 'INBOX',
-      uid: 10,
-      date: new Date(),
-      flags: { seen: false, answered: false, flagged: false },
-      size: 100,
-      tags: ['À supprimer', 'Garder'],
-    });
+    const account = await createTestAccount('test2@example.com');
+    const msg = await createTestMessage(account._id, 10, ['À supprimer', 'Garder']);
 
     const tag = await createUserTag(userId, { name: 'À supprimer' });
     await deleteUserTag(userId, tag._id.toString());
@@ -117,22 +122,8 @@ describe('tagService', () => {
   });
 
   it('définit les tags sur un message individuel', async () => {
-    const account = await AccountModel.create({
-      userId: new Types.ObjectId(userId),
-      emailAddress: 'test3@example.com',
-      imap: { host: 'imap.test.com', port: 993, secure: true, username: 'u', encryptedPassword: 'p' },
-      smtp: { host: 'smtp.test.com', port: 465, secure: true },
-    });
-
-    await MessageModel.create({
-      accountId: account._id,
-      folder: 'INBOX',
-      uid: 50,
-      date: new Date(),
-      flags: { seen: false, answered: false, flagged: false },
-      size: 100,
-      tags: ['Ancien'],
-    });
+    const account = await createTestAccount('test3@example.com');
+    await createTestMessage(account._id, 50, ['Ancien']);
 
     const updated = await setMessageTags(
       userId,
@@ -145,17 +136,9 @@ describe('tagService', () => {
   });
 
   it('applique des tags en masse (modes set, add, remove)', async () => {
-    const account = await AccountModel.create({
-      userId: new Types.ObjectId(userId),
-      emailAddress: 'test4@example.com',
-      imap: { host: 'imap.test.com', port: 993, secure: true, username: 'u', encryptedPassword: 'p' },
-      smtp: { host: 'smtp.test.com', port: 465, secure: true },
-    });
-
-    await MessageModel.create([
-      { accountId: account._id, folder: 'INBOX', uid: 1, date: new Date(), flags: { seen: false, answered: false, flagged: false }, size: 10, tags: ['Initial'] },
-      { accountId: account._id, folder: 'INBOX', uid: 2, date: new Date(), flags: { seen: false, answered: false, flagged: false }, size: 10, tags: ['Initial'] },
-    ]);
+    const account = await createTestAccount('test4@example.com');
+    await createTestMessage(account._id, 1, ['Initial']);
+    await createTestMessage(account._id, 2, ['Initial']);
 
     // Mode add
     const addResult = await batchSetMessageTags(userId, account._id.toString(), {

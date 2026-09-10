@@ -50,7 +50,7 @@ frontend/src/
 │   └── mail/               # layout authentifié avec AppHeader fixe
 │       ├── [accountId]/[[...folder]] # vue principale webmail (dossiers + liste + lecteur)
 │       ├── empty/          # état vide (aucun compte configuré)
-│       ├── settings/       # Réglages généraux + notifications natives + signatures (Phase 7 & 8)
+│       ├── settings/       # Réglages généraux, signatures, notifications et étiquettes (Phases 7, 8, 9)
 │       │   ├── security/   # Page dédiée 2FA TOTP + WebAuthn + codes de secours
 │       │   └── rules/      # Page dédiée règles de tri & filtres automatiques (Phase 8)
 │       └── contacts/       # Page dédiée carnet d'adresses (CRUD + recherche)
@@ -60,14 +60,17 @@ frontend/src/
 │   ├── accounts/           # AccountList, AddAccountDialog (Autoconfig + Google/MS OAuth), AccountSignatureManager
 │   └── mail/               # AppHeader, UserDropdown, KeyboardShortcutsDialog, SettingsNav, AttachmentDropzone,
 │                           # MessageThreadView, QuickReplyBar, MessageMetadataHeader, GlassPanel, AccountSidebar,
-│                           # FolderTree, MessageList, MessageReader, ReadReceiptBanner, NotificationSettings,
-│                           # rules/ (RuleDialog, RuleForm, RulesList), EmailIframe, etc.
+│                           # FolderTree, MessageList, MessageListItem, MessageReader, ReadReceiptBanner, NotificationSettings,
+│                           # TagBadge, TagSelectPopover, TagManager, UndoSendDock, UndoSendSettings,
+│                           # ComposeRecipients, ComposeActions, rules/ (RuleDialog, RuleForm, RulesList), EmailIframe, etc.
 ├── lib/
 │   ├── api.ts              # fetch wrapper + interceptor 401 → refresh (lock en vol)
-│   ├── api-types.ts        # types API (Account, Message, Folder, Contact, Autoconfig, Signature, MailRule, etc.)
+│   ├── api-types.ts        # types API globaux + ré-export types modulaires
+│   ├── compose-utils.ts    # utilitaires de rédaction (htmlToText, formatSignatureHtml)
+│   ├── types/              # types modulaires découpés (tags.ts, rules.ts)
 │   ├── notifications.ts    # Web Notification API + Web Audio API carillon synthétisé
-│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts, rules)
-│   ├── stores/             # authStore (token en mémoire), uiStore (sélection persistée + notifications)
+│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts, rules, tags)
+│   ├── stores/             # authStore (token), uiStore (sélection, compose), undoSendStore (annulation d'envoi)
 │   └── utils.ts            # cn(), formatDate, formatSize, downloadBlob, getInitials
 ├── hooks/
 │   ├── useSSE.ts           # EventSource /api/events + invalidation TanStack Query + notifications sonores/desktop
@@ -84,13 +87,21 @@ frontend/src/
 - **Header fixe compact (`AppHeader`)** : barre d'outils permanente en haut contenant le logo HelloMail, statut live SSE, barre de recherche unifiée, actions rapides (Nouveau message, Rafraîchir, Raccourcis `?`, Thème) et menu profil (`UserDropdown`).
 - **Élimination des arrondis excessifs** : transition des "bulles isolées" vers un layout épuré, élégant, dense et moderne adapté à un webmail pro.
 - **Architecture par pages dédiées** :
-  - `/mail/settings` : gestion des signatures personnalisées par compte + paramètres généraux.
+  - `/mail/settings` : gestion des signatures personnalisées par compte, réglages de notification, gestionnaire d'étiquettes / libellés colorés (`TagManager`), sélecteur d'annulation d'envoi (`UndoSendSettings`) et paramètres généraux.
   - `/mail/settings/security` : configuration 2FA (TOTP avec QR code, Passkeys WebAuthn, codes de secours).
+  - `/mail/settings/rules` : moteur de règles de tri et filtres automatiques avec dialogue adaptatif grand écran.
   - `/mail/contacts` : gestionnaire complet de carnet d'adresses avec recherche instantanée.
 - **Typographie robuste** : pile de polices système moderne assurant un rendu parfait sans risque de glyphes manquants pour les emails internationaux.
 
-## Patterns & Fonctionnalités (Phases 6 & 7)
+## Patterns & Fonctionnalités (Phases 6, 7, 8 & 9)
 
+- **Mise en sommeil d'emails ("Snooze" - Phase 9 Lot 9.4)** : mise en sommeil différée avec `SnoozeDropdown` dans `MessageToolbar` (4 presets : Plus tard aujourd'hui, Demain matin, Ce week-end, La semaine prochaine, ou sélecteur datetime-local sur mesure) ; toast de confirmation avec bouton "Annuler" immédiat ; exclusion automatique des boîtes standards et dossier virtuel dédié "En sommeil" dans `AccountSidebar` ; badge visuel d'échéance `snoozedUntil` dans `MessageListItem` ; réveil automatique temps réel par le sync worker (`message:new`).
+- **Modèles d'emails & Réponses types (Phase 9 Lot 9.3)** : composant `TemplateInsertDropdown` avec recherche en direct, raccourcis clavier et aperçu rapide, intégré directement dans `ComposeActions` (ComposeForm plein écran) et `QuickReplyBar` (réponse rapide fil de discussion) ; insertion fluide du sujet et du corps HTML/texte avec conservation du curseur ; gestionnaire d'administration complet `TemplateManager` dans `/mail/settings` (création, édition, suppression, affectation globale ou par compte IMAP, gestion des raccourcis).
+- **Annulation d'envoi ("Undo Send" - Phase 9 Lot 9.2)** : délai de grâce configurable (0s, 5s, 10s, 15s, 30s) avec sélecteur dans les réglages et persistance backend (`PATCH /api/auth/preferences`) ; dock flottant interactif `UndoSendDock` avec compte à rebours continu, jauge de progression, bouton "Annuler" et raccourci clavier `Z` ; restauration instantanée du formulaire de composition (`ComposeForm`) avec préservation de l'intégralité du sujet, destinataires, CC/BCC, HTML riche, pièces jointes et brouillon IMAP ; protection anti-perte `beforeunload` en cas de tentative de fermeture d'onglet.
+- **Étiquettes & Libellés colorés (Phase 9 Lot 9.1)** : `TagBadge` (badges personnalisés avec couleur et bouton de retrait), `TagSelectPopover` (assignation et création inline), `TagManager` (CRUD complet dans `/mail/settings`), filtrage dynamique par libellé dans `AccountSidebar` et `MessageList`, intégration dans le moteur de règles (`applyTag`).
+- **Moteur de Règles & Filtres automatiques (Phase 8)** : interface complète `/mail/settings/rules` avec dialogues adaptatifs, glisser-ordonner des priorités, conditions multiples et actions automatiques.
+- **Accusés de lecture MDN (Phase 8)** : bannière discrète `ReadReceiptBanner` à l'ouverture d'un message avec demande d'accusé, émission transparente de rapport RFC 3798 ou rejet silencieux.
+- **Notifications bureau & Carillon audio (Phase 8)** : Web Notification API native avec permission dynamique, carillon synthétisé Web Audio API sans aucun asset audio externe, bascule dans les réglages et déclenchement SSE.
 - **Threading & Vue Conversation (Phase 8)** : `MessageThreadView` affichant la timeline chronologique des échanges avec sélection fluide, statut lu/non-lu, dossier d'appartenance et accordéon dépliable ; complété par `QuickReplyBar` pour répondre directement en bas du fil.
 - **Export .eml & Impression dédiée (Phase 8)** : action de téléchargement du message brut RFC 822 (`.eml`) et impression dédiée avec feuille de style `@media print` masquant headers/barres latérales pour un rendu papier épuré (raccourci clavier `P`).
 - **Autoconfiguration email (ISPDB / MX)** : saisie de l'email dans `AddAccountDialog` → interrogation automatique de `GET /api/accounts/autoconfig` via `useAutoconfig`, pré-remplissage transparent des paramètres IMAP et SMTP.

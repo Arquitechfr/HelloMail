@@ -2,12 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import { Reply, ReplyAll } from "lucide-react";
+import { TemplateInsertDropdown } from "@/components/mail/TemplateInsertDropdown";
+import type { EmailTemplate } from "@/lib/types/templates";
 
 interface QuickReplyBarProps {
   senderLabel: string;
   hasMultipleRecipients: boolean;
   onReply: () => void;
   onReplyAll: () => void;
+  accountId?: string;
+  onSelectTemplate?: (template: EmailTemplate) => void;
 }
 
 export function QuickReplyBar({
@@ -15,6 +19,8 @@ export function QuickReplyBar({
   hasMultipleRecipients,
   onReply,
   onReplyAll,
+  accountId,
+  onSelectTemplate,
 }: QuickReplyBarProps) {
   return (
     <div className="border-t border-border bg-background/60 p-3 shrink-0 flex items-center justify-between gap-2 no-print">
@@ -26,6 +32,15 @@ export function QuickReplyBar({
         <Reply className="size-3.5" />
         <span className="truncate">Répondre à {senderLabel}...</span>
       </button>
+
+      {onSelectTemplate && (
+        <TemplateInsertDropdown
+          accountId={accountId}
+          onSelectTemplate={onSelectTemplate}
+          variant="button"
+        />
+      )}
+
       {hasMultipleRecipients && (
         <Button
           variant="outline"

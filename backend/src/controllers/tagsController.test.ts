@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -9,6 +9,11 @@ import { accountsRoutes } from '../routes/accountsRoutes.js';
 import { messagesRoutes } from '../routes/messagesRoutes.js';
 import { MessageModel } from '../models/Message.js';
 import { errorHandler } from '../middleware/errorHandler.js';
+
+vi.mock('../services/email/connectionTest.js', () => ({
+  testImapConnection: vi.fn().mockResolvedValue(undefined),
+  testSmtpConnection: vi.fn().mockResolvedValue(undefined),
+}));
 
 function createApp(): express.Express {
   const app = express();
@@ -38,7 +43,7 @@ async function createAccount(app: express.Express, token: string): Promise<strin
       imap: { host: 'imap.test.com', port: 993, secure: true, username: 'user', password: 'pass' },
       smtp: { host: 'smtp.test.com', port: 465, secure: true },
     });
-  return res.body._id;
+  return res.body.id || res.body._id;
 }
 
 describe('Tags routes (intégration)', () => {
@@ -104,7 +109,7 @@ describe('Tags routes (intégration)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Clients' });
 
-    const tagId = createRes.body.data._id;
+    const tagId = createRes.body.data.id || createRes.body.data._id;
 
     const updateRes = await request(app)
       .patch(`/api/tags/${tagId}`)
@@ -122,7 +127,7 @@ describe('Tags routes (intégration)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'À jeter' });
 
-    const tagId = createRes.body.data._id;
+    const tagId = createRes.body.data.id || createRes.body.data._id;
 
     const delRes = await request(app)
       .delete(`/api/tags/${tagId}`)
@@ -144,6 +149,9 @@ describe('Tags routes (intégration)', () => {
       accountId,
       folder: 'INBOX',
       uid: 99,
+      subject: 'Facture 2026',
+      from: { address: 'facturation@service.com' },
+      to: [{ address: 'me@test.com' }],
       date: new Date(),
       flags: { seen: false, answered: false, flagged: false },
       size: 50,
@@ -163,8 +171,30 @@ describe('Tags routes (intégration)', () => {
     const accountId = await createAccount(app, token);
 
     await MessageModel.create([
-      { accountId, folder: 'INBOX', uid: 101, date: new Date(), flags: { seen: false, answered: false, flagged: false }, size: 50, tags: [] },
-      { accountId, folder: 'INBOX', uid: 102, date: new Date(), flags: { seen: false, answered: false, flagged: false }, size: 50, tags: [] },
+      {
+        accountId,
+        folder: 'INBOX',
+        uid: 101,
+        subject: 'Email 101',
+        from: { address: 'a@test.com' },
+        to: [{ address: 'me@test.com' }],
+        date: new Date(),
+        flags: { seen: false, answered: false, flagged: false },
+        size: 50,
+        tags: [],
+      },
+      {
+        accountId,
+        folder: 'INBOX',
+        uid: 102,
+        subject: 'Email 102',
+        from: { address: 'b@test.com' },
+        to: [{ address: 'me@test.com' }],
+        date: new Date(),
+        flags: { seen: false, answered: false, flagged: false },
+        size: 50,
+        tags: [],
+      },
     ]);
 
     const res = await request(app)

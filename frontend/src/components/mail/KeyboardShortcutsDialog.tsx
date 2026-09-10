@@ -23,6 +23,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "C", description: "Rédiger un nouvel email" },
       { key: "R", description: "Répondre à l'email affiché" },
       { key: "F", description: "Transférer l'email affiché" },
+      { key: "Z", description: "Annuler l'envoi en cours (Undo Send)" },
       { key: "P", description: "Imprimer l'email affiché" },
       { key: "Esc", description: "Fermer le panneau ou dialogue" },
     ],

@@ -9,6 +9,10 @@ export interface WebAuthnCredential {
   createdAt: Date;
 }
 
+export interface IUserPreferences {
+  undoSendDelay?: number; // 0, 5, 10, 15, 30 secondes (défaut: 5)
+}
+
 export interface IUserDocument extends Document {
   email: string;
   passwordHash: string;
@@ -18,6 +22,8 @@ export interface IUserDocument extends Document {
   twoFactorBackupCodes?: string[]; // hachés (bcrypt)
   webauthnCredentials?: WebAuthnCredential[];
   currentWebauthnChallenge?: string;
+  // --- Préférences utilisateur (Phase 9) ---
+  preferences?: IUserPreferences;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,6 +75,12 @@ const userSchema = new Schema<IUserDocument>(
     currentWebauthnChallenge: {
       type: String,
       select: false,
+    },
+    preferences: {
+      undoSendDelay: {
+        type: Number,
+        default: 5,
+      },
     },
   },
   {

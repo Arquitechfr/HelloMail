@@ -22,7 +22,7 @@
 
 HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le backend est un monorepo pnpm avec un seul package `backend/` en Node.js ESM + Express 4 + MongoDB/Mongoose 9 + Zod 4 + JWT + AES-256-GCM.
 
-**Quatre phases ont été livrées :**
+**Phases livrées :**
 
 | Phase | Contenu | Commits | Lignes |
 |-------|---------|---------|--------|
@@ -35,8 +35,9 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 6** | Sync multi-dossiers temps réel (polling dossiers spéciaux via 2e connexion IMAP parallèle à l'IDLE INBOX) + pagination arrière (`fetchMoreService` — fetch IMAP des messages plus anciens par UID range) + OAuth Google XOAUTH2 (service OAuth + callback + refresh token chiffré + renouvellement auto + intégration IMAP/SMTP + bouton frontend) + 2FA TOTP + WebAuthn (secret chiffré AES-256-GCM, codes de secours bcrypt, passkeys `@simplewebauthn/server`, flux login challenge → verify → tokens) + contacts (modèle Contact + index textuel + CRUD + recherche/autocomplétion + intégration compose) + observabilité (métriques Prometheus `prom-client` + health check enrichi + middleware instrumentation) + page réglages (2FA + contacts) + 73 nouveaux tests (323 total, 31 fichiers) | — | ~4 200 |
 | **Phase 7** | Autoconfiguration des comptes email (Mozilla ISPDB + DNS MX + heuristiques) + OAuth Microsoft 365 / Outlook.com (XOAUTH2) + Signatures d'email personnalisées par compte + Pièces jointes avancées (drag & drop, jauge 25 Mo, preview, suppressions individuelles) + Rate Limiting distribué Redis (`rate-limit-redis`) + Résorption intégrale de la dette technique D2, D10 et D12 (0 `as any`) + 16 nouveaux tests (339 total, 34 fichiers) | — | ~2 100 |
 | **Phase 8** | Threading & Conversation (Lots 8.1 & 8.2 : `inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline `MessageThreadView`, réponse rapide `QuickReplyBar` + export .eml streamé PEEK + impression `@media print`) + Notifications de bureau & carillon Web Audio (Lot 8.3) + Moteur de règles & filtres automatiques (Lot 8.4 : modèle `Rule`, validation Zod, service d'évaluation et actions, intégration IDLE loop, page UI `/mail/settings/rules`) + Accusés de lecture (Lot 8.5 : RFC 3798 MDN, `Disposition-Notification-To`, bannière `ReadReceiptBanner` interactive, émission rapport MIME multipart/report) + 31 nouveaux tests (370 total, 38 fichiers, 0 `as any`) | — | ~3 100 |
+| **Phase 9** | Productivité & Organisation — **Intégralité livrée (Lots 9.1 à 9.4)** : Étiquettes & Libellés colorés (Lot 9.1) + Annulation d'envoi "Undo Send" 5s-30s (Lot 9.2 : dock interactif décompté, annulation Z, restauration formulaires & PJ, PATCH /preferences) + Modèles d'emails & Réponses types (Lot 9.3 : modèle Template, Zod schemas, service & routes /api/templates, dropdown d'insertion dans compose et quick reply, TemplateManager dans réglages) + Mise en sommeil "Snooze" (Lot 9.4 : champ snoozedUntil sur Message, filtrage automatique boîte de réception, dossier virtuel Snoozed, réveil périodique dans worker, popover avec presets temporels et date personnalisée) + 34 nouveaux tests (404 total, 43 fichiers, 0 `as any`) | — | ~3 600 |
 
-**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis et couvert par 370 tests Vitest (38 suites). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique et les accusés de lecture MDN. Typecheck, ESLint et Next.js Build sont 100% verts.
+**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis et couvert par 404 tests Vitest (43 suites). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN, le système d'étiquettes / libellés colorés, l'annulation d'envoi ("Undo Send"), les modèles d'emails & réponses types réutilisables en 1 clic et la mise en sommeil d'emails ("Snooze"). Typecheck, ESLint et Next.js Build sont 100% verts.
 
 ---
 
@@ -203,9 +204,13 @@ backend/src/
 
 **Account** — `userId` + `provider` (imap / google_oauth / microsoft_oauth) + `emailAddress` (unique par user) + `imapConfig` (host, port, secure, smtp*, username, encryptedPassword) + `oauthConfig` (encryptedRefreshToken, accessTokenExpiresAt, scope) + `isActive` + `lastSyncedAt` + `lastSyncError`. Hook `pre('validate')` pour cohérence provider ↔ config.
 
-**Message** — `accountId` + `folder` + `uid` (unique composé) + `messageId` + `subject` + `from` + `to` + `date` + `flags` (seen, answered, flagged) + `hasAttachments` + `size`. Index sur `{accountId, date: -1}` pour le tri.
+**Message** — `accountId` + `folder` + `uid` (unique composé) + `messageId` + `subject` + `from` + `to` + `date` + `flags` (seen, answered, flagged) + `hasAttachments` + `size` + `tags?` (Phase 9) + `snoozedUntil?` (Phase 9). Index sur `{accountId, date: -1}`, `{accountId, folder: 1, date: -1}`, `{accountId, tags: 1}` et `{accountId, snoozedUntil: 1}`.
 
 **Contact** (Phase 6) — `userId` + `name` + `email` + `phone?` + `notes?` + timestamps. Index textuel `{name: 'text', email: 'text'}` + index unique `{userId, email}` pour éviter les doublons par utilisateur.
+
+**Tag** (Phase 9) — `userId` + `name` + `color` + `order` + timestamps. Index `{userId: 1, name: 1}` unique et `{userId: 1, order: 1}`.
+
+**Template** (Phase 9) — `userId` + `accountId?` + `title` + `subject?` + `bodyHtml` + `bodyText` + `shortcut?` + `order` + timestamps. Index `{userId: 1, order: 1}`, `{userId: 1, accountId: 1}` et `{userId: 1, shortcut: 1}`.
 
 ### 2.4 Sync worker
 
@@ -896,16 +901,16 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Expérience utilisateur professionnelle de niveau Thunderbird/Fastmail. ✅ Atteint.
 
-### Phase 9 — Productivité & Organisation Intelligente 🚀 EN COURS
+### Phase 9 — Productivité & Organisation Intelligente ✅ LIVRÉ
 
 | Étape | Priorité | Effort estimé | État |
 |---|---|---|---|
-| 27. Étiquettes & Libellés personnalisés colorés (Lot 9.1) | 🟠 IMPORTANTE | Moyen | 🚀 En cours (Modèle Tag, assignation, badges colorés, filtre sidebar) |
-| 28. Annulation d'envoi ("Undo Send" 5s-30s) (Lot 9.2) | 🟠 IMPORTANTE | Faible | ⏳ À venir (Toast interactif décompté, réouverture compose) |
-| 29. Modèles d'emails & Réponses types (Lot 9.3) | 🟡 SECONDaire | Moyen | ⏳ À venir (Modèle Template, insertion 1 clic compose & quick reply) |
-| 30. Mise en sommeil d'emails ("Snooze") (Lot 9.4) | 🟠 IMPORTANTE | Moyen | ⏳ À venir (snoozedUntil, worker de réveil, vue "En sommeil") |
+| 27. Étiquettes & Libellés personnalisés colorés (Lot 9.1) | 🟠 IMPORTANTE | Moyen | ✅ Livré (Modèle `Tag`, Zod schemas, service cascade rename/delete, routes `/api/tags` & `/tags`, composant `TagBadge`, `TagSelectPopover`, `TagManager` dans `/mail/settings`, filtres `MessageList`/`AccountSidebar`, action `applyTag` règles) |
+| 28. Annulation d'envoi ("Undo Send" 5s-30s) (Lot 9.2) | 🟠 IMPORTANTE | Faible | ✅ Livré (Dock flottant décompté, bouton/raccourci Z d'annulation, restauration formulaire/brouillon, préférence utilisateur 0-30s, PATCH /preferences) |
+| 29. Modèles d'emails & Réponses types (Lot 9.3) | 🟡 SECONDaire | Moyen | ✅ Livré (Modèle `Template`, validation Zod, service & routes `/api/templates`, dropdown d'insertion en 1 clic dans `ComposeForm` et `QuickReplyBar`, `TemplateManager` dans `/mail/settings`) |
+| 30. Mise en sommeil d'emails ("Snooze") (Lot 9.4) | 🟠 IMPORTANTE | Moyen | ✅ Livré (`snoozedUntil` sur `Message`, filtrage boîte de réception, dossier virtuel "En sommeil", worker de réveil automatique, popover `SnoozeDropdown` avec 4 presets et datetime picker) |
 
-**Objectif :** Atteindre une productivité maximale équivalente à Superhuman / Gmail Pro.
+**Objectif :** Atteindre une productivité maximale équivalente à Superhuman / Gmail Pro. ✅ Atteint.
 
 ---
 
@@ -957,6 +962,8 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Impression dédiée | ✅ | Phase 8 | `@media print` optimisé, masquage des panneaux/headers, raccourci clavier `P` |
 | Moteur de règles & filtres | ✅ | Phase 8 | Modèle `Rule`, conditions multiples (from, to, subject, hasAttachments), actions (move, read, flag, spam, delete), worker IDLE loop, page `/mail/settings/rules` |
 | Accusé de lecture (MDN) | ✅ | Phase 8 | Demande à l'envoi (`Disposition-Notification-To`), détection à la lecture, bannière `ReadReceiptBanner`, émission automatique rapport RFC 3798 |
+| Étiquettes / Libellés (Tags) | ✅ | Phase 9 | Modèle `Tag`, assignation UID & batch, badges colorés, popover sélecteur, gestionnaire dans `/mail/settings`, filtrage sidebar, action `applyTag` règles |
+| Mise en sommeil ("Snooze") | ✅ | Phase 9 | Champ `snoozedUntil` sur `Message`, masquage boîte de réception, dossier virtuel "En sommeil", boucle de réveil worker, popover `SnoozeDropdown` (presets + custom) |
 | **Envoi** | | | |
 | Composer un message | ✅ | Phase 3 | sendService (Nodemailer) |
 | Répondre (reply) | ✅ | Phase 3 | inReplyTo + references dans le schéma |
@@ -966,6 +973,8 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Brouillons + auto-save | ✅ | Phase 5 | Stockage IMAP Drafts via messageAppend, flag \Draft, CRUD endpoints |
 | CC / BCC | ✅ | Phase 3 | Supportés dans sendEmailSchema |
 | Signature | ✅ | Phase 7 | Signatures personnalisées par compte (texte + HTML), insertion dans compose |
+| Annulation d'envoi ("Undo Send") | ✅ | Phase 9 | Délai de grâce configurable (0 à 30s), dock décompté interactif, annulation Z, restauration formulaires & PJ, PATCH /preferences |
+| Modèles & Réponses types | ✅ | Phase 9 | Modèle `Template`, CRUD `/api/templates`, dropdown d'insertion en 1 clic dans compose et quick reply, gestionnaire `/mail/settings` |
 | **Dossiers** | | | |
 | Lister les dossiers | ✅ | Phase 3 | folderService.listFolders (avec status) |
 | Créer / renommer / supprimer | ✅ | Phase 3 | folderService CRUD + cache invalidation |
@@ -986,9 +995,9 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | Notifications bureau & carillon | ✅ | Phase 8 | Notifications Web natives + synthèse Web Audio sans asset + toggle réglages |
 | **Tests** | | | |
-| Tests unitaires & intégration | ✅ | Phase 3 + 5 + 6 + 7 + 8 | 370 tests, 38 fichiers (100% passants) |
+| Tests unitaires & intégration | ✅ | Phase 3 + 5 + 6 + 7 + 8 + 9 | 404 tests, 43 fichiers (100% passants) |
 | **Frontend** | | | |
-| Interface web | ✅ | Phase 4 + 6 + 7 + 8 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google/MS OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts, drag&drop PJ, accusés de lecture), brouillons auto-save, recherche, SSE temps réel, pages dédiées (/mail/settings, /mail/settings/security, /mail/settings/rules, /mail/contacts) |
+| Interface web | ✅ | Phase 4 + 6 + 7 + 8 + 9 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google/MS OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts, drag&drop PJ, accusés de lecture, dock annulation d'envoi UndoSendDock, modèles de réponses types), brouillons auto-save, recherche, SSE temps réel, mise en sommeil Snooze & dossier virtuel, gestionnaires d'étiquettes & modèles dans /mail/settings, pages dédiées (/mail/settings/security, /mail/settings/rules, /mail/contacts) |
 | **Observabilité** | | | |
 | Health check | ✅ | Phase 6 | Enrichi (status, uptime, version, MongoDB, Redis, HTTP 503 si dégradé) |
 | Métriques Prometheus | ✅ | Phase 6 | prom-client — compteur requêtes, histogramme durée, jauges MongoDB/Redis |

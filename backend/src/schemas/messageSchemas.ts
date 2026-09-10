@@ -164,3 +164,14 @@ export const fetchMoreSchema = z.object({
   folder: z.string().min(1, 'Dossier requis').max(255, 'Dossier trop long').default('INBOX'),
   count: z.coerce.number().int().min(1).max(100).default(50),
 });
+
+/**
+ * Schéma pour la mise en sommeil d'un email ("Snooze").
+ * `snoozedUntil` : date ISO 8601 future ou null pour réveiller immédiatement ("unsnooze").
+ */
+export const snoozeMessageSchema = z.object({
+  snoozedUntil: z.string().datetime({ message: 'Format de date ISO 8601 invalide' }).nullable(),
+});
+
+export type SnoozeMessageInput = z.infer<typeof snoozeMessageSchema>;
+

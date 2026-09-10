@@ -110,10 +110,31 @@ export function useDisable2FA() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { password: string }) =>
-      apiFetch<{ message: string }>("/api/auth/2fa/disable", {
+      apiFetch<{ message: string }>("/api/auth/disable", {
         method: "POST",
         body: JSON.stringify(body),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.twoFAStatus }),
   });
 }
+
+/** PATCH /api/auth/preferences — met à jour les préférences de l'utilisateur (Phase 9). */
+export function useUpdatePreferences() {
+  const qc = useQueryClient();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const { accessToken } = useAuthStore();
+  return useMutation({
+    mutationFn: (body: { undoSendDelay?: number }) =>
+      apiFetch<{ user: User }>("/api/auth/preferences", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (data) => {
+      if (accessToken && data.user) {
+        setAuth(accessToken, data.user);
+      }
+      qc.invalidateQueries({ queryKey: authKeys.me });
+    },
+  });
+}
+

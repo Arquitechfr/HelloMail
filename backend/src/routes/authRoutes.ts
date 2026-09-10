@@ -3,7 +3,7 @@ import * as authController from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { authRateLimit } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
-import { registerSchema, loginSchema, verifyTwoFactorSchema } from '../schemas/authSchemas.js';
+import { registerSchema, loginSchema, verifyTwoFactorSchema, updatePreferencesSchema } from '../schemas/authSchemas.js';
 
 const router = Router();
 
@@ -13,5 +13,6 @@ router.post('/verify-2fa', authRateLimit, validate({ body: verifyTwoFactorSchema
 router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 router.get('/me', requireAuth, authController.me);
+router.patch('/preferences', requireAuth, validate({ body: updatePreferencesSchema }), authController.updatePreferences);
 
 export const authRoutes = router;

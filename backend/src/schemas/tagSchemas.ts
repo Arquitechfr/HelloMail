@@ -11,6 +11,7 @@ export const createTagSchema = z.object({
   color: z
     .string()
     .regex(hexColorRegex, 'Code couleur hexadécimal invalide (ex: #3b82f6)')
+    .optional()
     .default('#3b82f6'),
   order: z.number().int().optional(),
 });
@@ -40,7 +41,7 @@ export const batchSetMessageTagsSchema = z.object({
   mode: z.enum(['add', 'remove', 'set']).default('set'),
 });
 
-export type CreateTagInput = z.infer<typeof createTagSchema>;
+export type CreateTagInput = z.input<typeof createTagSchema>;
 export type UpdateTagInput = z.infer<typeof updateTagSchema>;
 export type SetMessageTagsInput = z.infer<typeof setMessageTagsSchema>;
 export type BatchSetMessageTagsInput = z.infer<typeof batchSetMessageTagsSchema>;

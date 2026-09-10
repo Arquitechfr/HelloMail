@@ -268,10 +268,21 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
               >
                 <option value="markAsRead">Marquer comme lu</option>
                 <option value="markAsFlagged">Marquer d&apos;une étoile (favori)</option>
+                <option value="applyTag">Appliquer une étiquette</option>
                 <option value="moveToFolder">Déplacer vers un dossier</option>
                 <option value="markAsJunk">Marquer comme spam</option>
                 <option value="delete">Supprimer définitivement</option>
               </select>
+
+              {act.type === "applyTag" && (
+                <Input
+                  placeholder="Nom de l'étiquette (ex: Urgent, Projet...)"
+                  value={act.tagName || ""}
+                  onChange={(e) => updateAction(idx, { tagName: e.target.value })}
+                  required
+                  className="h-9 text-xs sm:text-sm flex-1 min-w-[160px]"
+                />
+              )}
 
               {act.type === "moveToFolder" && (
                 <Input

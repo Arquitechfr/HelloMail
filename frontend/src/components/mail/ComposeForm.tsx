@@ -3,25 +3,28 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { useSendEmail } from "@/lib/queries/messages";
-import { useCreateDraft, useUpdateDraft } from "@/lib/queries/drafts";
+import { useCreateDraft, useUpdateDraft, useDeleteDraft } from "@/lib/queries/drafts";
 import { useAccounts } from "@/lib/queries/accounts";
+import { useUndoSendStore, type RestoredComposeData } from "@/lib/stores/undoSendStore";
+import { htmlToText, formatSignatureHtml } from "@/lib/compose-utils";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/mail/RichTextEditor";
-import { ContactAutocomplete } from "@/components/mail/ContactAutocomplete";
+import { ComposeRecipients } from "@/components/mail/ComposeRecipients";
+import { ComposeActions } from "@/components/mail/ComposeActions";
 import { AttachmentDropzone, type AttachmentItem } from "@/components/mail/AttachmentDropzone";
-import { Loader2, Send, ChevronDown, ChevronUp, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import type { SendEmailInput } from "@/lib/api-types";
+import type { EmailTemplate } from "@/lib/types/templates";
 
 export type DraftStatus = "idle" | "saving" | "saved" | "error";
 
 interface ComposeFormProps {
   accountId: string;
   mode: "new" | "reply" | "forward";
-  replyTo?: { messageId?: string; subject?: string; from?: string; to?: string[] } | null;
+  replyTo?: { messageId?: string; subject?: string; from?: string; to?: string[]; html?: string } | null;
+  restoredData?: RestoredComposeData | null;
   draftUid: number | null;
   onDraftUidChange: (uid: number | null) => void;
   onDraftStatusChange: (status: DraftStatus) => void;
@@ -29,25 +32,11 @@ interface ComposeFormProps {
   onClose: () => void;
 }
 
-/** Convertit du HTML en texte brut (pour le champ `text` de l'email). */
-function htmlToText(html: string): string {
-  if (typeof document === "undefined") return html.replace(/<[^>]*>/g, "");
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  return tmp.textContent || tmp.innerText || "";
-}
-
-function formatSignatureHtml(sigText: string): string {
-  const trimmed = sigText.trim();
-  const prefix = trimmed.startsWith("--") ? "" : "<p>-- </p>";
-  const linesHtml = sigText.split("\n").map((l) => `<p>${l.trim() ? l : "<br>"}</p>`).join("");
-  return `<p><br></p>${prefix}${linesHtml}`;
-}
-
 export function ComposeForm({
   accountId,
   mode,
   replyTo,
+  restoredData,
   draftUid,
   onDraftUidChange,
   onDraftStatusChange,
@@ -57,8 +46,11 @@ export function ComposeForm({
   const sendEmail = useSendEmail(accountId);
   const createDraft = useCreateDraft(accountId);
   const updateDraft = useUpdateDraft(accountId);
+  const deleteDraft = useDeleteDraft(accountId);
+  const { undoSendDelay, queueSend } = useUndoSendStore();
 
   const initialSubject = () => {
+    if (restoredData?.subject) return restoredData.subject;
     if ((mode === "reply" || mode === "forward") && replyTo?.subject) {
       const p = mode === "reply" ? "Re:" : "Fwd:";
       return replyTo.subject.startsWith(p) ? replyTo.subject : `${p} ${replyTo.subject}`;
@@ -66,16 +58,22 @@ export function ComposeForm({
     return "";
   };
 
-  const [to, setTo] = useState(replyTo && mode === "reply" ? replyTo.from ?? "" : "");
-  const [cc, setCc] = useState("");
-  const [bcc, setBcc] = useState("");
+  const [to, setTo] = useState(
+    restoredData?.to ?? (replyTo && mode === "reply" ? replyTo.from ?? "" : ""),
+  );
+  const [cc, setCc] = useState(restoredData?.cc ?? "");
+  const [bcc, setBcc] = useState(restoredData?.bcc ?? "");
   const [subject, setSubject] = useState(initialSubject());
-  const [body, setBody] = useState("");
-  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
-  const [requestReadReceipt, setRequestReadReceipt] = useState(false);
+  const [body, setBody] = useState<string>(restoredData?.body ?? replyTo?.html ?? "");
+  const [attachments, setAttachments] = useState<AttachmentItem[]>(
+    restoredData?.attachments ?? [],
+  );
+  const [requestReadReceipt, setRequestReadReceipt] = useState(
+    restoredData?.requestReadReceipt ?? false,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
-  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [showCcBcc, setShowCcBcc] = useState(!!(restoredData?.cc || restoredData?.bcc));
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
 
@@ -107,7 +105,7 @@ export function ComposeForm({
   }, [currentAccount]);
 
   // Insertion automatique de la signature si activée et nouveau message
-  const signatureInsertedRef = useRef(false);
+  const signatureInsertedRef = useRef(!!restoredData);
   useEffect(() => {
     if (
       mode === "new" &&
@@ -230,10 +228,43 @@ export function ComposeForm({
       requestReadReceipt: requestReadReceipt ? true : undefined,
     };
 
+    if (undoSendDelay > 0) {
+      setSubmitting(false);
+      // Fermeture immédiate du panneau de composition
+      onClose();
+
+      const recipientText =
+        payload.to[0] + (payload.to.length > 1 ? ` (+${payload.to.length - 1})` : "");
+
+      queueSend({
+        accountId,
+        payload,
+        mode,
+        replyTo,
+        draftUid,
+        attachments,
+        recipientPreview: recipientText,
+        subjectPreview: payload.subject,
+        totalDurationMs: undoSendDelay * 1000,
+        onExecute: async () => {
+          try {
+            await sendEmail.mutateAsync(payload);
+            if (draftUid) {
+              deleteDraft.mutate(draftUid);
+            }
+            toast.success("Message envoyé avec succès");
+          } catch (err) {
+            if (err instanceof ApiError) toast.error(`Échec : ${err.message}`);
+            else toast.error("Échec lors de l'envoi du message");
+          }
+        },
+      });
+      return;
+    }
+
     try {
       await sendEmail.mutateAsync(payload);
       toast.success("Message envoyé");
-      // Supprime le brouillon associé si existant.
       onSent();
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
@@ -243,56 +274,31 @@ export function ComposeForm({
     }
   };
 
+  const handleSelectTemplate = (template: EmailTemplate) => {
+    if (!subject.trim() && template.subject) {
+      setSubject(template.subject);
+    }
+    const newBody = body ? `${body}<br><br>${template.bodyHtml}` : template.bodyHtml;
+    setBody(newBody);
+    handleBodyChange(newBody);
+    toast.success(`Modèle "${template.title}" inséré`);
+  };
+
   return (
     <form onSubmit={handleSend} className="flex h-full flex-col gap-4">
-      {/* Expéditeur */}
-      {currentAccount && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground pb-1 border-b border-border/40">
-          <span className="font-medium text-foreground">De :</span>
-          <span className="font-medium text-foreground/90">
-            {currentAccount.displayName
-              ? `${currentAccount.displayName} <${currentAccount.emailAddress}>`
-              : currentAccount.emailAddress}
-          </span>
-        </div>
-      )}
-
-      {/* Destinataire + toggle Cc/Cci */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="to">À</Label>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setShowCcBcc((v) => !v)}
-            className="text-xs text-muted-foreground"
-          >
-            {showCcBcc ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-            Cc / Cci
-          </Button>
-        </div>
-        <ContactAutocomplete id="to" value={to} onChange={setTo} placeholder="destinataire@exemple.com" required />
-      </div>
-
-      {/* Cc / Cci (conditionnels) */}
-      {showCcBcc && (
-        <>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="cc">Cc</Label>
-            <Input id="cc" value={cc} onChange={handleChange(setCc)} placeholder="(optionnel)" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="bcc">Cci</Label>
-            <Input id="bcc" value={bcc} onChange={handleChange(setBcc)} placeholder="(optionnel)" />
-          </div>
-        </>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="subject">Sujet</Label>
-        <Input id="subject" value={subject} onChange={handleChange(setSubject)} placeholder="Sujet du message" required />
-      </div>
+      <ComposeRecipients
+        currentAccount={currentAccount}
+        to={to}
+        onToChange={setTo}
+        cc={cc}
+        onCcChange={handleChange(setCc)}
+        bcc={bcc}
+        onBccChange={handleChange(setBcc)}
+        subject={subject}
+        onSubjectChange={handleChange(setSubject)}
+        showCcBcc={showCcBcc}
+        onToggleCcBcc={() => setShowCcBcc((v) => !v)}
+      />
 
       {/* Éditeur de texte riche */}
       <div className="flex min-h-[35vh] flex-1 flex-col gap-2">
@@ -315,33 +321,16 @@ export function ComposeForm({
       {/* Zone de pièces jointes */}
       <AttachmentDropzone attachments={attachments} onChange={setAttachments} />
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            Envoyer
-          </Button>
-          <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
-            {savingDraft ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Enregistrer
-          </Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={requestReadReceipt}
-              onChange={(e) => setRequestReadReceipt(e.target.checked)}
-              className="rounded border-border size-3.5 accent-primary"
-            />
-            <span>Accusé de lecture</span>
-          </label>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting || savingDraft}>
-            <X className="size-4" />
-            Annuler
-          </Button>
-        </div>
-      </div>
+      <ComposeActions
+        submitting={submitting}
+        savingDraft={savingDraft}
+        requestReadReceipt={requestReadReceipt}
+        onRequestReadReceiptChange={setRequestReadReceipt}
+        onSaveDraft={handleSaveDraft}
+        onCancel={onClose}
+        accountId={accountId}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </form>
   );
 }

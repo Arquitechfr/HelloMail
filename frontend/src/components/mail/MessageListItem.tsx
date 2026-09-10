@@ -1,8 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { cn, formatRelativeDate, getInitials } from "@/lib/utils";
 import type { Message } from "@/lib/api-types";
-import { Paperclip, Star } from "lucide-react";
+import { useTags } from "@/lib/queries/tags";
+import { TagBadge } from "./TagBadge";
+import { Paperclip, Star, Clock } from "lucide-react";
 
 interface MessageListItemProps {
   message: Message;
@@ -13,6 +16,15 @@ interface MessageListItemProps {
 export function MessageListItem({ message, isSelected, onSelect }: MessageListItemProps) {
   const isUnread = !message.flags.seen;
   const isFlagged = message.flags.flagged;
+  const { data: tagsData } = useTags();
+
+  const tagColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    tagsData?.data?.forEach((t) => {
+      map[t.name] = t.color;
+    });
+    return map;
+  }, [tagsData]);
 
   return (
     <div
@@ -61,6 +73,30 @@ export function MessageListItem({ message, isSelected, onSelect }: MessageListIt
             {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
           </div>
         </div>
+
+        {(message.tags && message.tags.length > 0 || message.snoozedUntil) && (
+          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+            {message.snoozedUntil && (
+              <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                <Clock className="size-2.5" />
+                <span>Réveil {formatRelativeDate(message.snoozedUntil)}</span>
+              </span>
+            )}
+            {message.tags?.slice(0, 2).map((tag) => (
+              <TagBadge
+                key={tag}
+                name={tag}
+                color={tagColorMap[tag] || "#3b82f6"}
+                size="sm"
+              />
+            ))}
+            {message.tags && message.tags.length > 2 && (
+              <span className="text-[10px] text-muted-foreground font-medium">
+                +{message.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

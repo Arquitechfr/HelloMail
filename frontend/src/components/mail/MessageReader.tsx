@@ -16,20 +16,8 @@ import { MessageThreadView } from "@/components/mail/MessageThreadView";
 import { QuickReplyBar } from "@/components/mail/QuickReplyBar";
 import { MessageMetadataHeader } from "@/components/mail/MessageMetadataHeader";
 import { ReadReceiptBanner } from "@/components/mail/ReadReceiptBanner";
-import { Button } from "@/components/ui/button";
-import {
-  Mail,
-  Reply,
-  Forward,
-  Trash2,
-  Star,
-  Archive,
-  Ban,
-  Loader2,
-  ArrowLeft,
-  Printer,
-  Download,
-} from "lucide-react";
+import { MessageToolbar } from "@/components/mail/MessageToolbar";
+import { Mail, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -172,74 +160,30 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       )}
     >
       {/* Barre d'actions d'email */}
-      <div className="flex items-center justify-between border-b border-border bg-background/80 px-4 py-2 shrink-0 no-print">
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="md:hidden mr-1"
-            onClick={() => setSelectedUid(null)}
-            title="Retour aux messages"
-            aria-label="Retour aux messages"
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() =>
-              openCompose("reply", {
-                messageId: message.messageId,
-                subject: message.subject,
-                from: message.from.address,
-                to: [message.from.address],
-              })
-            }
-            title="Répondre (R)"
-          >
-            <Reply className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => openCompose("forward", { subject: message.subject })}
-            title="Transférer (F)"
-          >
-            <Forward className="size-4" />
-          </Button>
-          <div className="mx-1 h-4 w-px bg-border" />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleToggleFlag}
-            title="Marquer comme important (S)"
-          >
-            <Star
-              className={message.flags.flagged ? "size-4 fill-amber-400 text-amber-400" : "size-4"}
-            />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleArchive} title="Archiver (E)">
-            <Archive className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleMarkJunk} title="Marquer comme spam (!)">
-            <Ban className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleDelete} title="Supprimer (Suppr)">
-            <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-          </Button>
-          <div className="mx-1 h-4 w-px bg-border" />
-          <Button variant="ghost" size="icon-sm" onClick={handlePrint} title="Imprimer (Ctrl+P)">
-            <Printer className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleDownloadEml} title="Télécharger (.eml)">
-            <Download className="size-4" />
-          </Button>
-        </div>
-
-        <div className="text-xs text-muted-foreground font-mono">
-          UID: #{uid}
-        </div>
-      </div>
+      <MessageToolbar
+        accountId={accountId}
+        folder={folder}
+        uid={uid!}
+        isFlagged={message.flags.flagged}
+        isSnoozed={!!message.snoozedUntil}
+        onSnoozed={() => setSelectedUid(null)}
+        onBack={() => setSelectedUid(null)}
+        onReply={() =>
+          openCompose("reply", {
+            messageId: message.messageId,
+            subject: message.subject,
+            from: message.from.address,
+            to: [message.from.address],
+          })
+        }
+        onForward={() => openCompose("forward", { subject: message.subject })}
+        onToggleFlag={handleToggleFlag}
+        onArchive={handleArchive}
+        onMarkJunk={handleMarkJunk}
+        onDelete={handleDelete}
+        onPrint={handlePrint}
+        onDownloadEml={handleDownloadEml}
+      />
 
       {/* Fil de discussion de la conversation */}
       <MessageThreadView
@@ -249,7 +193,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       />
 
       {/* En-tête des métadonnées du message */}
-      <MessageMetadataHeader message={message} />
+      <MessageMetadataHeader message={message} accountId={accountId} folder={folder} uid={uid!} />
 
       {/* Bannière d'accusé de réception (MDN RFC 3798) */}
       {message.readReceiptRequestedTo && (
@@ -276,6 +220,16 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       <QuickReplyBar
         senderLabel={message.from.name || message.from.address}
         hasMultipleRecipients={message.to.length + (message.cc?.length ?? 0) > 1}
+        accountId={accountId}
+        onSelectTemplate={(template) =>
+          openCompose("reply", {
+            messageId: message.messageId,
+            subject: message.subject,
+            from: message.from.address,
+            to: [message.from.address],
+            html: template.bodyHtml,
+          })
+        }
         onReply={() =>
           openCompose("reply", {
             messageId: message.messageId,

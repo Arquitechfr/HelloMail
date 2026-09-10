@@ -48,7 +48,7 @@ au format JSON.
 
 Une classe/fonction par responsabilité, pas de logique éparpillée :
 - `SyncManager` — cycle de vie d'un compte (connect, sync, idle, reconnexion, polling multi-dossiers Phase 6)
-- `accountRegistry` — découverte des comptes actifs (polling)
+- `accountRegistry` — découverte des comptes actifs (polling) + réveil automatique des messages mis en sommeil (`checkExpiredSnoozes()` Phase 9)
 - `initialSync` — fetch des 50 derniers messages, upsert idempotent
 - `idleLoop` — boucle IDLE + handlers exists/expunge/flags (INBOX uniquement)
 - `pollingSync` — polling des dossiers spéciaux via 2e connexion IMAP (Phase 6)
@@ -88,12 +88,13 @@ Le worker publie des événements vers l'API via Redis Pub/Sub pour alimenter
 le SSE côté frontend. La publication se fait via `publishEvent()` depuis
 `services/realtime/eventPublisher.ts`.
 
-### Points de publication
+### Points de publication & Moteur de règles
 
-- `idleLoop.ts` (handler `exists`) → `message:new` après upsert d'un nouveau message.
+- `idleLoop.ts` (handler `exists`) → exécution du moteur de règles `ruleService.evaluateAndApplyRules` (actions moveToFolder, markAsRead, markAsFlagged, markAsJunk, applyTag Phase 9, delete) puis publication `message:new` après upsert d'un nouveau message.
 - `idleLoop.ts` (handler `expunge`) → `message:deleted` après suppression en base.
 - `idleLoop.ts` (handler `flags`) → `message:flags` après mise à jour des flags.
 - `syncManager.ts` (désactivation auto) → `account:syncError` quand un compte est désactivé après trop d'échecs.
+- `accountRegistry.ts` (polling) → réveil des messages en sommeil expirés (`checkExpiredSnoozes`), nettoyage de `snoozedUntil` et publication `message:new` pour chaque message restauré en boîte de réception.
 
 ### Paramètre `userId`
 

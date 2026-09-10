@@ -1,6 +1,7 @@
 import { AccountModel, type IAccountDocument } from '../../models/Account.js';
 import { ACCOUNT_POLL_INTERVAL_MS } from '../../config/constants.js';
 import { SyncManager } from './syncManager.js';
+import { checkExpiredSnoozes } from '../email/snoozeService.js';
 
 /**
  * Registre des SyncManager actifs en mémoire.
@@ -53,6 +54,15 @@ class AccountRegistry {
    * arrête ceux qui ne sont plus actifs.
    */
   private async poll(): Promise<void> {
+    // Vérifie et réveille les emails en sommeil expirés
+    try {
+      await checkExpiredSnoozes();
+    } catch (err) {
+      console.error(
+        `[registry] Erreur vérification snoozes expirés — ${err instanceof Error ? err.message : 'erreur inconnue'}`,
+      );
+    }
+
     let activeAccounts: IAccountDocument[];
 
     try {

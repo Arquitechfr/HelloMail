@@ -25,6 +25,7 @@ export interface IMessageDocument extends Document {
   hasAttachments: boolean;
   size: number;
   tags?: string[];
+  snoozedUntil?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +104,10 @@ const messageSchema = new Schema<IMessageDocument>(
       type: [String],
       default: [],
     },
+    snoozedUntil: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -114,6 +119,9 @@ messageSchema.index({ accountId: 1, folder: 1, uid: 1 }, { unique: true });
 
 // Index pour filtrage par tag
 messageSchema.index({ accountId: 1, tags: 1 });
+
+// Index pour la mise en sommeil (snooze)
+messageSchema.index({ accountId: 1, snoozedUntil: 1 });
 
 // Index pour le tri de la liste par date décroissante.
 messageSchema.index({ accountId: 1, date: -1 });

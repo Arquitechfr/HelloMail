@@ -114,7 +114,7 @@ describe('Auth 2FA routes (intégration)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeDefined();
-    expect(res.body.user).toEqual({ id: expect.any(String), email: 'verify2fa@test.com' });
+    expect(res.body.user).toMatchObject({ id: expect.any(String), email: 'verify2fa@test.com' });
     expect(res.headers['set-cookie']).toBeDefined();
   });
 

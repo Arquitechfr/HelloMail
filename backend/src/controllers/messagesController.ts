@@ -18,6 +18,7 @@ import {
   markMessageAsJunk,
   batchAction,
 } from '../services/email/messageActionService.js';
+import { snoozeMessage } from '../services/email/snoozeService.js';
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
@@ -35,14 +36,21 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
   }
 
   const filter: Record<string, unknown> = { accountId };
-  if (folder) filter.folder = folder;
+  const sortOption: Record<string, 1 | -1> = folder === 'Snoozed' ? { snoozedUntil: 1 } : { date: -1 };
+
+  if (folder === 'Snoozed') {
+    filter.snoozedUntil = { $gt: new Date() };
+  } else {
+    if (folder) filter.folder = folder;
+    filter.snoozedUntil = { $not: { $gt: new Date() } };
+  }
   if (tagParam) filter.tags = tagParam;
 
   const skip = (page - 1) * limit;
 
   const [messages, total] = await Promise.all([
     MessageModel.find(filter)
-      .sort({ date: -1 })
+      .sort(sortOption)
       .skip(skip)
       .limit(limit)
       .lean(),
@@ -243,4 +251,18 @@ export const sendReceipt = asyncHandler(async (req: AuthenticatedRequest, res: R
   const result = await sendReadReceipt(account, folder, Number(uid));
   res.status(200).json(result);
 });
+
+export const snooze = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const snoozedUntilDate = req.body.snoozedUntil ? new Date(req.body.snoozedUntil) : null;
+  const message = await snoozeMessage(account, folder, Number(uid), snoozedUntilDate);
+  res.status(200).json({ ok: true, data: message });
+});
+
 

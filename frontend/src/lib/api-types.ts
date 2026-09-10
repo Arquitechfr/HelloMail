@@ -5,9 +5,14 @@
 
 // --- Auth ---
 
+export interface UserPreferences {
+  undoSendDelay?: number; // 0 (immédiat), 5, 10, 15, 30 secondes
+}
+
 export interface User {
   id: string;
   email: string;
+  preferences?: UserPreferences;
 }
 
 export interface AuthResponse {
@@ -132,6 +137,8 @@ export interface Message {
   flags: MessageFlags;
   hasAttachments: boolean;
   size: number;
+  tags?: string[];
+  snoozedUntil?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -165,6 +172,8 @@ export interface MessageDetail {
   size: number;
   attachments: AttachmentInfo[];
   readReceiptRequestedTo?: string;
+  tags?: string[];
+  snoozedUntil?: string | null;
 }
 
 export interface ThreadItem {
@@ -281,48 +290,8 @@ export interface ApiErrorBody {
 }
 
 // --- Règles de tri automatique ---
+export * from "./types/rules";
 
-export type RuleConditionField = "from" | "to" | "subject" | "hasAttachments";
-export type RuleConditionOperator = "contains" | "notContains" | "equals" | "startsWith" | "endsWith";
-export type RuleConditionMatch = "all" | "any";
-
-export interface RuleCondition {
-  field: RuleConditionField;
-  operator: RuleConditionOperator;
-  value: string;
-}
-
-export type RuleActionType = "moveToFolder" | "markAsRead" | "markAsFlagged" | "markAsJunk" | "delete";
-
-export interface RuleAction {
-  type: RuleActionType;
-  folderName?: string;
-}
-
-export interface MailRule {
-  _id: string;
-  userId: string;
-  accountId?: string;
-  name: string;
-  order: number;
-  isActive: boolean;
-  conditionMatch: RuleConditionMatch;
-  conditions: RuleCondition[];
-  actions: RuleAction[];
-  stopProcessing: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateRuleInput {
-  name: string;
-  accountId?: string;
-  isActive?: boolean;
-  conditionMatch?: RuleConditionMatch;
-  conditions: RuleCondition[];
-  actions: RuleAction[];
-  stopProcessing?: boolean;
-}
-
-export type UpdateRuleInput = Partial<CreateRuleInput>;
+// --- Libellés / Étiquettes (Tags) ---
+export * from "./types/tags";
 

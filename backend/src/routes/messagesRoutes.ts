@@ -19,6 +19,7 @@ import {
   searchParamsSchema,
   searchQuerySchema,
   fetchMoreSchema,
+  snoozeMessageSchema,
 } from '../schemas/messageSchemas.js';
 
 const router = Router();
@@ -56,6 +57,14 @@ router.patch(
   requireAuth,
   validate({ params: messageActionParamsSchema, body: flagsUpdateSchema }),
   messagesController.updateFlags,
+);
+
+// Mise en sommeil d'un message ("Snooze").
+router.patch(
+  '/:accountId/messages/:folder/:uid/snooze',
+  requireAuth,
+  validate({ params: messageActionParamsSchema, body: snoozeMessageSchema }),
+  messagesController.snooze,
 );
 
 // Déplacement d'un message.

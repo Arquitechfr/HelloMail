@@ -12,8 +12,22 @@ import { Loader2, Check, AlertCircle, X } from "lucide-react";
  * Affiché quand `composeOpen` est true, occupe toute la zone à droite de la sidebar.
  */
 export function ComposePanel() {
-  const { composeOpen, composeMode, composeReplyTo, selectedAccountId, closeCompose } = useUIStore();
-  const [draftUid, setDraftUid] = useState<number | null>(null);
+  const {
+    composeOpen,
+    composeMode,
+    composeReplyTo,
+    composeRestoredData,
+    selectedAccountId,
+    closeCompose,
+  } = useUIStore();
+  const [draftUid, setDraftUid] = useState<number | null>(
+    () => composeRestoredData?.draftUid ?? null,
+  );
+  const [prevRestoredData, setPrevRestoredData] = useState(composeRestoredData);
+  if (composeRestoredData !== prevRestoredData) {
+    setPrevRestoredData(composeRestoredData);
+    setDraftUid(composeRestoredData?.draftUid ?? null);
+  }
   const [draftStatus, setDraftStatus] = useState<DraftStatus>("idle");
   const [formKey, setFormKey] = useState(0);
   const deleteDraft = useDeleteDraft(selectedAccountId ?? "");
@@ -91,6 +105,7 @@ export function ComposePanel() {
           accountId={selectedAccountId}
           mode={composeMode}
           replyTo={composeReplyTo}
+          restoredData={composeRestoredData}
           draftUid={draftUid}
           onDraftUidChange={setDraftUid}
           onDraftStatusChange={setDraftStatus}

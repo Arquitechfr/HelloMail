@@ -33,7 +33,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (370 tests, 38 fichiers). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (404 tests, 43 fichiers). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe & architecture par page** : Header permanent unifié (`AppHeader`) et navigation modulaire (`/mail/settings`, `/mail/settings/security`, `/mail/settings/rules`, `/mail/contacts`).
 
@@ -41,8 +41,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 HelloMail/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-3, 5, 6, 7, 8 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 4, 6, 7, 8 & Refonte Pro
+├── backend/     # API REST (Express + MongoDB) — Phases 1-3, 5, 6, 7, 8 & 9 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 4, 6, 7, 8, Refonte Pro & 9 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -61,4 +61,9 @@ HelloMail/
   - **Lot 8.3** : Notifications bureau natives (`Notification` Web API avec permission dynamique) + Carillon audio Web Audio API synthétisé (zéro asset externe) + bascule dans les réglages et réaction SSE `message:new`.
   - **Lot 8.4** : Moteur de Règles & Filtres automatiques (Modèle `Rule`, validation Zod, service d'évaluation et d'actions moveToFolder/markAsRead/markAsFlagged/markAsJunk/delete, intégration temps réel dans `idleLoop.ts`, page UI dédiée `/mail/settings/rules`, ordonnancement par priorité).
   - **Lot 8.5** : Accusés de lecture (MDN RFC 3798 — demande à l'envoi `Disposition-Notification-To`, détection à la lecture, bannière discrète `ReadReceiptBanner` avec confirmation/ignorance et émission du rapport MIME `multipart/report; report-type=disposition-notification`).
-  - Couverture : **370 tests Vitest, 38 fichiers, 0 `as any`**.
+- **Phase 9 : Productivité & Organisation (Intégralité livrée)** ✅ :
+  - **Lot 9.1** : Étiquettes & Libellés colorés (Modèle `Tag`, validation Zod, service avec renommage/suppression en cascade, routes `/api/tags` et `/api/accounts/:accountId/messages/:folder/:uid/tags`, composant `TagBadge`, composant `TagSelectPopover`, gestionnaire complet `TagManager` dans `/mail/settings`, filtrage dynamique dans `MessageList` et `AccountSidebar`, action `applyTag` dans le moteur de règles).
+  - **Lot 9.2** : Annulation d'envoi ("Undo Send" 5s-30s) (Préférence configurable 0-30s via `PATCH /api/auth/preferences`, dock interactif `UndoSendDock` avec compte à rebours en direct, jauge animée fluide, bouton "Annuler" et raccourci clavier `Z`, envoi immédiat anticipé, réouverture intégrale du formulaire avec destinataires, CC/BCC, sujet, HTML et pièces jointes intactes, protection `beforeunload`).
+  - **Lot 9.3** : Modèles d'emails & Réponses types (Modèle `Template`, validation Zod, service multi-tenant & routes `/api/templates`, composant `TemplateInsertDropdown` intégré dans `ComposeForm` et `QuickReplyBar`, gestionnaire complet `TemplateManager` dans `/mail/settings`).
+  - **Lot 9.4** : Mise en sommeil d'emails ("Snooze") (`snoozedUntil` sur `Message`, masquage automatique boîte de réception, dossier virtuel "En sommeil" dans la sidebar, réveil périodique automatique dans le worker, popover interactif `SnoozeDropdown` avec 4 presets temporels et sélecteur personnalisé, bouton de réveil immédiat).
+  - Couverture : **404 tests Vitest, 43 fichiers, 0 `as any`**.

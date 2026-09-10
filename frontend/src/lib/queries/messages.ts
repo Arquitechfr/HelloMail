@@ -13,8 +13,9 @@ import type {
 } from "@/lib/api-types";
 
 export const messageKeys = {
-  list: (accountId: string, folder: string, page: number, limit: number) =>
-    ["messages", accountId, folder, page, limit] as const,
+  all: ["messages"] as const,
+  list: (accountId: string, folder: string, page: number, limit: number, tag?: string | null) =>
+    ["messages", accountId, folder, page, limit, tag ?? ""] as const,
   detail: (accountId: string, folder: string, uid: number) =>
     ["message", accountId, folder, uid] as const,
   thread: (accountId: string, folder: string, uid: number) =>
@@ -23,19 +24,24 @@ export const messageKeys = {
     ["search", accountId, query, page, limit] as const,
 };
 
-/** GET /api/accounts/:accountId/messages — liste paginée. */
+/** GET /api/accounts/:accountId/messages — liste paginée avec support du filtre par étiquette. */
 export function useMessages(
   accountId: string | null,
   folder: string,
   page = 1,
   limit = 50,
+  tag?: string | null,
 ) {
+  let url = `/api/accounts/${accountId}/messages?page=${page}&limit=${limit}`;
+  if (tag) {
+    url += `&tag=${encodeURIComponent(tag)}`;
+  } else {
+    url += `&folder=${encodeURIComponent(folder)}`;
+  }
+
   return useQuery({
-    queryKey: messageKeys.list(accountId ?? "", folder, page, limit),
-    queryFn: () =>
-      apiFetch<PaginatedResponse<Message>>(
-        `/api/accounts/${accountId}/messages?folder=${encodeURIComponent(folder)}&page=${page}&limit=${limit}`,
-      ),
+    queryKey: messageKeys.list(accountId ?? "", folder, page, limit, tag),
+    queryFn: () => apiFetch<PaginatedResponse<Message>>(url),
     enabled: !!accountId,
     // Polling de fallback (30s) — l'IDLE IMAP peut avoir des timeouts,
     // le SSE peut manquer des événements. Le polling garantit la fraîcheur.
@@ -232,4 +238,28 @@ export function useSendReadReceipt(accountId: string) {
     },
   });
 }
+
+/** PATCH /api/accounts/:accountId/messages/:folder/:uid/snooze — met en sommeil ou réveille un email. */
+export function useSnoozeMessage(accountId: string, folder: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uid, snoozedUntil }: { uid: number; snoozedUntil: string | null }) =>
+      apiFetch<{ ok: boolean }>(
+        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/snooze`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ snoozedUntil }),
+        },
+      ),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({
+        queryKey: messageKeys.detail(accountId, folder, variables.uid),
+      });
+      qc.invalidateQueries({
+        queryKey: ["messages", accountId],
+      });
+    },
+  });
+}
+
 

@@ -3,14 +3,14 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { env } from '../../config/env.js';
 import { AppError } from '../../utils/AppError.js';
-import { UserModel, IUserDocument } from '../../models/User.js';
+import { UserModel, IUserDocument, IUserPreferences } from '../../models/User.js';
 import { RefreshTokenModel } from '../../models/RefreshToken.js';
 import { verify2FALogin, is2FAEnabled } from './twoFactorService.js';
 
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
-  user: { id: string; email: string };
+  user: { id: string; email: string; preferences?: IUserPreferences };
 }
 
 export interface LoginResult {
@@ -174,7 +174,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: { id: user._id.toString(), email: user.email },
+      user: { id: user._id.toString(), email: user.email, preferences: user.preferences },
     };
   }
 }

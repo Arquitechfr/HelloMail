@@ -38,7 +38,7 @@ describe('Auth routes (intégration)', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.accessToken).toBeDefined();
-    expect(res.body.user).toEqual({ id: expect.any(String), email: 'test@test.com' });
+    expect(res.body.user).toMatchObject({ id: expect.any(String), email: 'test@test.com' });
     expect(res.headers['set-cookie']).toBeDefined();
   });
 

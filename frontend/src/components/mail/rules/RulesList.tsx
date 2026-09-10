@@ -19,6 +19,7 @@ import {
   Eye,
   Star,
   AlertTriangle,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,6 +114,8 @@ export function RulesList() {
         return <AlertTriangle className="size-3 text-destructive" />;
       case "delete":
         return <Trash2 className="size-3 text-destructive" />;
+      case "applyTag":
+        return <Tag className="size-3 text-primary" />;
       default:
         return null;
     }
@@ -130,6 +133,8 @@ export function RulesList() {
         return "Marquer spam";
       case "delete":
         return "Supprimer";
+      case "applyTag":
+        return `Étiquette: ${action.tagName || "..."}`;
       default:
         return action.type;
     }

@@ -3,26 +3,41 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccounts } from "@/lib/queries/accounts";
+import { useTags } from "@/lib/queries/tags";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { AccountItem } from "@/components/accounts/AccountItem";
 import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { FolderTree } from "@/components/mail/FolderTree";
 import { Button } from "@/components/ui/button";
-import { Plus, Mail, Loader2, X, FolderKanban } from "lucide-react";
+import { Plus, Mail, Loader2, X, FolderKanban, Tag as TagIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AccountSidebar() {
   const router = useRouter();
   const { data: accounts, isLoading } = useAccounts();
+  const { data: tagsData } = useTags();
   const {
     selectedAccountId,
     selectedFolder,
+    selectedTag,
     setSelectedAccount,
     setSelectedFolder,
+    setSelectedTag,
     mobileSidebarOpen,
     setMobileSidebarOpen,
   } = useUIStore();
   const [addOpen, setAddOpen] = useState(false);
+
+  const tags = tagsData?.data ?? [];
+
+  const handleSelectTag = (tagName: string) => {
+    if (selectedTag === tagName) {
+      setSelectedTag(null);
+    } else {
+      setSelectedTag(tagName);
+    }
+    setMobileSidebarOpen(false);
+  };
 
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccount(accountId);
@@ -102,10 +117,61 @@ export function AccountSidebar() {
                       selectedFolder={selectedFolder}
                       onSelectFolder={handleSelectFolder}
                     />
+                    {/* Dossier virtuel En sommeil (Snoozed) */}
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer mt-0.5",
+                        selectedFolder === "Snoozed"
+                          ? "bg-primary/15 text-primary font-medium"
+                          : "hover:bg-muted/50 text-foreground/80",
+                      )}
+                      onClick={() => handleSelectFolder("Snoozed")}
+                    >
+                      <Clock className={cn("size-4 shrink-0", selectedFolder === "Snoozed" ? "text-primary" : "text-muted-foreground")} />
+                      <span className="flex-1 truncate">En sommeil</span>
+                    </div>
                   </div>
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Section Étiquettes */}
+        {tags && tags.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-border/60 px-1">
+            <div className="flex items-center gap-1.5 px-2 mb-1.5">
+              <TagIcon className="size-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Étiquettes
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {tags.map((tag) => {
+                const isTagSelected = selectedTag === tag.name;
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => handleSelectTag(tag.name)}
+                    className={cn(
+                      "flex items-center justify-between w-full px-2.5 py-1.5 rounded-md text-xs transition-colors",
+                      isTagSelected
+                        ? "bg-accent text-accent-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    )}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      <span className="truncate">{tag.name}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

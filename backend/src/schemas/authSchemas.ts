@@ -33,3 +33,15 @@ export const disable2FASchema = z.object({
 export const webauthnResponseSchema = z.object({
   response: z.record(z.string(), z.unknown()),
 });
+
+/** Schéma pour la mise à jour des préférences utilisateur (Phase 9). */
+export const updatePreferencesSchema = z.object({
+  undoSendDelay: z
+    .number({ error: 'Le délai doit être un nombre' })
+    .int('Le délai doit être un entier')
+    .min(0, 'Le délai minimum est 0 seconde')
+    .max(30, 'Le délai maximum est 30 secondes')
+    .optional(),
+});
+export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
+

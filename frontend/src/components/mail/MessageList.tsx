@@ -6,7 +6,7 @@ import { useMessages, useFetchMore } from "@/lib/queries/messages";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { MessageListItem } from "@/components/mail/MessageListItem";
 import { SearchBar } from "@/components/mail/SearchBar";
-import { Loader2, Inbox } from "lucide-react";
+import { Loader2, Inbox, Tag as TagIcon, X } from "lucide-react";
 import type { Message } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +16,16 @@ interface MessageListProps {
 }
 
 export function MessageList({ accountId, folder }: MessageListProps) {
+  const selectedTag = useUIStore((s) => s.selectedTag);
+  const setSelectedTag = useUIStore((s) => s.setSelectedTag);
   // limit=100 (max backend) pour afficher un maximum de messages dès le chargement.
-  const { data, isLoading, error, isFetching } = useMessages(accountId, folder, 1, 100);
+  const { data, isLoading, error, isFetching } = useMessages(
+    accountId,
+    folder,
+    1,
+    100,
+    selectedTag,
+  );
   const fetchMore = useFetchMore(accountId);
   // `mutate` est stable en React Query v5 — ne change pas de référence entre les renders.
   const fetchMoreMutate = fetchMore.mutate;
@@ -125,17 +133,29 @@ export function MessageList({ accountId, folder }: MessageListProps) {
           selectedUid !== null ? "hidden md:flex" : "flex",
         )}
       >
-        <ListHeader folder={folder} total={data?.total ?? 0} isFetching={isFetching} accountId={accountId} onResults={handleResults} />
+        <ListHeader
+          folder={folder}
+          tag={selectedTag}
+          onClearTag={() => setSelectedTag(null)}
+          total={data?.total ?? 0}
+          isFetching={isFetching}
+          accountId={accountId}
+          onResults={handleResults}
+        />
         <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-muted-foreground p-6 text-center">
           <div className="flex size-12 items-center justify-center rounded-full bg-muted/50 border border-border">
             <Inbox className="size-5 opacity-60 text-muted-foreground" />
           </div>
           <div>
             <p className="text-xs font-medium text-foreground">
-              {searchResults ? "Aucun résultat trouvé" : "Boîte vide"}
+              {searchResults
+                ? "Aucun résultat trouvé"
+                : selectedTag
+                  ? `Aucun message avec l'étiquette « ${selectedTag} »`
+                  : "Boîte vide"}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {searchResults ? "Essayez avec d'autres mots-clés" : "Aucun message dans ce dossier"}
+              {searchResults ? "Essayez avec d'autres mots-clés" : "Aucun message trouvé"}
             </p>
           </div>
         </div>
@@ -150,7 +170,16 @@ export function MessageList({ accountId, folder }: MessageListProps) {
         selectedUid !== null ? "hidden md:flex" : "flex",
       )}
     >
-      <ListHeader folder={folder} total={data?.total ?? 0} isFetching={isFetching} accountId={accountId} onResults={handleResults} searching={!!searchResults} />
+      <ListHeader
+        folder={folder}
+        tag={selectedTag}
+        onClearTag={() => setSelectedTag(null)}
+        total={data?.total ?? 0}
+        isFetching={isFetching}
+        accountId={accountId}
+        onResults={handleResults}
+        searching={!!searchResults}
+      />
 
       {/* Liste virtualisée */}
       <div ref={parentRef} className="flex-1 overflow-y-auto">
@@ -189,6 +218,8 @@ export function MessageList({ accountId, folder }: MessageListProps) {
 
 function ListHeader({
   folder,
+  tag,
+  onClearTag,
   total,
   isFetching,
   accountId,
@@ -196,6 +227,8 @@ function ListHeader({
   searching,
 }: {
   folder: string;
+  tag?: string | null;
+  onClearTag?: () => void;
   total: number;
   isFetching: boolean;
   accountId: string;
@@ -205,16 +238,36 @@ function ListHeader({
   return (
     <div className="shrink-0 border-b border-border bg-background/60 backdrop-blur-xs">
       <div className="flex items-center justify-between px-3.5 py-2.5">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider font-display">
-            {searching ? "Recherche" : folder}
-          </h2>
-          <span className="rounded-full bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground border border-border/60">
+        <div className="flex items-center gap-2 min-w-0">
+          {tag ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <TagIcon className="size-3.5 text-primary shrink-0" />
+              <span className="text-xs font-semibold text-foreground truncate font-display">
+                {tag}
+              </span>
+              {onClearTag && (
+                <button
+                  type="button"
+                  onClick={onClearTag}
+                  className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                  title="Effacer le filtre par étiquette"
+                  aria-label="Effacer le filtre par étiquette"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider font-display truncate">
+              {searching ? "Recherche" : folder}
+            </h2>
+          )}
+          <span className="rounded-full bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground border border-border/60 shrink-0">
             {total}
           </span>
         </div>
         {isFetching && (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 ml-2">
             <Loader2 className="size-3 animate-spin text-primary" />
             <span>sync…</span>
           </span>

@@ -74,5 +74,30 @@ export const me = asyncHandler(async (req: AuthenticatedRequest, res: Response, 
   if (!user) {
     throw AppError.notFound('Utilisateur introuvable');
   }
-  res.status(200).json({ user: { id: user._id.toString(), email: user.email } });
+  res.status(200).json({
+    user: {
+      id: user._id.toString(),
+      email: user.email,
+      preferences: user.preferences,
+    },
+  });
 });
+
+export const updatePreferences = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const user = await UserModel.findByIdAndUpdate(
+    req.user.id,
+    { $set: { preferences: req.body } },
+    { returnDocument: 'after', runValidators: true },
+  );
+  if (!user) {
+    throw AppError.notFound('Utilisateur introuvable');
+  }
+  res.status(200).json({
+    user: {
+      id: user._id.toString(),
+      email: user.email,
+      preferences: user.preferences,
+    },
+  });
+});
+

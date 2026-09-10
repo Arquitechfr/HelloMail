@@ -9,6 +9,9 @@ import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { AccountItem } from "@/components/accounts/AccountItem";
 import { AccountSignatureManager } from "@/components/accounts/AccountSignatureManager";
 import { NotificationSettings } from "@/components/mail/NotificationSettings";
+import { TagManager } from "@/components/mail/TagManager";
+import { UndoSendSettings } from "@/components/mail/UndoSendSettings";
+import { TemplateManager } from "@/components/mail/TemplateManager";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/mail/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -23,13 +26,17 @@ import {
   PenLine,
   Bell,
   Layers,
+  Tag as TagIcon,
+  Sparkles,
 } from "lucide-react";
 
-type SettingsTab = "accounts" | "signatures" | "notifications" | "appearance" | "all";
+type SettingsTab = "accounts" | "signatures" | "templates" | "tags" | "notifications" | "appearance" | "all";
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Mail }[] = [
   { id: "accounts", label: "Comptes & Profil", icon: Mail },
   { id: "signatures", label: "Signatures", icon: PenLine },
+  { id: "templates", label: "Modèles d'emails", icon: Sparkles },
+  { id: "tags", label: "Libellés & Étiquettes", icon: TagIcon },
   { id: "notifications", label: "Notifications & Son", icon: Bell },
   { id: "appearance", label: "Affichage & Système", icon: Sliders },
   { id: "all", label: "Tout afficher", icon: Layers },
@@ -44,6 +51,8 @@ export default function GeneralSettingsPage() {
 
   const showAccounts = activeTab === "accounts" || activeTab === "all";
   const showSignatures = activeTab === "signatures" || activeTab === "all";
+  const showTemplates = activeTab === "templates" || activeTab === "all";
+  const showTags = activeTab === "tags" || activeTab === "all";
   const showNotifications = activeTab === "notifications" || activeTab === "all";
   const showAppearance = activeTab === "appearance" || activeTab === "all";
 
@@ -182,6 +191,12 @@ export default function GeneralSettingsPage() {
               </div>
             )}
 
+            {/* 3. Carte Modèles & Réponses types */}
+            {showTemplates && <TemplateManager />}
+
+            {/* 4. Carte Libellés & Étiquettes */}
+            {showTags && <TagManager />}
+
             {/* 4. Carte Notifications & Son */}
             {showNotifications && <NotificationSettings />}
 
@@ -217,6 +232,8 @@ export default function GeneralSettingsPage() {
                       Activé
                     </span>
                   </div>
+
+                  <UndoSendSettings />
                 </div>
               </div>
             )}
