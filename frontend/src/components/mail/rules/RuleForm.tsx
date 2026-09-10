@@ -29,7 +29,7 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
   const updateRule = useUpdateRule();
 
   const [name, setName] = useState(() => ruleToEdit?.name ?? "");
-  const [accountId, setAccountId] = useState<string>(() => ruleToEdit?.accountId ?? "");
+  const [accountId, setAccountId] = useState(() => ruleToEdit?.accountId ?? "");
   const [conditionMatch, setConditionMatch] = useState<RuleConditionMatch>(
     () => ruleToEdit?.conditionMatch ?? "all",
   );
@@ -37,25 +37,20 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
     () => ruleToEdit?.stopProcessing ?? false,
   );
   const [conditions, setConditions] = useState<RuleCondition[]>(() =>
-    ruleToEdit?.conditions && ruleToEdit.conditions.length > 0
+    ruleToEdit?.conditions?.length
       ? ruleToEdit.conditions
       : [{ field: "from", operator: "contains", value: "" }],
   );
   const [actions, setActions] = useState<RuleAction[]>(() =>
-    ruleToEdit?.actions && ruleToEdit.actions.length > 0
-      ? ruleToEdit.actions
-      : [{ type: "markAsRead" }],
+    ruleToEdit?.actions?.length ? ruleToEdit.actions : [{ type: "markAsRead" }],
   );
 
   const addCondition = () => {
     setConditions([...conditions, { field: "subject", operator: "contains", value: "" }]);
   };
-
   const removeCondition = (index: number) => {
-    if (conditions.length <= 1) return;
-    setConditions(conditions.filter((_, i) => i !== index));
+    if (conditions.length > 1) setConditions(conditions.filter((_, i) => i !== index));
   };
-
   const updateCondition = (index: number, patch: Partial<RuleCondition>) => {
     setConditions(conditions.map((c, i) => (i === index ? { ...c, ...patch } : c)));
   };
@@ -63,12 +58,9 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
   const addAction = () => {
     setActions([...actions, { type: "markAsFlagged" }]);
   };
-
   const removeAction = (index: number) => {
-    if (actions.length <= 1) return;
-    setActions(actions.filter((_, i) => i !== index));
+    if (actions.length > 1) setActions(actions.filter((_, i) => i !== index));
   };
-
   const updateAction = (index: number, patch: Partial<RuleAction>) => {
     setActions(actions.map((a, i) => (i === index ? { ...a, ...patch } : a)));
   };
@@ -108,10 +100,17 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <DialogHeader>
-        <DialogTitle className="text-base font-bold font-display flex items-center gap-2">
-          <Sparkles className="size-4 text-primary" />
-          {ruleToEdit ? "Modifier la règle de tri" : "Nouvelle règle de tri"}
+      <DialogHeader className="pb-3 border-b border-border/60">
+        <DialogTitle className="text-base sm:text-lg font-bold font-display flex items-center gap-2.5">
+          <div className="flex size-8 sm:size-9 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20 shrink-0">
+            <Sparkles className="size-4 sm:size-5" />
+          </div>
+          <div>
+            <span>{ruleToEdit ? "Modifier la règle de tri" : "Nouvelle règle de tri automatique"}</span>
+            <p className="text-xs font-normal text-muted-foreground mt-0.5">
+              Filtrez et organisez automatiquement vos emails entrants.
+            </p>
+          </div>
         </DialogTitle>
       </DialogHeader>
 
@@ -120,17 +119,17 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-foreground">Nom de la règle</label>
           <Input
-            placeholder="Ex: Trier les factures"
+            placeholder="Ex: Factures & Reçus, Alertes Sécurité..."
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="h-8 text-xs"
+            className="h-9 text-xs sm:text-sm"
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-foreground">Compte concerné</label>
           <select
-            className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-9 rounded-md border border-border bg-background px-3 text-xs sm:text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
           >
@@ -145,12 +144,12 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
       </div>
 
       {/* Section Conditions */}
-      <div className="flex flex-col gap-2 rounded-md border border-border/80 bg-muted/20 p-3.5">
-        <div className="flex items-center justify-between mb-1">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/20 p-4 sm:p-5">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-foreground">Si</span>
             <select
-              className="h-7 rounded border border-border bg-background px-2 text-[11px] font-medium text-foreground"
+              className="h-8 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               value={conditionMatch}
               onChange={(e) => setConditionMatch(e.target.value as RuleConditionMatch)}
             >
@@ -162,29 +161,36 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 text-[11px] gap-1"
+            className="h-8 text-xs gap-1.5"
             onClick={addCondition}
           >
-            <Plus className="size-3" /> Ajouter
+            <Plus className="size-3.5" /> Ajouter une condition
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {conditions.map((cond, idx) => (
-            <div key={idx} className="flex items-center gap-2">
+            <div
+              key={idx}
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-md bg-background/80 border border-border/60 shadow-2xs"
+            >
+              <span className="hidden sm:flex size-6 items-center justify-center rounded-full bg-muted text-[11px] font-mono font-medium text-muted-foreground shrink-0">
+                {idx + 1}
+              </span>
+
               <select
-                className="h-8 rounded border border-border bg-background px-2 text-xs text-foreground shrink-0 w-32"
+                className="h-9 sm:w-44 md:w-52 rounded-md border border-border bg-background px-2.5 text-xs sm:text-sm text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-primary"
                 value={cond.field}
                 onChange={(e) => updateCondition(idx, { field: e.target.value as RuleConditionField })}
               >
                 <option value="from">Expéditeur (De)</option>
                 <option value="to">Destinataire (À)</option>
-                <option value="subject">Sujet</option>
+                <option value="subject">Sujet du message</option>
                 <option value="hasAttachments">Pièces jointes</option>
               </select>
 
               <select
-                className="h-8 rounded border border-border bg-background px-2 text-xs text-foreground shrink-0 w-36"
+                className="h-9 sm:w-40 md:w-48 rounded-md border border-border bg-background px-2.5 text-xs sm:text-sm text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-primary"
                 value={cond.operator}
                 onChange={(e) => updateCondition(idx, { operator: e.target.value as RuleConditionOperator })}
               >
@@ -197,19 +203,19 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
 
               {cond.field === "hasAttachments" ? (
                 <select
-                  className="h-8 rounded border border-border bg-background px-2 text-xs text-foreground flex-1"
+                  className="h-9 flex-1 rounded-md border border-border bg-background px-2.5 text-xs sm:text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   value={cond.value}
                   onChange={(e) => updateCondition(idx, { value: e.target.value })}
                 >
-                  <option value="true">Oui</option>
-                  <option value="false">Non</option>
+                  <option value="true">Oui (avec pièces jointes)</option>
+                  <option value="false">Non (sans pièce jointe)</option>
                 </select>
               ) : (
                 <Input
-                  placeholder="Valeur recherchée..."
+                  placeholder="Texte ou adresse recherchée..."
                   value={cond.value}
                   onChange={(e) => updateCondition(idx, { value: e.target.value })}
-                  className="h-8 text-xs flex-1"
+                  className="h-9 text-xs sm:text-sm flex-1 min-w-[140px]"
                 />
               )}
 
@@ -218,10 +224,11 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                  className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive shrink-0 self-end sm:self-center"
                   onClick={() => removeCondition(idx)}
+                  title="Supprimer cette condition"
                 >
-                  <Trash2 className="size-3.5" />
+                  <Trash2 className="size-4" />
                 </Button>
               )}
             </div>
@@ -230,25 +237,32 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
       </div>
 
       {/* Section Actions */}
-      <div className="flex flex-col gap-2 rounded-md border border-border/80 bg-muted/20 p-3.5">
-        <div className="flex items-center justify-between mb-1">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/20 p-4 sm:p-5">
+        <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-foreground">Alors exécuter les actions :</span>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 text-[11px] gap-1"
+            className="h-8 text-xs gap-1.5"
             onClick={addAction}
           >
-            <Plus className="size-3" /> Ajouter
+            <Plus className="size-3.5" /> Ajouter une action
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {actions.map((act, idx) => (
-            <div key={idx} className="flex items-center gap-2">
+            <div
+              key={idx}
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-md bg-background/80 border border-border/60 shadow-2xs"
+            >
+              <span className="hidden sm:flex size-6 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-mono font-medium shrink-0">
+                →
+              </span>
+
               <select
-                className="h-8 rounded border border-border bg-background px-2 text-xs text-foreground shrink-0 w-52"
+                className="h-9 sm:w-60 md:w-72 rounded-md border border-border bg-background px-2.5 text-xs sm:text-sm text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-primary"
                 value={act.type}
                 onChange={(e) => updateAction(idx, { type: e.target.value as RuleActionType })}
               >
@@ -265,7 +279,7 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
                   value={act.folderName || ""}
                   onChange={(e) => updateAction(idx, { folderName: e.target.value })}
                   required
-                  className="h-8 text-xs flex-1"
+                  className="h-9 text-xs sm:text-sm flex-1 min-w-[160px]"
                 />
               )}
 
@@ -274,10 +288,11 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0 ml-auto"
+                  className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive shrink-0 ml-auto self-end sm:self-center"
                   onClick={() => removeAction(idx)}
+                  title="Supprimer cette action"
                 >
-                  <Trash2 className="size-3.5" />
+                  <Trash2 className="size-4" />
                 </Button>
               )}
             </div>
@@ -292,19 +307,19 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
           id="stopProcessing"
           checked={stopProcessing}
           onChange={(e) => setStopProcessing(e.target.checked)}
-          className="size-3.5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+          className="size-4 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary"
         />
         <label htmlFor="stopProcessing" className="text-xs text-muted-foreground cursor-pointer select-none">
           Arrêter d&apos;évaluer les autres règles si celle-ci s&apos;applique
         </label>
       </div>
 
-      <DialogFooter className="gap-2 pt-2">
+      <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-border/50">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="text-xs h-8"
+          className="text-xs h-9 px-4"
           onClick={onClose}
         >
           Annuler
@@ -313,10 +328,10 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
           type="submit"
           size="sm"
           disabled={isSaving}
-          className="text-xs h-8 bg-primary text-primary-foreground gap-1.5"
+          className="text-xs h-9 px-5 bg-primary text-primary-foreground font-medium gap-1.5 shadow-sm"
         >
           {isSaving && <Loader2 className="size-3.5 animate-spin" />}
-          {ruleToEdit ? "Enregistrer" : "Créer la règle"}
+          {ruleToEdit ? "Enregistrer les modifications" : "Créer la règle de tri"}
         </Button>
       </DialogFooter>
     </form>
