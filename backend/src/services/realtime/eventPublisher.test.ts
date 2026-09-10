@@ -20,7 +20,9 @@ vi.mock('ioredis', () => {
 vi.mock('../../config/env.js', () => ({
   env: {
     NODE_ENV: 'development',
-    REDIS_URL: 'redis://127.0.0.1:6379',
+    REDIS_HOST: '127.0.0.1',
+    REDIS_PORT: 6379,
+    REDIS_PASSWORD: undefined,
     LOG_LEVEL: 'info',
   },
 }));

@@ -16,7 +16,9 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN_DAYS: z.coerce.number().default(30),
   FRONTEND_URL: z.string().url('FRONTEND_URL doit être une URL valide').default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
-  REDIS_URL: z.string().url('REDIS_URL doit être une URL valide').default('redis://127.0.0.1:6379'),
+  REDIS_HOST: z.string().min(1, 'REDIS_HOST est requis'),
+  REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
+  REDIS_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

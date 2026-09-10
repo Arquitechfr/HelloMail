@@ -35,7 +35,10 @@ function getPublisher(): Redis | null {
   }
 
   if (!publisher) {
-    publisher = new Redis(env.REDIS_URL, {
+    publisher = new Redis({
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+      password: env.REDIS_PASSWORD,
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       retryStrategy: (times) => Math.min(times * 500, 2000),

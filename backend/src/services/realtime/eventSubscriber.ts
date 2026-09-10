@@ -20,7 +20,10 @@ function getSubscriber(): Redis | null {
   }
 
   if (!subscriber) {
-    subscriber = new Redis(env.REDIS_URL, {
+    subscriber = new Redis({
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+      password: env.REDIS_PASSWORD,
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       retryStrategy: (times) => Math.min(times * 500, 2000),

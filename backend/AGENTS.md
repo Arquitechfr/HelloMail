@@ -161,7 +161,7 @@ src/
 - **CORS** : `cors({ origin: env.FRONTEND_URL, credentials: true })`. Origin explicite obligatoire avec credentials.
 - **Sanitization HTML** : tout corps HTML d'email est sanitizé via `isomorphic-dompurify` avant envoi au frontend.
 - **Pool IMAP** : `readOnly: true` pour la lecture (préserve `\Seen`). `BODY.PEEK` via ImapFlow. Verrou par compte.
-- **Redis** : dépendance d'infrastructure pour le temps réel (SSE). `REDIS_URL` en env. Connexions lazy (publisher côté worker, subscriber côté API). Best-effort : une panne Redis ne stoppe pas la synchronisation.
+- **Redis** : dépendance d'infrastructure pour le temps réel (SSE). Variables `REDIS_HOST` + `REDIS_PORT` + `REDIS_PASSWORD` (optionnel) en env. Connexions lazy (publisher côté worker, subscriber côté API). Best-effort : une panne Redis ne stoppe pas la synchronisation.
 
 ## Graceful shutdown (Phase 5)
 
