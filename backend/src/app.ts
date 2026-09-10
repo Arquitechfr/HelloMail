@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { accountsRoutes } from './routes/accountsRoutes.js';
 import { messagesRoutes } from './routes/messagesRoutes.js';
+import { foldersRoutes } from './routes/foldersRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -21,9 +22,12 @@ async function bootstrap(): Promise<void> {
     app.set('trust proxy', 1);
   }
 
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+
+  // Limite étendue pour l'envoi d'emails avec pièces jointes (jusqu'à 30 Mo).
+  app.use('/api/accounts/:accountId/send', express.json({ limit: '30mb' }));
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
@@ -32,6 +36,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/auth', authRoutes);
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/accounts', messagesRoutes);
+  app.use('/api/accounts', foldersRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

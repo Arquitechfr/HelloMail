@@ -1,19 +1,121 @@
 import { z } from 'zod';
+import { emailSchema } from './commonSchemas.js';
+
+const accountIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Identifiant de compte invalide');
+const folderSchema = z.string().min(1, 'Dossier requis').max(255, 'Dossier trop long');
+const uidSchema = z.coerce.number().int().positive('UID doit être un entier positif');
+const partSchema = z.string().regex(/^[0-9]+(\.[0-9]+)*$/, 'Identifiant de partie invalide');
 
 /**
- * Schéma de validation des params de la route messages.
+ * Schéma de validation des params de la route messages (liste).
  * `accountId` doit être un ObjectId valide (24 hex) — évite le CastError Mongoose
  * sur une entrée mal formée (qui donnerait un 500 non catché par errorHandler).
  */
 export const listMessagesParamsSchema = z.object({
-  accountId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Identifiant de compte invalide'),
+  accountId: accountIdSchema,
 });
 
 /**
- * Schéma de validation des query params de la route messages.
+ * Schéma de validation des query params de la route messages (liste).
  */
 export const listMessagesQuerySchema = z.object({
   folder: z.string().default('INBOX'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+/**
+ * Params pour la lecture d'un message : accountId + folder + uid.
+ */
+export const getOneParamsSchema = z.object({
+  accountId: accountIdSchema,
+  folder: folderSchema,
+  uid: uidSchema,
+});
+
+/**
+ * Params pour le téléchargement d'une pièce jointe : accountId + folder + uid + part.
+ */
+export const attachmentParamsSchema = z.object({
+  accountId: accountIdSchema,
+  folder: folderSchema,
+  uid: uidSchema,
+  part: partSchema,
+});
+
+/**
+ * Schéma pour l'envoi d'un email.
+ * Limite la taille totale à 25 Mo (base64 inclus, avec overhead ~37%).
+ */
+export const sendEmailSchema = z.object({
+  to: z.array(emailSchema).min(1, 'Au moins un destinataire requis').max(50),
+  cc: z.array(emailSchema).max(50).optional(),
+  bcc: z.array(emailSchema).max(50).optional(),
+  replyTo: emailSchema.optional(),
+  subject: z.string().trim().max(998, 'Le sujet ne peut pas dépasser 998 caractères (RFC 5322)'),
+  text: z.string().min(1, 'Le corps texte est requis'),
+  html: z.string().optional(),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1, 'Nom de fichier requis').max(255),
+        content: z.string(),
+        contentType: z.string().optional(),
+      }),
+    )
+    .max(20, 'Maximum 20 pièces jointes')
+    .optional(),
+  inReplyTo: z.string().optional(),
+  references: z.array(z.string()).optional(),
+});
+
+/**
+ * Schéma pour la mise à jour des flags d'un message.
+ */
+export const flagsUpdateSchema = z
+  .object({
+    seen: z.boolean().optional(),
+    flagged: z.boolean().optional(),
+    answered: z.boolean().optional(),
+  })
+  .refine(
+    (data) => data.seen !== undefined || data.flagged !== undefined || data.answered !== undefined,
+    { message: 'Au moins un flag doit être spécifié' },
+  );
+
+/**
+ * Schéma pour le déplacement d'un message.
+ */
+export const moveMessageSchema = z.object({
+  destination: z.string().min(1, 'Dossier de destination requis').max(255),
+});
+
+/**
+ * Schéma pour la suppression d'un message (query param).
+ */
+export const deleteMessageQuerySchema = z.object({
+  permanent: z.coerce.boolean().default(false),
+});
+
+/**
+ * Schéma pour une action en masse sur des messages.
+ */
+export const batchActionSchema = z
+  .object({
+    uids: z.array(z.coerce.number().int().positive()).min(1, 'Au moins un UID requis').max(100, 'Maximum 100 UIDs'),
+    action: z.enum(['delete', 'move', 'markRead', 'markUnread', 'flag', 'unflag', 'markAsJunk']),
+    destination: z.string().min(1).max(255).optional(),
+  })
+  .refine((data) => data.action !== 'move' || data.destination !== undefined, {
+    message: 'destination est requis pour l\'action move',
+    path: ['destination'],
+  });
+
+/**
+ * Params pour les routes avec folder + uid (flags, delete, move).
+ */
+export const messageActionParamsSchema = z.object({
+  accountId: accountIdSchema,
+  folder: folderSchema,
+  uid: uidSchema,
 });

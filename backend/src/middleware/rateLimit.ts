@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError.js';
 import { env } from '../config/env.js';
-import { RATE_LIMIT_AUTH_WINDOW_MS, RATE_LIMIT_AUTH_MAX } from '../config/constants.js';
+import {
+  RATE_LIMIT_AUTH_WINDOW_MS,
+  RATE_LIMIT_AUTH_MAX,
+  SEND_RATE_LIMIT_WINDOW_MS,
+  SEND_RATE_LIMIT_MAX,
+} from '../config/constants.js';
 
 interface RateLimitEntry {
   count: number;
@@ -56,6 +61,53 @@ export function authRateLimit(req: Request, res: Response, next: NextFunction): 
     const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
     res.set('Retry-After', String(retryAfter));
     next(AppError.tooManyRequests());
+    return;
+  }
+
+  next();
+}
+
+/**
+ * Rate limiting in-memory sur l'envoi d'emails (anti-spam).
+ * - Fenêtre de 1 min, max 20 envois par IP.
+ * - Bypass total en mode test.
+ */
+export function sendRateLimit(req: Request, res: Response, next: NextFunction): void {
+  if (env.NODE_ENV === 'test') {
+    next();
+    return;
+  }
+
+  const key = `send:${req.ip || 'unknown'}`;
+  const now = Date.now();
+
+  // Cleanup des entrées expirées
+  for (const [k, entry] of store) {
+    if (entry.resetTime < now) {
+      store.delete(k);
+    }
+  }
+
+  const entry = store.get(key);
+
+  if (!entry) {
+    store.set(key, { count: 1, resetTime: now + SEND_RATE_LIMIT_WINDOW_MS });
+    next();
+    return;
+  }
+
+  if (entry.resetTime < now) {
+    store.set(key, { count: 1, resetTime: now + SEND_RATE_LIMIT_WINDOW_MS });
+    next();
+    return;
+  }
+
+  entry.count++;
+
+  if (entry.count > SEND_RATE_LIMIT_MAX) {
+    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+    res.set('Retry-After', String(retryAfter));
+    next(AppError.tooManyRequests('Trop d\'envois, réessayez dans quelques minutes'));
     return;
   }
 

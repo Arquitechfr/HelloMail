@@ -4,6 +4,16 @@ import { MessageModel } from '../models/Message.js';
 import { AppError } from '../utils/AppError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
+import { fetchMessageDetail } from '../services/email/messageFetchService.js';
+import { fetchAttachmentStream } from '../services/email/attachmentService.js';
+import { sendEmail } from '../services/email/sendService.js';
+import {
+  updateFlags as updateMessageFlags,
+  deleteMessage,
+  moveMessage,
+  markMessageAsJunk,
+  batchAction,
+} from '../services/email/messageActionService.js';
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
@@ -35,4 +45,120 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
     limit,
     total,
   });
+});
+
+export const getOne = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const detail = await fetchMessageDetail(account, folder, Number(uid));
+  res.status(200).json(detail);
+});
+
+export const getAttachment = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid, part } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const { stream, contentType, filename, size } = await fetchAttachmentStream(
+    account,
+    folder,
+    Number(uid),
+    part,
+  );
+
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+  if (size > 0) {
+    res.setHeader('Content-Length', String(size));
+  }
+
+  stream.pipe(res);
+});
+
+export const send = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const result = await sendEmail(account, req.body);
+  res.status(202).json(result);
+});
+
+export const updateFlags = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  await updateMessageFlags(account, folder, Number(uid), req.body);
+  res.status(200).json({ ok: true });
+});
+
+export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const permanent = req.query.permanent === 'true';
+  await deleteMessage(account, folder, Number(uid), permanent);
+  res.status(204).send();
+});
+
+export const move = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  await moveMessage(account, folder, Number(uid), req.body.destination);
+  res.status(200).json({ ok: true });
+});
+
+export const markAsJunk = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  await markMessageAsJunk(account, folder, Number(uid));
+  res.status(200).json({ ok: true });
+});
+
+export const batch = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId } = req.params;
+  const folder = String(req.body.folder ?? req.query.folder ?? 'INBOX');
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const result = await batchAction(
+    account,
+    folder,
+    req.body.uids,
+    req.body.action,
+    req.body.destination,
+  );
+  res.status(200).json(result);
 });

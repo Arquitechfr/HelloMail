@@ -27,3 +27,22 @@ export const INITIAL_SYNC_MESSAGE_COUNT = 50;
 
 /** Délai de connexion stable avant reset du compteur d'échecs consécutifs (ms). */
 export const STABLE_CONNECTION_RESET_MS = 3 * 60 * 1000;
+
+// --- Pool IMAP côté API (Phase 3) ---
+
+/** Durée d'inactivité avant fermeture d'une connexion du pool (ms). */
+export const IMAP_POOL_IDLE_TTL_MS = 5 * 60 * 1000;
+
+// --- Envoi SMTP (Phase 3) ---
+
+/** Timeout SMTP (connexion, greeting, socket) en ms. */
+export const SMTP_TIMEOUT_MS = 30_000;
+
+/** Fenêtre du rate limit sur l'envoi (ms). */
+export const SEND_RATE_LIMIT_WINDOW_MS = 60_000;
+
+/** Nombre max d'envois par fenêtre par IP. */
+export const SEND_RATE_LIMIT_MAX = 20;
+
+/** Taille maximale totale d'un message envoyé (bytes, avant base64). */
+export const SEND_MAX_TOTAL_SIZE_BYTES = 25 * 1024 * 1024;

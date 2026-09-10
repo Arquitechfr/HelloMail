@@ -2,3 +2,4 @@ packages:
   - 'backend'
 allowBuilds:
   esbuild: true
+  mongodb-memory-server: true

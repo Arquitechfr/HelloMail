@@ -50,6 +50,15 @@ Une classe/fonction par responsabilité, pas de logique éparpillée :
 Garder cette séparation pour faciliter l'extraction future (Redis/BullMQ,
 change streams, multi-dossiers, sharding multi-worker).
 
+## Séparation API / Worker (Phase 3)
+
+L'API (process `app.ts`) et le sync worker (process `worker.ts`) ont chacun
+leurs propres connexions IMAP. Le worker gère l'IDLE et la sync ; l'API gère
+la lecture, l'envoi, les dossiers et les actions via un pool dédié
+(`services/email/imapPool.ts`). **Ne jamais partager une connexion ImapFlow
+entre l'API et le worker** — ce sont des process séparés avec des cycles de
+vie différents.
+
 ## Comportement IDLE (ImapFlow)
 
 ImapFlow gère l'auto-IDLE en interne. Quand un handler d'événement appelle
