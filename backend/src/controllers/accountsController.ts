@@ -1,0 +1,30 @@
+import { Response, NextFunction } from 'express';
+import { AccountService } from '../services/accounts/accountService.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { AuthenticatedRequest } from '../middleware/auth.js';
+
+export const create = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const account = await AccountService.createImapAccount(req.user.id, req.body);
+  res.status(201).json(account);
+});
+
+export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const accounts = await AccountService.listAccounts(req.user.id);
+  res.status(200).json(accounts);
+});
+
+export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  await AccountService.deleteAccount(req.user.id, req.params.id);
+  res.status(204).send();
+});
+
+export const toggleActive = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+    const account = await AccountService.toggleAccountActive(
+      req.user.id,
+      req.params.id,
+      req.body.isActive,
+    );
+    res.status(200).json(account);
+  },
+);
