@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth/authService.js';
 import { AppError } from '../utils/AppError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -7,7 +7,7 @@ import { COOKIE_REFRESH_TOKEN } from '../config/constants.js';
 import { UserModel } from '../models/User.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 
-export const register = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+export const register = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const result = await AuthService.register(req.body);
   setRefreshCookie(res, result.refreshToken);
   res.status(201).json({
@@ -16,7 +16,7 @@ export const register = asyncHandler(async (req: AuthenticatedRequest, res: Resp
   });
 });
 
-export const login = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+export const login = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const result = await AuthService.login(req.body.email, req.body.password);
   setRefreshCookie(res, result.refreshToken);
   res.status(200).json({
@@ -25,7 +25,7 @@ export const login = asyncHandler(async (req: AuthenticatedRequest, res: Respons
   });
 });
 
-export const refresh = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+export const refresh = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const refreshToken = req.cookies?.[COOKIE_REFRESH_TOKEN];
   if (!refreshToken) {
     throw AppError.unauthorized('Refresh token manquant');
@@ -39,7 +39,7 @@ export const refresh = asyncHandler(async (req: AuthenticatedRequest, res: Respo
   });
 });
 
-export const logout = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+export const logout = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const refreshToken = req.cookies?.[COOKIE_REFRESH_TOKEN];
   if (refreshToken) {
     await AuthService.logout(refreshToken);

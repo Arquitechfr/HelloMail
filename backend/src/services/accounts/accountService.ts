@@ -21,12 +21,6 @@ export interface CreateImapAccountInput {
   };
 }
 
-function sanitize(doc: IAccountDocument): IAccountDocument {
-  doc.imapConfig && delete (doc.imapConfig as any).encryptedPassword;
-  doc.oauthConfig && delete (doc.oauthConfig as any).encryptedRefreshToken;
-  return doc;
-}
-
 export class AccountService {
   /**
    * Crée un compte IMAP : vérifie l'unicité, teste les connexions IMAP + SMTP
