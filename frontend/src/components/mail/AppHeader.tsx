@@ -69,9 +69,6 @@ export function AppHeader() {
             <span className="font-display text-base font-bold tracking-tight text-foreground">
               HelloMail
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground border border-border">
-              PRO
-            </span>
           </div>
         </div>
 
