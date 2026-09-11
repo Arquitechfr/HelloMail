@@ -8,7 +8,10 @@
     "dev:backend": "concurrently -n api,worker -c blue,magenta \"pnpm --filter backend dev\" \"pnpm --filter backend dev:worker\"",
     "build": "pnpm --filter backend build",
     "typecheck": "pnpm --filter backend typecheck",
-    "start": "pnpm --filter backend start"
+    "start": "pnpm --filter backend start",
+    "deploy": "node scripts/deploy-backend.mjs && node scripts/deploy-frontend.mjs",
+    "deploy:backend": "node scripts/deploy-backend.mjs",
+    "deploy:frontend": "node scripts/deploy-frontend.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

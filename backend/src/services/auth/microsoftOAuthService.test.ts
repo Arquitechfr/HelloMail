@@ -6,7 +6,7 @@ vi.mock('../../config/env.js', () => ({
   env: {
     MICROSOFT_CLIENT_ID: 'test-ms-client-id',
     MICROSOFT_CLIENT_SECRET: 'test-ms-client-secret',
-    MICROSOFT_REDIRECT_URI: 'http://localhost:4000/api/accounts/oauth/microsoft/callback',
+    MICROSOFT_REDIRECT_URI: 'http://localhost:4001/api/accounts/oauth/microsoft/callback',
     JWT_ACCESS_SECRET: 'test-jwt-secret-32-chars-minimum-aaaaaa',
     NODE_ENV: 'test',
   },

@@ -30,7 +30,7 @@ Client webmail Next.js consommant l'API REST HelloMail (`backend/`).
 ## Commandes
 
 ```bash
-pnpm --filter frontend dev        # Démarre le frontend (port 3000)
+pnpm --filter frontend dev        # Démarre le frontend (port 3001)
 pnpm --filter frontend build      # Build production Next.js
 pnpm --filter frontend lint       # ESLint
 pnpm --filter frontend typecheck  # tsc --noEmit

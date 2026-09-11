@@ -17,6 +17,7 @@ import {
   OUTLOOK_IMAP_DEFAULTS,
 } from '../services/auth/microsoftOAuthService.js';
 import { getNextAccountColor } from '../config/accountColors.js';
+import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 
 /**
@@ -41,7 +42,7 @@ export const googleCallback = asyncHandler(
 
     // Google peut retourner une erreur (ex: utilisateur refuse l'accès).
     if (error) {
-      res.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_error=${encodeURIComponent(String(error))}`);
+      res.redirect(`${env.FRONTEND_URL[0]}/mail?oauth_error=${encodeURIComponent(String(error))}`);
       return;
     }
 
@@ -109,7 +110,7 @@ export const googleCallback = asyncHandler(
     }
 
     // Redirige vers le frontend.
-    res.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_success=true`);
+    res.redirect(`${env.FRONTEND_URL[0]}/mail?oauth_success=true`);
   },
 );
 
@@ -133,7 +134,7 @@ export const microsoftCallback = asyncHandler(
 
     if (error) {
       res.redirect(
-        `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_error=${encodeURIComponent(String(error))}`,
+        `${env.FRONTEND_URL[0]}/mail?oauth_error=${encodeURIComponent(String(error))}`,
       );
       return;
     }
@@ -200,6 +201,6 @@ export const microsoftCallback = asyncHandler(
       logger.info({ userId, emailAddress: email }, 'Compte Microsoft OAuth créé');
     }
 
-    res.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/mail?oauth_success=true`);
+    res.redirect(`${env.FRONTEND_URL[0]}/mail?oauth_success=true`);
   },
 );

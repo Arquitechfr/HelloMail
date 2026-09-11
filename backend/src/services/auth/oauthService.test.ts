@@ -6,7 +6,7 @@ vi.mock('../../config/env.js', () => ({
   env: {
     GOOGLE_CLIENT_ID: 'test-client-id',
     GOOGLE_CLIENT_SECRET: 'test-client-secret',
-    GOOGLE_REDIRECT_URI: 'http://localhost:4000/api/accounts/oauth/google/callback',
+    GOOGLE_REDIRECT_URI: 'http://localhost:4001/api/accounts/oauth/google/callback',
     JWT_ACCESS_SECRET: 'test-jwt-secret-32-chars-minimum-aaaaaa',
     NODE_ENV: 'test',
   },

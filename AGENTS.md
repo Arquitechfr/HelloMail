@@ -20,7 +20,7 @@ pnpm start                         # Démarre le backend en production (node dis
 pnpm --filter backend test          # Lance les tests Vitest backend
 pnpm --filter backend test:coverage # Lance les tests avec couverture
 pnpm --filter backend dev:worker    # Démarre le sync worker (tsx watch)
-pnpm --filter frontend dev          # Démarre le frontend (next dev, port 3000)
+pnpm --filter frontend dev          # Démarre le frontend (next dev, port 3001)
 pnpm --filter frontend build        # Build production Next.js
 pnpm --filter frontend lint         # ESLint frontend
 pnpm --filter frontend test         # Tests Vitest frontend (Testing Library + jsdom)

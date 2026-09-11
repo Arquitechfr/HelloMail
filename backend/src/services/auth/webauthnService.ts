@@ -9,13 +9,13 @@ import { AppError } from '../../utils/AppError.js';
 import { UserModel, type IUserDocument, type WebAuthnCredential } from '../../models/User.js';
 
 /**
- * Détermine le rpID (relying party ID) depuis FRONTEND_URL.
- * Ex : http://localhost:3000 → localhost
+ * Détermine le rpID (relying party ID) depuis la première URL de FRONTEND_URL.
+ * Ex : http://localhost:3001 → localhost
  *      https://mail.example.com → mail.example.com
  */
 function getRpId(): string {
   try {
-    const url = new URL(env.FRONTEND_URL);
+    const url = new URL(env.FRONTEND_URL[0]);
     return url.hostname;
   } catch {
     return 'localhost';

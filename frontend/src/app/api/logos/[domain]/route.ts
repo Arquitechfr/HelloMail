@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4000";
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4001";
 
 /**
  * Route Handler Next.js server-side pour /api/logos/:domain.
- * Relaie la requête vers le backend Express (port 4000) sans mise en cache serveur
+ * Relaie la requête vers le backend Express (port 4001) sans mise en cache serveur
  * pour garantir que les logos sont toujours à jour et non bloqués par le proxy Next.js.
  */
 export async function GET(
