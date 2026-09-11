@@ -11,6 +11,13 @@ export const draftAccountParamSchema = z.object({
   accountId: accountIdSchema,
 });
 
+export const draftAttachmentSchema = z.object({
+  filename: z.string().min(1, 'Nom de fichier requis').max(255),
+  content: z.string(),
+  contentType: z.string().optional(),
+  size: z.number().optional(),
+});
+
 /**
  * Schéma pour la création d'un brouillon.
  * Similaire à sendEmailSchema mais sans envoi SMTP.
@@ -23,6 +30,7 @@ export const createDraftSchema = z.object({
   subject: z.string().trim().max(998, 'Le sujet ne peut pas dépasser 998 caractères (RFC 5322)').default(''),
   text: z.string().default(''),
   html: z.string().optional(),
+  attachments: z.array(draftAttachmentSchema).max(20, 'Maximum 20 pièces jointes').optional(),
   inReplyTo: z.string().optional(),
   references: z.array(z.string()).optional(),
 });

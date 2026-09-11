@@ -84,7 +84,12 @@ export function UnifiedMessageList({
   };
 
   return (
-    <div className="relative flex h-full w-full md:w-80 lg:w-96 flex-col border-r border-border bg-background select-none shrink-0 overflow-hidden">
+    <div
+      className={cn(
+        "relative flex flex-1 md:flex-initial md:w-84 lg:w-96 flex-col border-r border-border bg-card/30 overflow-hidden select-none shrink-0",
+        selectedMessage !== null ? "hidden md:flex" : "flex",
+      )}
+    >
       {/* En-tête de la liste unifiée */}
       <div className="shrink-0 border-b border-border bg-background/60 backdrop-blur-xs px-3.5 py-3">
         <div className="flex items-center justify-between">

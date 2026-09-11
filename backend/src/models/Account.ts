@@ -37,8 +37,16 @@ export interface IAccountDocument extends Document {
   isActive: boolean;
   lastSyncedAt?: Date;
   lastSyncError?: string;
+  aliases?: IAccountAlias[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface IAccountAlias {
+  _id?: mongoose.Types.ObjectId;
+  name?: string;
+  email: string;
+  isDefault?: boolean;
 }
 
 const encryptedFieldSchema = new Schema<EncryptedField>(
@@ -48,6 +56,15 @@ const encryptedFieldSchema = new Schema<EncryptedField>(
     ciphertext: { type: String, required: true },
   },
   { _id: false },
+);
+
+const accountAliasSchema = new Schema<IAccountAlias>(
+  {
+    name: { type: String, trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    isDefault: { type: Boolean, default: false },
+  },
+  { _id: true },
 );
 
 const accountSchema = new Schema<IAccountDocument>(
@@ -106,6 +123,10 @@ const accountSchema = new Schema<IAccountDocument>(
     },
     lastSyncError: {
       type: String,
+    },
+    aliases: {
+      type: [accountAliasSchema],
+      default: [],
     },
   },
   {

@@ -15,7 +15,8 @@ import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/api-types";
 import { EmailAvatar } from "@/components/mail/EmailAvatar";
 import { AccountColorPicker } from "./AccountColorPicker";
-import { MoreVertical, Trash2, AlertCircle, Palette } from "lucide-react";
+import { AccountAliasesDialog } from "./AccountAliasesDialog";
+import { MoreVertical, Trash2, AlertCircle, Palette, AtSign } from "lucide-react";
 import { toast } from "sonner";
 
 interface AccountItemProps {
@@ -31,6 +32,7 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
   const { data: allAccounts } = useAccounts();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [aliasesDialogOpen, setAliasesDialogOpen] = useState(false);
 
   const accountColor = account.color || "#3b82f6";
 
@@ -108,6 +110,15 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
           >
             <Palette className="size-4 mr-1.5" />
             Couleur du compte...
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setAliasesDialogOpen(true);
+            }}
+          >
+            <AtSign className="size-4 mr-1.5" />
+            Alias d'expédition...
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -209,6 +220,13 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
             </div>
           </div>
         </div>
+      )}
+      {aliasesDialogOpen && (
+        <AccountAliasesDialog
+          account={account}
+          open={aliasesDialogOpen}
+          onOpenChange={setAliasesDialogOpen}
+        />
       )}
     </div>
   );

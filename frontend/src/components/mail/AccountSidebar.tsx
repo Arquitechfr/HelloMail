@@ -24,6 +24,7 @@ export function AccountSidebar() {
     setSelectedAccount,
     setSelectedFolder,
     setSelectedTag,
+    setSelectedUid,
     mobileSidebarOpen,
     setMobileSidebarOpen,
   } = useUIStore();
@@ -43,14 +44,19 @@ export function AccountSidebar() {
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccount(accountId);
     setSelectedFolder("INBOX");
+    setSelectedUid(null);
+    setMobileSidebarOpen(false);
     router.push(`/mail/${accountId}/INBOX`);
   };
 
-  const handleSelectFolder = (path: string) => {
-    if (!selectedAccountId) return;
+  const handleSelectFolder = (path: string, targetAccountId?: string) => {
+    const accId = targetAccountId || selectedAccountId;
+    if (!accId) return;
+    setSelectedAccount(accId);
     setSelectedFolder(path);
+    setSelectedUid(null);
     setMobileSidebarOpen(false);
-    router.push(`/mail/${selectedAccountId}/${encodeURIComponent(path)}`);
+    router.push(`/mail/${accId}/${encodeURIComponent(path)}`);
   };
 
   const content = (
@@ -120,7 +126,7 @@ export function AccountSidebar() {
                       accountId={account._id}
                       accountColor={account.color}
                       selectedFolder={selectedFolder}
-                      onSelectFolder={handleSelectFolder}
+                      onSelectFolder={(path) => handleSelectFolder(path, account._id)}
                     />
                     {/* Dossier virtuel En sommeil (Snoozed) */}
                     <div
@@ -130,7 +136,7 @@ export function AccountSidebar() {
                           ? "bg-primary/15 text-primary font-medium"
                           : "hover:bg-muted/50 text-foreground/80",
                       )}
-                      onClick={() => handleSelectFolder("Snoozed")}
+                      onClick={() => handleSelectFolder("Snoozed", account._id)}
                     >
                       <Clock className={cn("size-4 shrink-0", selectedFolder === "Snoozed" ? "text-primary" : "text-muted-foreground")} />
                       <span className="flex-1 truncate">En sommeil</span>

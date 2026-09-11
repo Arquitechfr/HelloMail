@@ -15,12 +15,13 @@ export default function FolderPage() {
   const folder = params.folder ? decodeURIComponent(params.folder.join("/")) : "INBOX";
 
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
-  const { setSelectedAccount, setSelectedFolder, selectedUid } = useUIStore();
+  const { setSelectedAccount, setSelectedFolder, setSelectedUid, selectedUid } = useUIStore();
 
   useEffect(() => {
     setSelectedAccount(accountId);
     setSelectedFolder(folder);
-  }, [accountId, folder, setSelectedAccount, setSelectedFolder]);
+    setSelectedUid(null);
+  }, [accountId, folder, setSelectedAccount, setSelectedFolder, setSelectedUid]);
 
   const account = accounts?.find((a) => a._id === accountId);
 

@@ -22,6 +22,7 @@ import tagsRoutes from './routes/tagsRoutes.js';
 import templatesRoutes from './routes/templatesRoutes.js';
 import logoRoutes from './routes/logoRoutes.js';
 import { unifiedRoutes } from './routes/unifiedRoutes.js';
+import { scheduledMessagesRoutes } from './routes/scheduledMessagesRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
@@ -65,6 +66,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/accounts', messagesRoutes);
   app.use('/api/accounts', foldersRoutes);
   app.use('/api/accounts', draftsRoutes);
+  app.use('/api/accounts', scheduledMessagesRoutes);
   app.use('/api/accounts/oauth', oauthRoutes);
   app.use('/api/contacts', contactsRoutes);
   app.use('/api/rules', rulesRoutes);

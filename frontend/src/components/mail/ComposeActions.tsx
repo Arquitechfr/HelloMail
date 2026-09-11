@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Save, X } from "lucide-react";
+import { Loader2, Send, Save, X, ChevronDown, Clock } from "lucide-react";
 import { TemplateInsertDropdown } from "@/components/mail/TemplateInsertDropdown";
 import type { EmailTemplate } from "@/lib/types/templates";
 
@@ -14,6 +14,8 @@ interface ComposeActionsProps {
   onCancel: () => void;
   accountId?: string;
   onSelectTemplate?: (template: EmailTemplate) => void;
+  onOpenSchedule?: () => void;
+  onOpenScheduledList?: () => void;
 }
 
 export function ComposeActions({
@@ -25,14 +27,34 @@ export function ComposeActions({
   onCancel,
   accountId,
   onSelectTemplate,
+  onOpenSchedule,
+  onOpenScheduledList,
 }: ComposeActionsProps) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting} className="cursor-pointer">
-          {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          Envoyer
-        </Button>
+        <div className="inline-flex items-center shadow-xs">
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="cursor-pointer rounded-r-none pr-3"
+          >
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            Envoyer
+          </Button>
+          {onOpenSchedule && (
+            <Button
+              type="button"
+              variant="default"
+              disabled={submitting}
+              onClick={onOpenSchedule}
+              className="cursor-pointer rounded-l-none border-l border-primary-foreground/20 px-2"
+              title="Programmer l'envoi (Send Later)"
+            >
+              <ChevronDown className="size-3.5" />
+            </Button>
+          )}
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -43,6 +65,19 @@ export function ComposeActions({
           {savingDraft ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           Enregistrer
         </Button>
+        {onOpenScheduledList && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onOpenScheduledList}
+            className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-9 px-2.5"
+            title="Voir les messages programmés"
+          >
+            <Clock className="size-3.5" />
+            <span className="hidden sm:inline">Programmés</span>
+          </Button>
+        )}
         {onSelectTemplate && (
           <TemplateInsertDropdown
             accountId={accountId}

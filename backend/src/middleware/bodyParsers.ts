@@ -11,5 +11,7 @@ import express, { type Express } from 'express';
  */
 export function mountBodyParsers(app: Express): void {
   app.use('/api/accounts/:accountId/send', express.json({ limit: '30mb' }));
+  app.use('/api/accounts/:accountId/drafts', express.json({ limit: '30mb' }));
+  app.use('/api/accounts/:accountId/scheduled', express.json({ limit: '30mb' }));
   app.use(express.json({ limit: '100kb' }));
 }

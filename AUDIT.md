@@ -37,9 +37,11 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 8** | Threading & Conversation (Lots 8.1 & 8.2 : `inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline `MessageThreadView`, réponse rapide `QuickReplyBar` + export .eml streamé PEEK + impression `@media print`) + Notifications de bureau & carillon Web Audio (Lot 8.3) + Moteur de règles & filtres automatiques (Lot 8.4 : modèle `Rule`, validation Zod, service d'évaluation et actions, intégration IDLE loop, page UI `/mail/settings/rules`) + Accusés de lecture (Lot 8.5 : RFC 3798 MDN, `Disposition-Notification-To`, bannière `ReadReceiptBanner` interactive, émission rapport MIME multipart/report) + 31 nouveaux tests (370 total, 38 fichiers, 0 `as any`) | — | ~3 100 |
 | **Phase 9** | Productivité & Organisation — **Intégralité livrée (Lots 9.1 à 9.4)** : Étiquettes & Libellés colorés (Lot 9.1) + Annulation d'envoi "Undo Send" 5s-30s (Lot 9.2 : dock interactif décompté, annulation Z, restauration formulaires & PJ, PATCH /preferences) + Modèles d'emails & Réponses types (Lot 9.3 : modèle Template, Zod schemas, service & routes /api/templates, dropdown d'insertion dans compose et quick reply, TemplateManager dans réglages) + Mise en sommeil "Snooze" (Lot 9.4 : champ snoozedUntil sur Message, filtrage automatique boîte de réception, dossier virtuel Snoozed, réveil périodique dans worker, popover avec presets temporels et date personnalisée) + 34 nouveaux tests (404 total, 43 fichiers, 0 `as any`) | — | ~3 600 |
 | **Phase 10** | Durcissement post-audit : sync des comptes OAuth dans `accountRegistry` (tous providers), parser `/send` 30 Mo monté avant le parser global (413 correct), logger pino partout dans le worker, **lock distribué Redis** (`syncLock.ts` — SET NX PX + token propriétaire + renouvellement de bail + fail-open), **heartbeat worker** dans `/api/health` (`services.worker`), **cache Folder en base** (TTL 5 min + invalidation CRUD + validation `folder` dans `messagesController.list`), **recherche IMAP serveur** en fallback automatique (`imapSearchService` — PEEK, borne 200 UID, repli sans `TEXT`, badge "serveur" frontend), **QRESYNC delta sync** (`FolderSyncState` + `changedSince` + purge sur changement d'UIDVALIDITY), **sync expéditeurs → contacts** (opt-in `autoAddContacts`, best-effort dans idleLoop), **cache corps de messages** (`MessageBody` — TTL 30 j, cap 2 Mo, purge sur delete/move/expunge), **socle de tests frontend** (Vitest + Testing Library + jsdom — 27 tests) | — | ~2 800 |
-| **Phase 11** | Parachèvement Webmail & Interopérabilité : **WebAuthn / Passkeys login complet** (émission JWT access/refresh + cookie httpOnly + rate-limiting 2FA + bouton Passkey dans LoginForm), **Sync multi-dossiers dynamique** (découverte tous dossiers IMAP + polling périodique + événements SSE ciblés par dossier), **Carnet d'adresses Import / Export** (vCard RFC 6350 & CSV RFC 4180 + déduplication stricte par email + ContactImportDialog + actions UI), **Calendrier & Événements iCalendar RFC 5545** (parser unifié + gestion lignes pliées §3.1 + dates ISO + intégration lecture message + bannière interactive CalendarInviteBanner avec téléchargement .ics et lien Google Agenda) | — | ~1 850 |
+| **Phase 11** | Parachèvement Webmail & Interopérabilité : **WebAuthn / Passkeys login complet** (émission JWT access/refresh + cookie httpOnly + rate-limiting 2FA + bouton Passkey dans LoginForm), **Sync multi-dossiers dynamique** (découverte tous dossiers IMAP + polling périodique + événements SSE ciblés par dossier), **Carnet d'adresses Import / Export** (vCard RFC 6350 & CSV RFC 4180 + déduplication stricte par email + ContactImportDialog + actions UI), **Calendrier & Événements iCalendar RFC 5545** (parser unifié + gestion lignes pliées §3.1 + dates ISO + intégration lecture message + bannière interactive CalendarInviteBanner avec téléchargement .ics et lien Google Agenda), **CRUD dossiers sécurisé** (protection INBOX/système, dialogue création/renommage/suppression), **Menu contextuel & actions rapides** (MessageContextMenu, FolderContextMenu, MessageQuickActions, raccourcis universels R/F/U/S/E/P/Suppr) | — | ~5 200 |
+| **Phase 12** | **Dossiers Unifiés, Mise en avant (Pin) & Couleurs de Compte** : Dossiers unifiés configurables (`unifiedMessagesService`, `UnifiedFolderList`, vue `/mail/unified/[type]`), mise en avant / épinglage des emails (`isPinned`, `pinnedAt`, index composé `{ accountId: 1, isPinned: -1, date: -1 }`, actions et raccourci `H`), palette de 12 teintes harmonieuses avec attribution sans doublon à la création et héritage visuel dans l'arborescence des dossiers (`AccountColorPicker`, `FolderNodeItem`) | — | ~2 400 |
+| **Phase 13** | **Envoi Programmé (Send Later) & Pièces Jointes en Brouillon** : Persistance des pièces jointes dans les brouillons IMAP (schéma `draftAttachmentSchema`, composition MIME `multipart/mixed` via MailComposer dans `draftService`), envoi programmé d'emails de bout en bout (modèle `ScheduledMessage` avec index `{ scheduledAt: 1, status: 1 }`, schéma Zod, service `scheduledEmailService`, exécuteur périodique sécurisé `scheduledEmailRunner` dans le sync worker avec verrou atomique, retry exponentiel et publication SSE `scheduled:sent`, routes REST `/api/accounts/:accountId/scheduled`, Split Button "Envoyer / Programmer" `ComposeActions`, dialogue presets + date personnalisée `ScheduleSendDialog`, dialogue d'administration `ScheduledMessagesDialog`, hook `useScheduleSend`) + 18 nouveaux tests backend + tests frontend | — | ~2 600 |
 
-**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis, lock de sync distribué et heartbeat worker, et couvert par 428+ tests Vitest backend. Le frontend dispose d'une couverture Vitest + Testing Library (30 tests). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration transparente et formulaire épuré, la connexion par Passkeys (WebAuthn), la synchronisation dynamique de tous les dossiers IMAP, le carnet d'adresses avec import/export vCard et CSV, la gestion des invitations d'agenda iCalendar RFC 5545, la recherche globale universelle Spotlight (Cmd+K) utilisable depuis toutes les pages, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN, le système d'étiquettes / libellés colorés, l'annulation d'envoi ("Undo Send"), les modèles d'emails & réponses types réutilisables en 1 clic, la mise en sommeil d'emails ("Snooze"), ainsi qu'un Hub de Réglages Master-Detail adaptatif responsive et une Fenêtre de Rédaction Universelle flottante accessible depuis n'importe quelle vue de l'application sans interruption de contexte. Typecheck, ESLint et Next.js Build sont 100% verts.
+**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis, lock de sync distribué, heartbeat worker et exécuteur d'envois programmés, et couvert par **496 tests Vitest backend** (58 fichiers). Le frontend dispose d'une couverture complète Vitest + Testing Library (**90 tests** sur 23 fichiers), soit **586 tests automatisés 100% verts**. Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration transparente et formulaire épuré, les dossiers unifiés personnalisables, l'envoi programmé ("Send Later") avec presets intelligents et gestionnaire d'annulations, la sauvegarde des brouillons avec pièces jointes, la connexion par Passkeys (WebAuthn), la synchronisation dynamique de tous les dossiers IMAP, le carnet d'adresses avec import/export vCard et CSV, la gestion des invitations d'agenda iCalendar RFC 5545, la recherche globale universelle Spotlight (Cmd+K) utilisable depuis toutes les pages, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN, le système d'étiquettes / libellés colorés, l'annulation d'envoi ("Undo Send"), les modèles d'emails & réponses types réutilisables en 1 clic, la mise en sommeil d'emails ("Snooze"), ainsi qu'un Hub de Réglages Master-Detail adaptatif responsive et une Fenêtre de Rédaction Universelle flottante accessible depuis n'importe quelle vue de l'application sans interruption de contexte. Typecheck, ESLint et Next.js Build sont 100% verts.
 
 
 ---
@@ -932,7 +934,34 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 | 35. QRESYNC delta sync (`FolderSyncState` + `changedSince`) | 🟠 IMPORTANTE | Moyen | ✅ Livré |
 | 36. Sync expéditeurs → contacts (opt-in `autoAddContacts`) | 🟡 SECONDaire | Faible | ✅ Livré |
 | 37. Cache corps de messages (`MessageBody`, TTL 30 j, cap 2 Mo) | 🟡 SECONDaire | Moyen | ✅ Livré |
-| 38. Socle de tests frontend (Vitest + Testing Library) | 🟠 IMPORTANTE | Faible | ✅ Livré (27 tests) |
+| 38. Socle de tests frontend (Vitest + Testing Library) | 🟠 IMPORTANTE | Faible | ✅ Livré (27 tests initiaux) |
+
+### Phase 11 — Parachèvement Webmail & Interopérabilité ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 39. Authentification WebAuthn / Passkeys de bout en bout (Lot 11.1) | 🔴 CRITIQUE | Moyen | ✅ Livré (Émission JWT, rate limit 2FA, bouton Passkey dans LoginForm) |
+| 40. Synchronisation multi-dossiers dynamique complète (Lot 11.2) | 🟠 IMPORTANTE | Élevé | ✅ Livré (Découverte dynamique des dossiers, polling périodique, SSE par dossier) |
+| 41. Carnet d'adresses — Import / Export vCard & CSV (Lot 11.3) | 🟡 SECONDaire | Moyen | ✅ Livré (RFC 6350 & RFC 4180, déduplication stricte par email, dialogue UI) |
+| 42. Calendrier & Invitations iCalendar RFC 5545 (Lot 11.4) | 🟡 SECONDaire | Moyen | ✅ Livré (Parser RFC 5545, dépliage §3.1, bannière `CalendarInviteBanner`, import Google Agenda / .ics) |
+| 43. Gestion des dossiers CRUD sécurisée (Lot 11.5) | 🟠 IMPORTANTE | Moyen | ✅ Livré (Protection dossiers système, hiérarchie visuelle, dialogues création/renommage/suppression) |
+| 44. Menu contextuel clic droit & Raccourcis universels (Lot 11.6) | 🟢 Confort / UX | Moyen | ✅ Livré (`MessageContextMenu`, `FolderContextMenu`, `MessageQuickActions`, raccourcis R/F/U/S/E/P/Suppr) |
+
+### Phase 12 — Dossiers Unifiés, Mise en avant (Pin) & Couleurs de Compte ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 45. Dossiers Unifiés multi-comptes (`/mail/unified/[type]`) | 🔴 CRITIQUE | Élevé | ✅ Livré (Agrégation temps réel multi-comptes `unifiedMessagesService`, configuration dans `/mail/settings`, `UnifiedFolderList`, `UnifiedMessageList`) |
+| 46. Mise en avant des messages (Pin / Épinglage) | 🟠 IMPORTANTE | Faible | ✅ Livré (`isPinned`, `pinnedAt`, index composé MongoDB `{ accountId: 1, isPinned: -1, date: -1 }`, raccourci clavier `H`, actions contextuelles) |
+| 47. Couleurs de compte & héritage visuel | 🟢 Confort / UX | Faible | ✅ Livré (Palette de 12 teintes harmonieuses, attribution auto sans doublon, `AccountColorPicker`, héritage dans `FolderTree`) |
+
+### Phase 13 — Envoi programmé ("Send Later") & Pièces jointes dans les brouillons ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 48. Persistance des pièces jointes dans les brouillons (`saveDraft`) | 🟠 IMPORTANTE | Faible | ✅ Livré (Composition MIME RFC 822 `multipart/mixed` dans `draftService.ts`, validation Zod et auto-save frontend) |
+| 49. Envoi programmé ("Send Later" / Planification d'envoi) | 🔴 CRITIQUE | Moyen | ✅ Livré (Modèle `ScheduledMessage`, collection MongoDB, runner périodique 15s dans `worker.ts`, Split Button et dialogues UI) |
+| 50. Multi-identités & Alias d'expédition ("Send As") | 🟡 SECONDaire | Moyen | ⏳ Prévu (Configuration d'adresses d'expédition alternatives par compte, sélecteur d'expéditeur dans compose) |
 
 ---
 
@@ -947,7 +976,8 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Refresh token | ✅ | Phase 1 | Rotation + détection de réutilisation |
 | Logout | ✅ | Phase 1 | Révocation du refresh token |
 | Profil (me) | ✅ | Phase 1 | — |
-| 2FA / TOTP | ✅ | Phase 6 | TOTP (otplib) + codes de secours (bcrypt) + WebAuthn passkeys |
+| 2FA / TOTP | ✅ | Phase 6 | TOTP (otplib) + codes de secours (bcrypt) |
+| WebAuthn (Passkeys) | ✅ | Phase 6 + 11 | Connexion biométrique / Passkeys de bout en bout avec émission de sessions JWT complètes |
 | OAuth Google | ✅ | Phase 6 | XOAUTH2 — service OAuth + callback + refresh chiffré + IMAP/SMTP |
 | OAuth Microsoft | ✅ | Phase 7 | XOAUTH2 — service OAuth Microsoft + callback + refresh chiffré + IMAP/SMTP |
 | **Comptes** | | | |
@@ -956,6 +986,13 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Supprimer un compte | ✅ | Phase 1 | — |
 | Activer/désactiver | ✅ | Phase 1 | Toggle isActive |
 | Autoconfig (Mozilla/MS) | ✅ | Phase 7 | Détection automatique via Mozilla ISPDB, DNS MX et heuristiques |
+| Couleurs personnalisées | ✅ | Phase 12 | Palette de 12 teintes, auto-attribution sans doublon, sélecteur et pastilles de couleur |
+| **Dossiers & Organisation** | | | |
+| Lister les dossiers | ✅ | Phase 3 + 10 | folderService.listFolders + cache Folder en base (TTL 5 min) + validation d'existence |
+| Créer / renommer / supprimer | ✅ | Phase 3 + 11 | CRUD complet sécurisé (protection `INBOX`/dossiers système, dialogues UI dédiés) |
+| Détection dossiers spéciaux | ✅ | Phase 3 | specialFolders.ts (specialUse + fallbacks multilingues) |
+| Dossiers unifiés | ✅ | Phase 12 | Vue unifiée tous comptes confondus (`/mail/unified/[type]`), configuration dans les réglages |
+| Dossier virtuel "En sommeil" (Snooze) | ✅ | Phase 9 | Champ `snoozedUntil` sur `Message`, masquage boîte de réception, réveil worker |
 | **Sync** | | | |
 | Sync initiale INBOX (50 msgs) | ✅ | Phase 2 | Idempotent, par range de séquence |
 | Sync initiale multi-dossiers | ✅ | Post-Phase 5 | INBOX + Sent/Drafts/Trash/Junk/Archive via runInitialSyncAll |
@@ -964,77 +1001,70 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Reconciliation multi-dossiers | ✅ | Post-Phase 5 | reconcileAllFolders au démarrage (nettoyage fantômes) |
 | Miroir Sent dans MongoDB | ✅ | Post-Phase 5 | saveToSent upsert après append IMAP |
 | Backoff + désactivation auto | ✅ | Phase 2 | 10 échecs, backoff exponentiel |
-| Sync multi-dossiers IDLE | ⚠️ | Phase 6 | Polling dossiers spéciaux via 2e connexion (pas IDLE — polling périodique) |
+| Sync multi-dossiers dynamique | ⚠️ | Phase 6 + 11 | IDLE sur INBOX + Polling périodique (60s) des autres dossiers via 2e socket IMAP (évite blocage quotas serveurs) |
 | Pagination arrière | ✅ | Phase 6 | fetchMoreService — fetch IMAP UID range décroissant |
-| QRESYNC avancé (modseq) | ✅ | Phase 10 | `FolderSyncState` (uidValidity + highestModseq) + `changedSince` dans `runInitialSyncForFolder`, purge sur changement d'UIDVALIDITY, fallback sync classique si CONDSTORE absent |
-| Lock distribué multi-worker | ✅ | Phase 10 | `syncLock.ts` — SET NX PX + token propriétaire + renouvellement de bail + arrêt auto si lock perdu + fail-open si Redis down |
-| Heartbeat worker | ✅ | Phase 10 | Clé Redis TTL 90 s écrite toutes les 30 s par `worker.ts`, exposée dans `/api/health` (`services.worker` : running/stale/unknown → 503 si stale) |
+| QRESYNC avancé (modseq) | ✅ | Phase 10 | `FolderSyncState` (uidValidity + highestModseq) + `changedSince` dans `runInitialSyncForFolder` |
+| Lock distribué multi-worker | ✅ | Phase 10 | `syncLock.ts` — SET NX PX + token propriétaire + renouvellement de bail + fail-open Redis |
+| Heartbeat worker | ✅ | Phase 10 | Clé Redis TTL 90 s écrite toutes les 30 s par `worker.ts`, exposée dans `/api/health` |
 | **Messages** | | | |
 | Liste paginée par dossier | ✅ | Phase 2 | Tri par date, filtre par dossier |
-| Lecture du corps (HTML/texte) | ✅ | Phase 3 + 10 | messageFetchService + BODY.PEEK + **cache MessageBody** (TTL 30 j, cap 2 Mo, purge sur delete/move/expunge) |
+| Lecture du corps (HTML/texte) | ✅ | Phase 3 + 10 | messageFetchService + BODY.PEEK + cache MessageBody (TTL 30 j, cap 2 Mo) |
 | Headers complets | ✅ | Phase 3 | Parsing Buffer headers ImapFlow |
 | Pièces jointes (download) | ✅ | Phase 3 | attachmentService (streaming PassThrough) |
-| Marquer lu/non-lu | ✅ | Phase 3 | messageActionService.updateFlags |
-| Marquer favori | ✅ | Phase 3 | messageActionService.updateFlags |
-| Supprimer | ✅ | Phase 3 | Trash détecté via specialUse + fallbacks |
-| Déplacer | ✅ | Phase 3 | messageActionService.moveMessage |
-| Actions en masse | ✅ | Phase 3 | batch (markRead/Unread/flag/unflag/delete/move/markAsJunk) |
-| Marquer comme spam | ✅ | Phase 3 | markAsJunk (individuelle + batch) |
-| Recherche | ✅ | Phase 5 + 10 | Index textuel MongoDB + parser d'opérateurs (from:/to:/is:/has:/before:/since:) + **fallback serveur IMAP** automatique (critères SEARCH, import PEEK borné, badge "serveur" dans SearchBar & GlobalSearchDialog) |
+| Marquer lu/non-lu | ✅ | Phase 3 + 11 | messageActionService.updateFlags + raccourci `U` + actions rapides survol |
+| Marquer favori | ✅ | Phase 3 + 11 | messageActionService.updateFlags + raccourci `S` + actions rapides survol |
+| Épingler / Mettre en avant | ✅ | Phase 12 | `isPinned`, `pinnedAt`, maintien en tête de liste, raccourci clavier `H` |
+| Supprimer | ✅ | Phase 3 + 11 | Trash détecté via specialUse + raccourci `Suppr` |
+| Déplacer | ✅ | Phase 3 + 11 | messageActionService.moveMessage + sous-menu contextuel |
+| Actions en masse | ✅ | Phase 3 + 12 | Batch actions classiques et unifiées |
+| Marquer comme spam | ✅ | Phase 3 + 11 | markAsJunk (individuelle + batch) + raccourci `!` |
+| Recherche locale + Serveur IMAP | ✅ | Phase 5 + 10 | Index textuel MongoDB + parser d'opérateurs + fallback serveur IMAP (PEEK borné 200 UID) |
+| Recherche dans le corps profond | ⚠️ | Phase 10 | Serveur IMAP borné à 200 UID, pas d'indexation MongoDB du corps pour préserver la mémoire |
 | Fil de discussion / Threading | ✅ | Phase 8 | Regroupement `messageId` + `inReplyTo` + sujet normalisé, API `GET /thread`, `MessageThreadView` |
 | Export brut RFC 822 (.eml) | ✅ | Phase 8 | Téléchargement brut streamé, respect PEEK (`readOnly`), bouton dans le lecteur |
 | Impression dédiée | ✅ | Phase 8 | `@media print` optimisé, masquage des panneaux/headers, raccourci clavier `P` |
-| Moteur de règles & filtres | ✅ | Phase 8 | Modèle `Rule`, conditions multiples (from, to, subject, hasAttachments), actions (move, read, flag, spam, delete), worker IDLE loop, page `/mail/settings/rules` |
-| Accusé de lecture (MDN) | ✅ | Phase 8 | Demande à l'envoi (`Disposition-Notification-To`), détection à la lecture, bannière `ReadReceiptBanner`, émission automatique rapport RFC 3798 |
-| Étiquettes / Libellés (Tags) | ✅ | Phase 9 | Modèle `Tag`, assignation UID & batch, badges colorés, popover sélecteur, gestionnaire dans `/mail/settings`, filtrage sidebar, action `applyTag` règles |
-| Mise en sommeil ("Snooze") | ✅ | Phase 9 | Champ `snoozedUntil` sur `Message`, masquage boîte de réception, dossier virtuel "En sommeil", boucle de réveil worker, popover `SnoozeDropdown` (presets + custom) |
+| Moteur de règles & filtres | ✅ | Phase 8 | Modèle `Rule`, conditions multiples, actions (move, read, flag, spam, delete, tag), worker IDLE loop |
+| Accusé de lecture (MDN) | ✅ | Phase 8 | Demande à l'envoi (`Disposition-Notification-To`), détection à la lecture, bannière interactive, émission rapport |
+| Étiquettes / Libellés (Tags) | ✅ | Phase 9 | Modèle `Tag`, assignation UID & batch, badges colorés, popover sélecteur, gestionnaire dans réglages |
+| Événements iCalendar RFC 5545 | ✅ | Phase 11 | Parser invitations agenda, dépliage lignes RFC 5545 §3.1, bannière interactive, lien Google Agenda / téléchargement `.ics` |
+| Menus contextuels & actions rapides | ✅ | Phase 11 | Clic droit sur messages et dossiers, barre d'actions rapides au survol, raccourcis universels |
 | **Envoi** | | | |
-| Composer un message | ✅ | Phase 3 | sendService (Nodemailer) |
-| Répondre (reply) | ✅ | Phase 3 | inReplyTo + references dans le schéma |
-| Transférer (forward) | ✅ | Phase 3 | Schéma supporte les champs reply/forward |
-| Pièces jointes (upload) | ✅ | Phase 3 + 7 | base64 → Buffer, zone drag & drop, jauge 25 Mo, suppression unitaire |
+| Composer un message | ✅ | Phase 3 + 7 | sendService (Nodemailer), fenêtre flottante universelle `ComposePanel` |
+| Répondre / Transférer | ✅ | Phase 3 + 8 | inReplyTo + references dans le schéma, réponse rapide `QuickReplyBar` |
+| Pièces jointes (upload) | ✅ | Phase 3 + 7 | Drag & drop, prévisualisation, jauge 25 Mo, suppression individuelle |
 | Sauvegarde Sent | ✅ | Phase 3 | IMAP append, dossier détecté via specialUse |
-| Brouillons + auto-save | ✅ | Phase 5 | Stockage IMAP Drafts via messageAppend, flag \Draft, CRUD endpoints |
+| Brouillons texte/HTML auto-save | ✅ | Phase 5 | Stockage IMAP Drafts via messageAppend, flag \Draft, debounce 5s |
+| Pièces jointes dans les brouillons | ✅ | Phase 13 | Sérialisation MIME RFC 822 `multipart/mixed` des fichiers uploadés lors de l'enregistrement du brouillon |
+| Alias d'expédition ("Send As") | ✅ | Phase 14 | Multi-identités par compte, validation anti-spoofing RFC 5322, Sender distinct, UI complète |
 | CC / BCC | ✅ | Phase 3 | Supportés dans sendEmailSchema |
-| Signature | ✅ | Phase 7 | Signatures personnalisées par compte (texte + HTML), insertion dans compose |
-| Annulation d'envoi ("Undo Send") | ✅ | Phase 9 | Délai de grâce configurable (0 à 30s), dock décompté interactif, annulation Z, restauration formulaires & PJ, PATCH /preferences |
-| Modèles & Réponses types | ✅ | Phase 9 | Modèle `Template`, CRUD `/api/templates`, dropdown d'insertion en 1 clic dans compose et quick reply, gestionnaire `/mail/settings` |
-| **Dossiers** | | | |
-| Lister les dossiers | ✅ | Phase 3 + 10 | folderService.listFolders + **cache Folder en base** (TTL 5 min, invalidation CRUD, refresh worker) + validation d'existence dans `messagesController.list` |
-| Créer / renommer / supprimer | ✅ | Phase 3 | folderService CRUD + cache invalidation |
-| Détection dossiers spéciaux | ✅ | Phase 3 | specialFolders.ts (specialUse + fallbacks multilingues) |
+| Signature | ✅ | Phase 7 | Signatures personnalisées par compte (texte + HTML), insertion automatique dans compose |
+| Annulation d'envoi ("Undo Send") | ✅ | Phase 9 | Délai de grâce configurable (0 à 30s), dock décompté interactif, annulation `Z`, restauration formulaires & PJ |
+| Modèles & Réponses types | ✅ | Phase 9 | Modèle `Template`, insertion en 1 clic dans compose et quick reply, raccourci `!nom` |
 | **Sécurité** | | | |
-| Chiffrement AES-256-GCM | ✅ | Phase 1 | Mots de passe IMAP |
+| Chiffrement AES-256-GCM | ✅ | Phase 1 | Mots de passe IMAP et secrets 2FA |
 | Cookies httpOnly | ✅ | Phase 1 | Refresh token, sameSite strict |
 | CORS | ✅ | Phase 1 | Origin explicite, credentials |
-| Rate limit auth | ✅ | Phase 1 | 10 req/15 min (in-memory) |
-| Rate limit envoi | ✅ | Phase 3 | 20 req/min/IP (sendRateLimit) |
-| Sanitization HTML | ✅ | Phase 3 | isomorphic-dompurify + jsdom |
+| Rate limit distribué Redis | ✅ | Phase 7 | express-rate-limit v7 + rate-limit-redis (auth, API global, envoi) |
+| Sanitization HTML | ✅ | Phase 3 + 4 | Double défense : isomorphic-dompurify backend + DOMPurify frontend |
 | Pool IMAP API (lazy) | ✅ | Phase 3 | imapPool (verrou par compte, TTL 5 min) |
-| Rate limit global | ✅ | Phase 5 | express-rate-limit v7, 100 req/15 min/IP, headers draft-7 |
-| Helmet | ✅ | Phase 5 | helmet() activé (CSP désactivé pour API REST) |
-| Logging structuré | ✅ | Phase 5 | pino + pino-http, redaction automatique, JSON en prod |
-| JWT algorithm pinning | ✅ | Phase 5 | algorithms: ['HS256'] sur verify |
-| **Temps réel** | | | |
-| Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
-| Notifications bureau & carillon | ✅ | Phase 8 | Notifications Web natives + synthèse Web Audio sans asset + toggle réglages |
-| **Tests** | | | |
-| Tests unitaires & intégration | ✅ | Phase 3 → 10 | 430+ tests backend + socle frontend Vitest (27 tests : stores, utils, SearchBar, AutoContactsSettings) |
-| **Frontend** | | | |
-| Interface web | ✅ | Phase 4 + 6 + 7 + 8 + 9 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google/MS OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts, drag&drop PJ, accusés de lecture, dock annulation d'envoi UndoSendDock, modèles de réponses types), brouillons auto-save, recherche, SSE temps réel, mise en sommeil Snooze & dossier virtuel, hub unifié de réglages Master-Detail responsive avec détection de résolution d'écran (/mail/settings), gestionnaires d'étiquettes, modèles, règles de tri, sécurité 2FA et carnet d'adresses |
-| **Observabilité** | | | |
-| Health check | ✅ | Phase 6 + 10 | Enrichi (status, uptime, version, MongoDB, Redis, **worker heartbeat**, HTTP 503 si dégradé) |
-| Métriques Prometheus | ✅ | Phase 6 | prom-client — compteur requêtes, histogramme durée, jauges MongoDB/Redis |
-| **Contacts** | | | |
-| Carnet d'adresses (CRUD) | ✅ | Phase 6 | Modèle Contact + service + controller + routes + index textuel + unique |
-| Autocomplétion compose | ✅ | Phase 6 | ContactAutocomplete (navigation clavier, regex name+email) |
-| Ajout auto des expéditeurs | ✅ | Phase 10 | Opt-in `preferences.autoAddContacts`, `addSenderContactIfEnabled` dans idleLoop (best-effort, $setOnInsert, exclusion noreply), toggle `AutoContactsSettings` |
-| **2FA** | | | |
-| TOTP (app authenticator) | ✅ | Phase 6 | otplib + QR code + secret chiffré AES-256-GCM |
-| Codes de secours | ✅ | Phase 6 | 10 codes à usage unique, hashés bcrypt |
-| WebAuthn (passkeys) | ✅ | Phase 6 | @simplewebauthn/server v11 — registration + login |
-| **OAuth** | | | |
-| OAuth Google XOAUTH2 | ✅ | Phase 6 | Service OAuth + callback + refresh chiffré + IMAP/SMTP XOAUTH2 |
+| Helmet & JWT pinning | ✅ | Phase 5 | Helmet HTTP headers + pinning algorithme HS256 |
+| Chiffrement PGP bout en bout | ❌ | Future | Signature et déchiffrement OpenPGP |
+| **Temps réel & Observabilité** | | | |
+| Notifications push SSE | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
+| Notifications bureau & carillon | ✅ | Phase 8 | Notifications Web natives + synthèse audio Web Audio sans asset |
+| Health check & Métriques | ✅ | Phase 6 + 10 | /api/health (MongoDB, Redis, worker heartbeat) + /api/metrics Prometheus |
+| **Carnet d'adresses & Contacts** | | | |
+| Carnet d'adresses (CRUD) | ✅ | Phase 6 | Modèle Contact + recherche/autocomplétion compose |
+| Ajout auto des expéditeurs | ✅ | Phase 10 | Opt-in `preferences.autoAddContacts`, best-effort dans idleLoop |
+| Import / Export vCard & CSV | ✅ | Phase 11 | RFC 6350 & RFC 4180, déduplication stricte par email, dialogue UI |
+| **Productivité avancée** | | | |
+| Envoi programmé ("Send Later") | ✅ | Phase 13 | Modèle ScheduledMessage, runner worker périodique 15s, Split Button & presets UI |
+| Pièces jointes dans les brouillons | ✅ | Phase 13 | Persistance multipart/mixed dans Drafts IMAP, auto-save et restauration |
+| Multi-identités & Alias | ✅ | Phase 14 | Sous-document Account, CRUD REST, envoi avec alias From/Sender, selecteur & dialog |
+| **Tests & Qualité** | | | |
+| Tests backend (Vitest) | ✅ | Phase 3 → 14 | 511 tests passés (60 fichiers) |
+| Tests frontend (Vitest + jsdom) | ✅ | Phase 10 → 14 | 103 tests passés (25 fichiers) |
+| Total tests automatisés | ✅ | Global | **614 tests automatisés 100% verts** |
 
 ---
 

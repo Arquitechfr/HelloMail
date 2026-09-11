@@ -67,9 +67,9 @@ export const useUIStore = create<UIState>()(
       desktopNotificationsEnabled: true,
       notificationSoundEnabled: true,
       setSelectedAccount: (accountId) =>
-        set({ selectedAccountId: accountId, selectedUids: [] }),
+        set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [] }),
       setSelectedFolder: (folder) =>
-        set({ selectedFolder: folder, selectedTag: null, selectedUids: [] }),
+        set({ selectedFolder: folder, selectedTag: null, selectedUid: null, selectedUids: [] }),
       setSelectedTag: (tag) =>
         set({ selectedTag: tag, selectedUid: null, selectedUids: [] }),
       setSelectedUid: (uid) => set({ selectedUid: uid }),

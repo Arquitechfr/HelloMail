@@ -5,6 +5,13 @@ import { logger } from '../../config/logger.js';
 import { imapPool } from './imapPool.js';
 import { findDraftsFolder } from './specialFolders.js';
 
+export interface DraftAttachmentInput {
+  filename: string;
+  content: string; // base64
+  contentType?: string;
+  size?: number;
+}
+
 export interface DraftInput {
   to?: string[];
   cc?: string[];
@@ -15,6 +22,7 @@ export interface DraftInput {
   html?: string;
   inReplyTo?: string;
   references?: string[];
+  attachments?: DraftAttachmentInput[];
 }
 
 export interface DraftResult {
@@ -41,6 +49,14 @@ function buildDraftMime(input: DraftInput, fromAddress: string): Promise<Buffer>
   if (input.html) mailOptions.html = input.html;
   if (input.inReplyTo) mailOptions.inReplyTo = input.inReplyTo;
   if (input.references?.length) mailOptions.references = input.references.join(' ');
+
+  if (input.attachments?.length) {
+    mailOptions.attachments = input.attachments.map((a) => ({
+      filename: a.filename,
+      content: Buffer.from(a.content, 'base64'),
+      contentType: a.contentType,
+    }));
+  }
 
   const mail = new MailComposer(mailOptions) as MailComposer;
   const compiled = mail.compile();

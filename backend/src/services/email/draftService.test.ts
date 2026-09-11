@@ -60,6 +60,26 @@ describe('draftService', () => {
       expect(mockClient.messageDelete).not.toHaveBeenCalled();
     });
 
+    it('crée un brouillon avec pièces jointes (multipart)', async () => {
+      const result = await saveDraft(makeAccount(), {
+        to: ['bob@test.com'],
+        subject: 'Brouillon avec PJ',
+        text: 'Voici le fichier joint',
+        attachments: [
+          {
+            filename: 'document.pdf',
+            content: Buffer.from('fake pdf content').toString('base64'),
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+
+      expect(result.ok).toBe(true);
+      expect(mockClient.append).toHaveBeenCalledWith('Drafts', expect.any(Buffer), ['\\Draft']);
+      const mimeBuffer = mockClient.append.mock.calls[0][1] as Buffer;
+      expect(mimeBuffer.toString()).toContain('document.pdf');
+    });
+
     it('modifie un brouillon existant (delete + append)', async () => {
       const result = await saveDraft(
         makeAccount(),

@@ -92,11 +92,20 @@ export interface ContactImportResult {
 
 export type AccountProvider = "imap" | "google_oauth" | "microsoft_oauth";
 
+export interface AccountAlias {
+  _id: string;
+  name?: string;
+  email: string;
+  isDefault: boolean;
+  createdAt?: string;
+}
+
 export interface Account {
   _id: string;
   provider: AccountProvider;
   emailAddress: string;
   displayName?: string;
+  aliases?: AccountAlias[];
   signature?: {
     enabled: boolean;
     text: string;
@@ -262,7 +271,17 @@ export interface ThreadResponse {
 
 // --- Envoi ---
 
+export interface SendEmailAttachment {
+  filename: string;
+  content: string;
+  contentType?: string;
+}
+
 export interface SendEmailInput {
+  from?: {
+    name?: string;
+    address: string;
+  };
   to: string[];
   cc?: string[];
   bcc?: string[];
@@ -270,7 +289,7 @@ export interface SendEmailInput {
   subject: string;
   text: string;
   html?: string;
-  attachments?: { filename: string; content: string; contentType?: string }[];
+  attachments?: SendEmailAttachment[];
   inReplyTo?: string;
   references?: string[];
   requestReadReceipt?: boolean;
@@ -324,6 +343,7 @@ export interface DraftInput {
   subject: string;
   text: string;
   html?: string;
+  attachments?: SendEmailAttachment[];
   inReplyTo?: string;
   references?: string[];
 }
@@ -333,13 +353,37 @@ export interface DraftResult {
   uid?: number;
 }
 
+// --- Emails programmés (Send Later) ---
+
+export type ScheduledStatus = "pending" | "processing" | "sent" | "failed" | "cancelled";
+
+export interface ScheduledMessage {
+  id: string;
+  _id?: string;
+  userId: string;
+  accountId: string;
+  payload: SendEmailInput;
+  scheduledAt: string;
+  status: ScheduledStatus;
+  attempts: number;
+  sentAt?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleEmailInput extends SendEmailInput {
+  scheduledAt: string;
+}
+
 // --- Temps réel (SSE) ---
 
 export type RealtimeEventType =
   | "message:new"
   | "message:deleted"
   | "message:flags"
-  | "account:syncError";
+  | "account:syncError"
+  | "scheduled:sent";
 
 export interface RealtimeEvent {
   type: RealtimeEventType;

@@ -10,8 +10,11 @@ import {
   updateSignatureSchema,
   updateAccountSchema,
 } from '../schemas/accountSchemas.js';
+import { accountAliasesRoutes } from './accountAliasesRoutes.js';
 
 const router = Router();
+
+router.use('/:id/aliases', accountAliasesRoutes);
 
 router.get('/autoconfig', requireAuth, validate({ query: autoconfigQuerySchema }), accountsController.autoconfig);
 router.post('/', requireAuth, validate({ body: createImapAccountSchema }), accountsController.create);

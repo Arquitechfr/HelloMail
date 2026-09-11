@@ -9,12 +9,14 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    pool: "forks",
+    fileParallelism: false,
     server: {
       deps: {
         // Une seule instance React pour tout le graphe de test : les deps
         // externalisées (zustand, @base-ui, lucide…) obtiennent sinon une
         // copie distincte de react → dispatcher null dans les hooks.
-        inline: ["use-sync-external-store", "zustand", /@base-ui/, "lucide-react"],
+        inline: ["use-sync-external-store", "zustand", "lucide-react"],
       },
     },
   },

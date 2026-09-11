@@ -16,17 +16,26 @@ export default function UnifiedFolderPage() {
     ? rawType
     : "inbox";
 
-  const { setSelectedAccount, setSelectedFolder, setSelectedUid } = useUIStore();
+  const { setSelectedAccount, setSelectedFolder, selectedUid, setSelectedUid } = useUIStore();
   const [selectedMessage, setSelectedMessage] = useState<{
     accountId: string;
     folder: string;
     uid: number;
   } | null>(null);
 
+  // Synchronise selectedMessage si selectedUid est réinitialisé (ex: clic sur ArrowLeft retour)
+  useEffect(() => {
+    if (selectedUid === null) {
+      setSelectedMessage(null);
+    }
+  }, [selectedUid]);
+
   useEffect(() => {
     setSelectedAccount(null);
     setSelectedFolder(`unified:${type}`);
-  }, [type, setSelectedAccount, setSelectedFolder]);
+    setSelectedMessage(null);
+    setSelectedUid(null);
+  }, [type, setSelectedAccount, setSelectedFolder, setSelectedUid]);
 
   const handleSelectMessage = (
     msg: Message & { accountId: string; folder: string },

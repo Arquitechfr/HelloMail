@@ -156,5 +156,14 @@ export const PinOff = makeIcon();
 export const ShieldAlert = makeIcon();
 export const Layers = makeIcon();
 export const SlidersHorizontal = makeIcon();
-
-
+export const CalendarDays = makeIcon();
+export const XIcon = makeIcon();
+export const SearchIcon = makeIcon();
+export const CircleCheckIcon = makeIcon();
+export const InfoIcon = makeIcon();
+export const TriangleAlertIcon = makeIcon();
+export const OctagonXIcon = makeIcon();
+export const Loader2Icon = makeIcon();
+export const Command = makeIcon();
+export const AtSign = makeIcon();
+export const Edit2 = makeIcon();

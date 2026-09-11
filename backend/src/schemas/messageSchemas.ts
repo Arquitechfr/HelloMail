@@ -49,6 +49,12 @@ export const attachmentParamsSchema = z.object({
  * Limite la taille totale à 25 Mo (base64 inclus, avec overhead ~37%).
  */
 export const sendEmailSchema = z.object({
+  from: z
+    .object({
+      name: z.string().trim().max(120, "Le nom d'expéditeur ne peut pas dépasser 120 caractères").optional(),
+      address: emailSchema,
+    })
+    .optional(),
   to: z.array(emailSchema).min(1, 'Au moins un destinataire requis').max(50),
   cc: z.array(emailSchema).max(50).optional(),
   bcc: z.array(emailSchema).max(50).optional(),

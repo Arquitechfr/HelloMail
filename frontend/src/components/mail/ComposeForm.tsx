@@ -6,7 +6,7 @@ import { useSendEmail } from "@/lib/queries/messages";
 import { useCreateDraft, useUpdateDraft, useDeleteDraft } from "@/lib/queries/drafts";
 import { useAccounts } from "@/lib/queries/accounts";
 import { useUndoSendStore, type RestoredComposeData } from "@/lib/stores/undoSendStore";
-import { htmlToText, formatSignatureHtml } from "@/lib/compose-utils";
+import { htmlToText } from "@/lib/compose-utils";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,10 @@ import { RichTextEditor } from "@/components/mail/RichTextEditor";
 import { ComposeRecipients } from "@/components/mail/ComposeRecipients";
 import { ComposeActions } from "@/components/mail/ComposeActions";
 import { AttachmentDropzone, type AttachmentItem } from "@/components/mail/AttachmentDropzone";
+import { ScheduleSendDialog } from "@/components/mail/ScheduleSendDialog";
+import { ScheduledMessagesDialog } from "@/components/mail/ScheduledMessagesDialog";
+import { useScheduleSend } from "@/lib/hooks/useScheduleSend";
+import { useComposeSignature } from "@/lib/hooks/useComposeSignature";
 import { toast } from "sonner";
 import type { SendEmailInput } from "@/lib/api-types";
 import type { EmailTemplate } from "@/lib/types/templates";
@@ -58,6 +62,9 @@ export function ComposeForm({
     return "";
   };
 
+  const [from, setFrom] = useState<{ name?: string; address: string } | undefined>(
+    restoredData?.from,
+  );
   const [to, setTo] = useState(
     restoredData?.to ?? (replyTo && mode === "reply" ? replyTo.from ?? "" : ""),
   );
@@ -80,66 +87,61 @@ export function ComposeForm({
   const { data: accounts } = useAccounts();
   const currentAccount = accounts?.find((a) => a._id === accountId);
 
-  const handleInsertSignature = useCallback(() => {
-    if (!currentAccount) return;
-    const sigText =
-      currentAccount.signature?.text?.trim() ||
-      `-- \nBien cordialement,\n${currentAccount.displayName || currentAccount.emailAddress}`;
-    const sigHtml =
-      currentAccount.signature?.html || formatSignatureHtml(sigText);
+  const { handleInsertSignature } = useComposeSignature({
+    currentAccount,
+    mode,
+    body,
+    setBody,
+    hasRestoredData: Boolean(restoredData),
+  });
 
-    setBody((prev) => {
-      const significantLine =
-        sigText
-          .split("\n")
-          .map((l) => l.trim())
-          .find((l) => l && !l.startsWith("-")) || sigText;
+  const {
+    scheduleDialogOpen,
+    setScheduleDialogOpen,
+    scheduledListDialogOpen,
+    setScheduledListDialogOpen,
+    scheduleSend,
+  } = useScheduleSend({ accountId, draftUid, onClose });
 
-      if (prev && prev.includes(significantLine)) {
-        toast.info("La signature est déjà présente dans le message");
-        return prev;
-      }
-      return prev && prev !== "<p></p>" ? `${prev}${sigHtml}` : `<p></p>${sigHtml}`;
-    });
-    toast.success("Signature insérée");
-  }, [currentAccount]);
-
-  // Insertion automatique de la signature si activée et nouveau message
-  const signatureInsertedRef = useRef(!!restoredData);
-  useEffect(() => {
-    if (
-      mode === "new" &&
-      currentAccount?.signature?.enabled &&
-      !body &&
-      !signatureInsertedRef.current
-    ) {
-      signatureInsertedRef.current = true;
-      const sigText =
-        currentAccount.signature.text?.trim() ||
-        `-- \nBien cordialement,\n${currentAccount.displayName || currentAccount.emailAddress}`;
-      const sigHtml =
-        currentAccount.signature.html || formatSignatureHtml(sigText);
-      setBody(`<p></p>${sigHtml}`);
-    }
-  }, [mode, currentAccount, body]);
-
-  // Auto-save avec debounce 5s.
-  const saveDraft = useCallback(async () => {
-    if (!subject && !body && !to) return;
-    const snapshot = JSON.stringify({ to, cc, bcc, subject, body });
-    if (snapshot === lastSavedRef.current) return;
-
-    onDraftStatusChange("saving");
-    const draftBody: SendEmailInput = {
+  const buildPayload = useCallback((): SendEmailInput => {
+    return {
+      from: from ? { name: from.name, address: from.address } : undefined,
       to: to.split(",").map((s) => s.trim()).filter(Boolean),
       cc: cc ? cc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
       bcc: bcc ? bcc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
       subject,
       text: htmlToText(body),
       html: DOMPurify.sanitize(body),
+      attachments:
+        attachments.length > 0
+          ? attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content,
+              contentType: a.contentType,
+            }))
+          : undefined,
       inReplyTo: mode === "reply" ? replyTo?.messageId : undefined,
       references: mode === "reply" && replyTo?.messageId ? [replyTo.messageId] : undefined,
+      requestReadReceipt: requestReadReceipt ? true : undefined,
     };
+  }, [from, to, cc, bcc, subject, body, attachments, mode, replyTo, requestReadReceipt]);
+
+  // Auto-save avec debounce 5s (incluant les pièces jointes).
+  const saveDraft = useCallback(async () => {
+    if (!subject && !body && !to && attachments.length === 0) return;
+    const snapshot = JSON.stringify({
+      from: from?.address,
+      to,
+      cc,
+      bcc,
+      subject,
+      body,
+      att: attachments.map((a) => a.filename),
+    });
+    if (snapshot === lastSavedRef.current) return;
+
+    onDraftStatusChange("saving");
+    const draftBody = buildPayload();
 
     try {
       if (draftUid) {
@@ -153,7 +155,7 @@ export function ComposeForm({
     } catch {
       onDraftStatusChange("error");
     }
-  }, [to, cc, bcc, subject, body, mode, replyTo, draftUid, onDraftUidChange, onDraftStatusChange, createDraft, updateDraft]);
+  }, [from, to, cc, bcc, subject, body, attachments, buildPayload, draftUid, onDraftUidChange, onDraftStatusChange, createDraft, updateDraft]);
 
   // Déclenche l'auto-save 5s après un changement.
   const scheduleAutosave = useCallback(() => {
@@ -173,7 +175,7 @@ export function ComposeForm({
 
   // Sauvegarde manuelle immédiate (force la sauvegarde même si snapshot identique).
   const handleSaveDraft = async () => {
-    if (!subject && !body && !to) {
+    if (!subject && !body && !to && attachments.length === 0) {
       toast.error("Rien à sauvegarder");
       return;
     }
@@ -205,28 +207,7 @@ export function ComposeForm({
     // Anti-double-submit.
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
-    // Sanitization HTML côté frontend (défense en profondeur).
-    const html = DOMPurify.sanitize(body);
-
-    const payload: SendEmailInput = {
-      to: to.split(",").map((s) => s.trim()).filter(Boolean),
-      cc: cc ? cc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-      bcc: bcc ? bcc.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-      subject,
-      text: htmlToText(body),
-      html,
-      attachments:
-        attachments.length > 0
-          ? attachments.map((a) => ({
-              filename: a.filename,
-              content: a.content,
-              contentType: a.contentType,
-            }))
-          : undefined,
-      inReplyTo: mode === "reply" ? replyTo?.messageId : undefined,
-      references: mode === "reply" && replyTo?.messageId ? [replyTo.messageId] : undefined,
-      requestReadReceipt: requestReadReceipt ? true : undefined,
-    };
+    const payload = buildPayload();
 
     if (undoSendDelay > 0) {
       setSubmitting(false);
@@ -288,6 +269,8 @@ export function ComposeForm({
     <form onSubmit={handleSend} className="flex h-full flex-col gap-4">
       <ComposeRecipients
         currentAccount={currentAccount}
+        from={from}
+        onFromChange={setFrom}
         to={to}
         onToChange={setTo}
         cc={cc}
@@ -318,7 +301,13 @@ export function ComposeForm({
       </div>
 
       {/* Zone de pièces jointes */}
-      <AttachmentDropzone attachments={attachments} onChange={setAttachments} />
+      <AttachmentDropzone
+        attachments={attachments}
+        onChange={(atts) => {
+          setAttachments(atts);
+          scheduleAutosave();
+        }}
+      />
 
       <ComposeActions
         submitting={submitting}
@@ -329,6 +318,21 @@ export function ComposeForm({
         onCancel={onClose}
         accountId={accountId}
         onSelectTemplate={handleSelectTemplate}
+        onOpenSchedule={() => setScheduleDialogOpen(true)}
+        onOpenScheduledList={() => setScheduledListDialogOpen(true)}
+      />
+
+      {/* Dialogues de planification Send Later */}
+      <ScheduleSendDialog
+        open={scheduleDialogOpen}
+        onOpenChange={setScheduleDialogOpen}
+        onSchedule={(date) => scheduleSend(date, buildPayload())}
+      />
+
+      <ScheduledMessagesDialog
+        open={scheduledListDialogOpen}
+        onOpenChange={setScheduledListDialogOpen}
+        accountId={accountId}
       />
     </form>
   );

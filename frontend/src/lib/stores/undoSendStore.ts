@@ -4,6 +4,7 @@ import type { SendEmailInput } from "@/lib/api-types";
 import type { AttachmentItem } from "@/components/mail/AttachmentDropzone";
 
 export interface RestoredComposeData {
+  from?: { name?: string; address: string };
   to: string;
   cc?: string;
   bcc?: string;
@@ -67,6 +68,7 @@ export const useUndoSendStore = create<UndoSendState>()(
         if (!current) return null;
 
         const restoredData: RestoredComposeData = {
+          from: current.payload.from,
           to: current.payload.to.join(", "),
           cc: current.payload.cc?.join(", "),
           bcc: current.payload.bcc?.join(", "),

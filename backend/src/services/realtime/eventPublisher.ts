@@ -9,7 +9,8 @@ export type RealtimeEventType =
   | 'message:new'
   | 'message:deleted'
   | 'message:flags'
-  | 'account:syncError';
+  | 'account:syncError'
+  | 'scheduled:sent';
 
 export interface RealtimeEvent {
   type: RealtimeEventType;

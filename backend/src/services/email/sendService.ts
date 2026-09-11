@@ -10,8 +10,13 @@ import { findSentFolder } from './specialFolders.js';
 import { mapFetchResultToMessage } from '../sync/messageMapper.js';
 import { SMTP_TIMEOUT_MS } from '../../config/constants.js';
 import { getSmtpAuth } from '../auth/oauthService.js';
+import { AliasService } from '../accounts/aliasService.js';
 
 export interface SendEmailInput {
+  from?: {
+    name?: string;
+    address: string;
+  };
   to: string[];
   cc?: string[];
   bcc?: string[];
@@ -34,9 +39,14 @@ export interface SendResult {
 /**
  * Construit le raw MIME d'un message via MailComposer (bundled avec nodemailer).
  */
-function buildRawMime(input: SendEmailInput, fromAddress: string): Promise<Buffer> {
+function buildRawMime(
+  input: SendEmailInput,
+  fromHeader: string,
+  receiptAddress: string,
+  senderHeader?: string,
+): Promise<Buffer> {
   const mailOptions: Record<string, unknown> = {
-    from: fromAddress,
+    from: fromHeader,
     to: input.to.join(', '),
     subject: input.subject,
     text: input.text,
@@ -44,6 +54,7 @@ function buildRawMime(input: SendEmailInput, fromAddress: string): Promise<Buffe
     disableFileAccess: true,
   };
 
+  if (senderHeader) mailOptions.sender = senderHeader;
   if (input.cc?.length) mailOptions.cc = input.cc.join(', ');
   if (input.bcc?.length) mailOptions.bcc = input.bcc.join(', ');
   if (input.replyTo) mailOptions.replyTo = input.replyTo;
@@ -51,7 +62,7 @@ function buildRawMime(input: SendEmailInput, fromAddress: string): Promise<Buffe
   if (input.inReplyTo) mailOptions.inReplyTo = input.inReplyTo;
   if (input.references?.length) mailOptions.references = input.references.join(' ');
   if (input.requestReadReceipt) {
-    mailOptions.headers = { 'Disposition-Notification-To': fromAddress };
+    mailOptions.headers = { 'Disposition-Notification-To': receiptAddress };
   }
 
   if (input.attachments?.length) {
@@ -92,11 +103,31 @@ export async function sendEmail(
 
   const accountId = String(account._id);
 
+  // Résout l'identité d'expédition (adresse principale ou alias autorisé).
+  const senderIdentity = input.from
+    ? AliasService.verifySenderIdentity(account, input.from.address, input.from.name)
+    : {
+        address: account.emailAddress,
+        name: account.displayName,
+        isAlias: false,
+      };
+
+  const formattedFrom = senderIdentity.name
+    ? `"${senderIdentity.name}" <${senderIdentity.address}>`
+    : senderIdentity.address;
+
+  const senderHeader = senderIdentity.isAlias ? account.emailAddress : undefined;
+
   // Résout l'authentification SMTP (password ou XOAUTH2 Google).
   const auth = await getSmtpAuth(account);
 
   // Construit le raw MIME pour la sauvegarde Sent (avant l'envoi).
-  const rawMime = await buildRawMime(input, account.emailAddress);
+  const rawMime = await buildRawMime(
+    input,
+    formattedFrom,
+    senderIdentity.address,
+    senderHeader,
+  );
 
   // Crée le transport SMTP.
   const transport = nodemailer.createTransport({
@@ -112,11 +143,12 @@ export async function sendEmail(
   try {
     // Envoie via SMTP.
     const info = await transport.sendMail({
-      from: account.emailAddress,
+      from: formattedFrom,
+      sender: senderHeader,
       to: input.to.join(', '),
       cc: input.cc?.join(', '),
       bcc: input.bcc?.join(', '),
-      replyTo: input.replyTo,
+      replyTo: input.replyTo || (senderIdentity.isAlias ? senderIdentity.address : undefined),
       subject: input.subject,
       text: input.text,
       html: input.html,
@@ -127,7 +159,7 @@ export async function sendEmail(
       })),
       inReplyTo: input.inReplyTo,
       references: input.references?.join(' '),
-      headers: input.requestReadReceipt ? { 'Disposition-Notification-To': account.emailAddress } : undefined,
+      headers: input.requestReadReceipt ? { 'Disposition-Notification-To': senderIdentity.address } : undefined,
     });
 
     // Sauvegarde dans Sent via IMAP append.
