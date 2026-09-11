@@ -6,12 +6,16 @@ import type { FetchMessageObject } from 'imapflow';
 const mockCountDocuments = vi.fn();
 const mockUpdateOne = vi.fn().mockResolvedValue({});
 const mockDeleteMany = vi.fn().mockResolvedValue({});
+const mockFind = vi.fn().mockImplementation(() => ({
+  select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([]) }),
+}));
 
 vi.mock('../../models/Message.js', () => ({
   MessageModel: {
     countDocuments: mockCountDocuments,
     updateOne: mockUpdateOne,
     deleteMany: mockDeleteMany,
+    find: mockFind,
   },
 }));
 
@@ -30,6 +34,12 @@ vi.mock('../../models/FolderSyncState.js', () => ({
 // Mock de folderService (rafraîchissement du cache Folder en fin de sync).
 vi.mock('../email/folderService.js', () => ({
   syncFolderCacheFromClient: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock de folderCounters (compteurs du cache Folder).
+vi.mock('../email/folderCounters.js', () => ({
+  adjustFolderCounters: vi.fn().mockResolvedValue(undefined),
+  setFolderCounts: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock de logger.

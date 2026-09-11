@@ -4,7 +4,8 @@ import { MessageModel } from '../../models/Message.js';
 import { FolderSyncStateModel } from '../../models/FolderSyncState.js';
 import { INITIAL_SYNC_MESSAGE_COUNT } from '../../config/constants.js';
 import { logger } from '../../config/logger.js';
-import { mapFetchResultToMessage } from './messageMapper.js';
+import { mapFetchResultToMessage, type MessageInput } from './messageMapper.js';
+import { adjustFolderCounters, setFolderCounts } from '../email/folderCounters.js';
 import {
   findSentFolder,
   findTrashFolder,
@@ -48,6 +49,8 @@ export async function runInitialSyncForFolder(
   const mailbox = await client.mailboxOpen(folder, { readOnly: false });
 
   const totalMessages = mailbox.exists;
+  // Compteur absolu « messages » du cache Folder (valeur serveur autoritaire).
+  setFolderCounts(accountId, folder, { messages: totalMessages }).catch(() => {});
   const uidValidity = String(mailbox.uidValidity ?? '');
   const openedModseq = mailbox.highestModseq;
 
@@ -109,16 +112,37 @@ export async function runInitialSyncForFolder(
 
   let synced = 0;
 
+  // Phase 1 : collecte des messages fetchés (range borné à N).
   // Fetch par numéro de séquence (pas { uid: true } dans les options → range = seq).
   // Le query.uid: true inclut l'UID dans la réponse pour la clé d'upsert.
+  const fetched: MessageInput[] = [];
   for await (const msg of client.fetch(range, FETCH_QUERY)) {
     try {
-      const messageInput = mapFetchResultToMessage(accountId, folder, msg);
+      fetched.push(mapFetchResultToMessage(accountId, folder, msg));
+    } catch (error) {
+      logger.error(
+        { accountId, folder, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Erreur mapping message',
+      );
+    }
+  }
+
+  // État « lu » antérieur — pour le delta du badge « non lus ».
+  // null → lecture impossible : on saute l'ajustement (le refresh TTL corrigera).
+  const priorSeen = await fetchPriorSeenMap(accountId, folder, fetched.map((m) => m.uid));
+  let unseenDelta = 0;
+
+  // Phase 2 : upserts.
+  for (const messageInput of fetched) {
+    try {
       await MessageModel.updateOne(
         { accountId, folder: messageInput.folder, uid: messageInput.uid },
         { $set: messageInput },
         { upsert: true },
       );
+      if (priorSeen) {
+        unseenDelta += unseenDeltaFor(messageInput, priorSeen.get(messageInput.uid));
+      }
       if (userId && folder.toUpperCase() === 'INBOX' && messageInput.from.address) {
         addSenderContactIfEnabled(userId, messageInput.from).catch(() => {});
       }
@@ -126,10 +150,14 @@ export async function runInitialSyncForFolder(
     } catch (error) {
       // Une erreur de fetch/upsert individuel ne doit pas interrompre la boucle.
       logger.error(
-        { accountId, folder, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        { accountId, folder, uid: messageInput.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
         'Erreur upsert UID',
       );
     }
+  }
+
+  if (unseenDelta !== 0) {
+    adjustFolderCounters(accountId, folder, { unseenDelta }).catch(() => {});
   }
 
   logger.info({ accountId, folder, synced }, 'Sync initiale terminée');
@@ -157,30 +185,54 @@ async function syncFolderDelta(
   let delta = 0;
   let maxModseq = BigInt(lastModseq);
 
+  // Phase 1 : collecte des changements.
+  const changed: MessageInput[] = [];
   for await (const msg of client.fetch('1:*', FETCH_QUERY, {
     uid: true,
     changedSince: BigInt(lastModseq),
   })) {
     try {
-      const messageInput = mapFetchResultToMessage(accountId, folder, msg);
+      changed.push(mapFetchResultToMessage(accountId, folder, msg));
+      if (msg.modseq && msg.modseq > maxModseq) {
+        maxModseq = msg.modseq;
+      }
+    } catch (error) {
+      logger.error(
+        { accountId, folder, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Erreur mapping message (delta sync)',
+      );
+    }
+  }
+
+  // État « lu » antérieur — pour le delta du badge « non lus ».
+  const priorSeen = await fetchPriorSeenMap(accountId, folder, changed.map((m) => m.uid));
+  let unseenDelta = 0;
+
+  // Phase 2 : upserts.
+  for (const messageInput of changed) {
+    try {
       await MessageModel.updateOne(
         { accountId, folder: messageInput.folder, uid: messageInput.uid },
         { $set: messageInput },
         { upsert: true },
       );
+      if (priorSeen) {
+        unseenDelta += unseenDeltaFor(messageInput, priorSeen.get(messageInput.uid));
+      }
       if (userId && folder.toUpperCase() === 'INBOX' && messageInput.from.address) {
         addSenderContactIfEnabled(userId, messageInput.from).catch(() => {});
-      }
-      if (msg.modseq && msg.modseq > maxModseq) {
-        maxModseq = msg.modseq;
       }
       delta++;
     } catch (error) {
       logger.error(
-        { accountId, folder, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        { accountId, folder, uid: messageInput.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
         'Erreur upsert UID (delta sync)',
       );
     }
+  }
+
+  if (unseenDelta !== 0) {
+    adjustFolderCounters(accountId, folder, { unseenDelta }).catch(() => {});
   }
 
   // Persiste le max modseq réellement observé (plus précis que l'ouverture).
@@ -190,6 +242,42 @@ async function syncFolderDelta(
   );
 
   return delta;
+}
+
+/**
+ * Récupère l'état « lu » antérieur des messages connus en base.
+ * Sert à calculer le delta du compteur `unseen` du cache Folder.
+ */
+async function fetchPriorSeenMap(
+  accountId: string,
+  folder: string,
+  uids: number[],
+): Promise<Map<number, boolean> | null> {
+  if (uids.length === 0) return new Map();
+  try {
+    const docs = await MessageModel.find({ accountId, folder, uid: { $in: uids } })
+      .select('uid flags.seen')
+      .lean();
+    return new Map(docs.map((d) => [d.uid, d.flags?.seen === true]));
+  } catch (error) {
+    logger.warn(
+      { accountId, folder, error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'Lecture état seen antérieur impossible — ajustement unseen ignoré',
+    );
+    return null;
+  }
+}
+
+/**
+ * Delta du compteur `unseen` pour un message upserté :
+ * - insert (`prevSeen` inconnu) : +1 si non lu ;
+ * - mise à jour : ±1 si le flag seen a basculé.
+ */
+function unseenDeltaFor(message: MessageInput, prevSeen: boolean | undefined): number {
+  const seen = message.flags?.seen === true;
+  if (prevSeen === undefined) return seen ? 0 : 1;
+  if (prevSeen === seen) return 0;
+  return seen ? -1 : 1;
 }
 
 /** Persiste l'état de sync d'un dossier (uidValidity + highestModseq). */

@@ -12,6 +12,8 @@ import {
   usePinMessage,
 } from "@/lib/queries/messages";
 import { useSetMessageTags } from "@/lib/queries/tags";
+import { useFolders } from "@/lib/queries/folders";
+import { isTrashFolder } from "@/lib/folder-utils";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { openDraftCompose } from "@/lib/draft-utils";
 
@@ -33,6 +35,7 @@ export function useMessageActions({
   const snoozeMutation = useSnoozeMessage(accountId, folder);
   const pinMutation = usePinMessage(accountId, folder);
   const setMessageTags = useSetMessageTags();
+  const { data: folders } = useFolders(accountId);
 
   const openCompose = useUIStore((s) => s.openCompose);
   const selectedUid = useUIStore((s) => s.selectedUid);
@@ -90,12 +93,16 @@ export function useMessageActions({
 
   const deleteMsg = useCallback(
     (permanent = false) => {
+      // Dans la Corbeille, la suppression est toujours définitive.
+      const effectivePermanent = permanent || isTrashFolder(folder, folders);
       deleteMessage.mutate(
-        { uid, permanent },
+        { uid, permanent: effectivePermanent },
         {
           onSuccess: () => {
             toast.success(
-              permanent ? "Message supprimé définitivement" : "Message supprimé",
+              effectivePermanent
+                ? "Message supprimé définitivement"
+                : "Message déplacé vers la Corbeille",
             );
             if (isSelected) setSelectedUid(null);
           },
@@ -103,7 +110,7 @@ export function useMessageActions({
         },
       );
     },
-    [uid, deleteMessage, isSelected, setSelectedUid],
+    [folder, folders, uid, deleteMessage, isSelected, setSelectedUid],
   );
 
   const markJunkMsg = useCallback(() => {

@@ -124,6 +124,52 @@ export function validateFolderName(name: string, delimiter: string = "/"): strin
   return null;
 }
 
+const TRASH_FOLDER_NAMES = new Set([
+  "trash",
+  "corbeille",
+  "deleted",
+  "deleted items",
+  "deleted messages",
+  "bin",
+  "[gmail]/trash",
+  "[gmail]/corbeille",
+]);
+
+/**
+ * Détermine si un dossier représente la corbeille (Trash).
+ * Vérifie par flag RFC specialUse (\Trash), par chemin ou par nom de repli.
+ * Utilisé notamment pour afficher « Supprimer définitivement » : la
+ * suppression dans la corbeille est permanente côté backend.
+ */
+export function isTrashFolder(
+  folder: string | { path: string; name?: string; specialUse?: string } | null | undefined,
+  folders?: { path: string; name?: string; specialUse?: string }[],
+): boolean {
+  if (!folder) return false;
+
+  const folderObj =
+    typeof folder === "object"
+      ? folder
+      : folders?.find((f) => f.path.toLowerCase() === folder.toLowerCase());
+
+  if (folderObj?.specialUse && folderObj.specialUse.toLowerCase().trim() === "\\trash") {
+    return true;
+  }
+
+  const rawPath = typeof folder === "string" ? folder : folder.path;
+  const normPath = rawPath.toLowerCase().trim();
+  if (TRASH_FOLDER_NAMES.has(normPath)) return true;
+
+  const baseName = getBaseFolderName(rawPath).toLowerCase().trim();
+  if (TRASH_FOLDER_NAMES.has(baseName)) return true;
+
+  if (folderObj?.name && TRASH_FOLDER_NAMES.has(folderObj.name.toLowerCase().trim())) {
+    return true;
+  }
+
+  return false;
+}
+
 const DRAFT_FOLDER_NAMES = new Set([
   "drafts",
   "brouillons",

@@ -102,6 +102,7 @@ export function useUpdateFlags(accountId: string, folder: string) {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["messages", accountId, folder] });
       qc.invalidateQueries({ queryKey: ["folders", accountId] });
+      qc.invalidateQueries({ queryKey: ["unified"] });
       // Invalide aussi le détail pour que le frontend reflète le changement de flags.
       qc.invalidateQueries({ queryKey: ["message", accountId, folder, variables.uid] });
     },
@@ -118,8 +119,11 @@ export function useDeleteMessage(accountId: string, folder: string) {
         { method: "DELETE" },
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["messages", accountId, folder] });
+      // Invalide toutes les listes du compte : le message déplacé doit
+      // apparaître immédiatement dans la Corbeille (ou la destination).
+      qc.invalidateQueries({ queryKey: ["messages", accountId] });
       qc.invalidateQueries({ queryKey: ["folders", accountId] });
+      qc.invalidateQueries({ queryKey: ["unified"] });
     },
   });
 }
@@ -134,8 +138,9 @@ export function useMoveMessage(accountId: string, folder: string) {
         { method: "POST", body: JSON.stringify({ destination }) },
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["messages", accountId, folder] });
+      qc.invalidateQueries({ queryKey: ["messages", accountId] });
       qc.invalidateQueries({ queryKey: ["folders", accountId] });
+      qc.invalidateQueries({ queryKey: ["unified"] });
     },
   });
 }
@@ -150,8 +155,9 @@ export function useMarkAsJunk(accountId: string, folder: string) {
         { method: "POST" },
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["messages", accountId, folder] });
+      qc.invalidateQueries({ queryKey: ["messages", accountId] });
       qc.invalidateQueries({ queryKey: ["folders", accountId] });
+      qc.invalidateQueries({ queryKey: ["unified"] });
     },
   });
 }
@@ -168,6 +174,7 @@ export function useBatchAction(accountId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["messages", accountId] });
       qc.invalidateQueries({ queryKey: ["folders", accountId] });
+      qc.invalidateQueries({ queryKey: ["unified"] });
     },
   });
 }

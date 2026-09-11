@@ -1,6 +1,7 @@
 import type { ImapFlow } from 'imapflow';
 import { logger } from '../../config/logger.js';
 import { MessageModel } from '../../models/Message.js';
+import { adjustFolderCounters } from '../email/folderCounters.js';
 
 /**
  * Réconcilie les messages en base avec l'état réel du serveur IMAP.
@@ -17,9 +18,9 @@ export async function reconcileFolder(
   accountId: string,
   folder: string,
 ): Promise<number> {
-  // Récupère les UID connus en base.
+  // Récupère les UID connus en base (+ flags.seen pour les compteurs dossier).
   const knownDocs = await MessageModel.find({ accountId, folder })
-    .select('uid')
+    .select('uid flags.seen')
     .lean();
 
   if (knownDocs.length === 0) {
@@ -51,6 +52,15 @@ export async function reconcileFolder(
     folder,
     uid: { $in: missingUids },
   });
+
+  const missingSet = new Set(missingUids);
+  const unreadDeleted = knownDocs.filter(
+    (d) => missingSet.has(d.uid) && d.flags?.seen === false,
+  ).length;
+  adjustFolderCounters(accountId, folder, {
+    messagesDelta: -result.deletedCount,
+    unseenDelta: -unreadDeleted,
+  }).catch(() => {});
 
   logger.info(
     { accountId, folder, deleted: result.deletedCount },

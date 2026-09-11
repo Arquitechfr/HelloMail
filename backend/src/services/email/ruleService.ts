@@ -7,6 +7,12 @@ import { logger } from '../../config/logger.js';
 import type { CreateRuleInput, UpdateRuleInput } from '../../schemas/ruleSchemas.js';
 import type { ImapFlow } from 'imapflow';
 import { findJunkFolder } from './specialFolders.js';
+import { adjustFolderCounters } from './folderCounters.js';
+import {
+  safeMoveMessages,
+  resolveDestinationUids,
+  relocateLocalMessage,
+} from './messageRelocation.js';
 
 export interface MessageRuleEvaluatorInput {
   subject?: string;
@@ -205,15 +211,49 @@ export async function applyRulesToIncomingMessage(
 
     logger.info({ ruleId: rule._id, ruleName: rule.name, uid: message.uid }, 'Règle appliquée au message');
 
+    const accountId = String(account._id);
+    const messageSeen = message.flags?.seen === true;
+
     for (const action of rule.actions) {
       try {
         if (action.type === 'moveToFolder' && action.folderName) {
-          await imapClient.messageMove(message.uid, action.folderName, { uid: true });
-          await MessageModel.updateOne({ _id: message._id }, { $set: { folder: action.folderName } });
+          const sourceFolder = message.folder;
+          const moveResult = await safeMoveMessages(
+            imapClient,
+            message.uid,
+            action.folderName,
+            'Action de règle échouée',
+          );
+          // Pas de fallback fetch : mailboxOpen changerait le dossier
+          // sélectionné de la connexion IDLE (INBOX).
+          const uidMap = await resolveDestinationUids(
+            imapClient,
+            action.folderName,
+            [message],
+            moveResult,
+            { fetchFallback: false },
+          );
+          const destUid = uidMap.get(message.uid);
+          if (destUid) {
+            await relocateLocalMessage(accountId, sourceFolder, message, action.folderName, destUid);
+          } else {
+            await MessageModel.updateOne({ _id: message._id }, { $set: { folder: action.folderName } });
+          }
+          adjustFolderCounters(accountId, sourceFolder, {
+            messagesDelta: -1,
+            unseenDelta: messageSeen ? 0 : -1,
+          }).catch(() => {});
+          adjustFolderCounters(accountId, action.folderName, {
+            messagesDelta: 1,
+            unseenDelta: messageSeen ? 0 : 1,
+          }).catch(() => {});
           message.folder = action.folderName;
         } else if (action.type === 'markAsRead') {
           await imapClient.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
           await MessageModel.updateOne({ _id: message._id }, { $set: { 'flags.seen': true } });
+          if (!messageSeen) {
+            adjustFolderCounters(accountId, message.folder, { unseenDelta: -1 }).catch(() => {});
+          }
         } else if (action.type === 'markAsFlagged') {
           await imapClient.messageFlagsAdd(message.uid, ['\\Flagged'], { uid: true });
           await MessageModel.updateOne({ _id: message._id }, { $set: { 'flags.flagged': true } });
@@ -224,12 +264,45 @@ export async function applyRulesToIncomingMessage(
             const junkFolder = await findJunkFolder(fullAccount);
             if (junkFolder) target = junkFolder;
           }
-          await imapClient.messageMove(message.uid, target, { uid: true });
-          await MessageModel.updateOne({ _id: message._id }, { $set: { folder: target } });
+          const sourceFolder = message.folder;
+          const moveResult = await safeMoveMessages(
+            imapClient,
+            message.uid,
+            target,
+            'Action de règle échouée',
+          );
+          const uidMap = await resolveDestinationUids(
+            imapClient,
+            target,
+            [message],
+            moveResult,
+            { fetchFallback: false },
+          );
+          const destUid = uidMap.get(message.uid);
+          if (destUid) {
+            await relocateLocalMessage(accountId, sourceFolder, message, target, destUid);
+          } else {
+            await MessageModel.updateOne({ _id: message._id }, { $set: { folder: target } });
+          }
+          adjustFolderCounters(accountId, sourceFolder, {
+            messagesDelta: -1,
+            unseenDelta: messageSeen ? 0 : -1,
+          }).catch(() => {});
+          adjustFolderCounters(accountId, target, {
+            messagesDelta: 1,
+            unseenDelta: messageSeen ? 0 : 1,
+          }).catch(() => {});
           message.folder = target;
         } else if (action.type === 'delete') {
-          await imapClient.messageDelete(message.uid, { uid: true });
+          const deleted = await imapClient.messageDelete(message.uid, { uid: true });
+          if (deleted === false) {
+            throw new Error('Le serveur a refusé la suppression');
+          }
           await MessageModel.deleteOne({ _id: message._id });
+          adjustFolderCounters(accountId, message.folder, {
+            messagesDelta: -1,
+            unseenDelta: messageSeen ? 0 : -1,
+          }).catch(() => {});
         } else if (action.type === 'applyTag' && action.tagName) {
           await MessageModel.updateOne({ _id: message._id }, { $addToSet: { tags: action.tagName } });
         } else if (action.type === 'pinMessage') {

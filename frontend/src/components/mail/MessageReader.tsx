@@ -12,7 +12,7 @@ import {
 } from "@/lib/queries/messages";
 import { useFolders } from "@/lib/queries/folders";
 import { useUIStore } from "@/lib/stores/uiStore";
-import { isDraftFolder } from "@/lib/folder-utils";
+import { isDraftFolder, isTrashFolder } from "@/lib/folder-utils";
 import { openDraftCompose } from "@/lib/draft-utils";
 import { Button } from "@/components/ui/button";
 import { EmailIframe } from "@/components/mail/EmailIframe";
@@ -87,11 +87,17 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
 
   const handleDelete = () => {
     if (uid === null) return;
+    // Dans la Corbeille, la suppression est définitive.
+    const permanent = isTrashFolder(folder, folders);
     deleteMessage.mutate(
-      { uid },
+      { uid, permanent },
       {
         onSuccess: () => {
-          toast.success("Message supprimé");
+          toast.success(
+            permanent
+              ? "Message supprimé définitivement"
+              : "Message déplacé vers la Corbeille",
+          );
           setSelectedUid(null);
         },
         onError: () => toast.error("Erreur lors de la suppression"),

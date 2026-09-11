@@ -95,7 +95,7 @@ export async function folderExists(account: IAccountDocument, path: string): Pro
 }
 
 /** Invalide le cache Folder d'un compte (CRUD dossiers). */
-async function invalidateFolderCache(accountId: string): Promise<void> {
+export async function invalidateFolderCache(accountId: string): Promise<void> {
   if (!dbReady()) return;
   await FolderModel.deleteMany({ accountId });
 }

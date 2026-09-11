@@ -1,9 +1,19 @@
+import type { ImapFlow } from 'imapflow';
 import type { IAccountDocument } from '../../models/Account.js';
 import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { MessageModel } from '../../models/Message.js';
 import { MessageBodyModel } from '../../models/MessageBody.js';
-import { findTrashFolder, findJunkFolder } from './specialFolders.js';
+import { findTrashFolder, findJunkFolder, invalidateSpecialFolderCache } from './specialFolders.js';
+import { invalidateFolderCache } from './folderService.js';
+import { adjustFolderCounters } from './folderCounters.js';
+import {
+  safeMoveMessages,
+  resolveDestinationUids,
+  relocateLocalMessage,
+} from './messageRelocation.js';
+import { publishEvent } from '../realtime/eventPublisher.js';
+import type { RelocatableMessage } from './messageRelocation.js';
 
 export interface FlagsUpdate {
   seen?: boolean;
@@ -23,6 +33,136 @@ async function deleteCachedBody(accountId: string, folder: string, uid: number):
 }
 
 /**
+ * Publie un événement SSE silencieux après une suppression/déplacement
+ * initié par l'API — rafraîchit les autres sessions/onglets du même
+ * utilisateur. Best-effort : aucune erreur ne remonte.
+ */
+function publishFolderChanged(account: IAccountDocument, folder: string, uids: number[]): void {
+  const accountId = String(account._id);
+  publishEvent({
+    type: 'message:deleted',
+    accountId,
+    userId: String(account.userId),
+    payload: { folder, uids },
+  }).catch(() => {});
+}
+
+/**
+ * Résout le dossier Corbeille : specialUse + fallbacks, et si rien n'existe,
+ * tente de créer « Trash » (comportement standard des clients mail) avant de
+ * retomber sur le nom littéral — le move décidera si le serveur refuse.
+ */
+async function resolveTrashPath(
+  client: ImapFlow,
+  account: IAccountDocument,
+): Promise<string> {
+  const existing = await findTrashFolder(account);
+  if (existing) return existing;
+
+  const accountId = String(account._id);
+  try {
+    await client.mailboxCreate('Trash');
+    invalidateSpecialFolderCache(accountId);
+    await invalidateFolderCache(accountId);
+  } catch {
+    // Le dossier existe peut-être déjà ou le serveur refuse la création.
+  }
+  return 'Trash';
+}
+
+/**
+ * Déplace des messages IMAP vers `destFolder` puis relocalise les documents
+ * locaux (nouveau folder + nouvel UID) au lieu de les supprimer : la vue
+ * destination affiche les messages immédiatement, sans attendre le polling.
+ * Met à jour les compteurs du cache Folder (source et destination).
+ */
+async function moveWithTracking(params: {
+  account: IAccountDocument;
+  client: ImapFlow;
+  sourceFolder: string;
+  uids: number[];
+  destFolder: string;
+  errorLabel: string;
+  /** Range IMAP à passer à MOVE — par défaut uid seul si unique, sinon tableau. */
+  range?: number | number[];
+}): Promise<void> {
+  const { account, client, sourceFolder, uids, destFolder, errorLabel } = params;
+  const range = params.range ?? (uids.length === 1 ? uids[0] : uids);
+  const accountId = String(account._id);
+
+  // Docs locaux : _id (relocalisation), messageId (fallback de résolution UID),
+  // flags.seen (deltas de compteurs).
+  const docs = (await MessageModel.find({
+    accountId,
+    folder: sourceFolder,
+    uid: { $in: uids },
+  })
+    .select('_id uid messageId flags.seen')
+    .lean()) as RelocatableMessage[];
+
+  const moveResult = await safeMoveMessages(client, range, destFolder, errorLabel);
+
+  const destUidMap = await resolveDestinationUids(client, destFolder, docs, moveResult);
+
+  let unreadMoved = 0;
+  for (const doc of docs) {
+    const destUid = destUidMap.get(doc.uid);
+    if (destUid) {
+      await relocateLocalMessage(accountId, sourceFolder, doc, destFolder, destUid);
+    } else {
+      // UID destination inconnu → suppression locale ; le polling rattrape.
+      await MessageModel.deleteOne({ _id: doc._id });
+      await deleteCachedBody(accountId, sourceFolder, doc.uid);
+    }
+    if (doc.flags?.seen === false) unreadMoved++;
+  }
+
+  await adjustFolderCounters(accountId, sourceFolder, {
+    messagesDelta: -uids.length,
+    unseenDelta: -unreadMoved,
+  });
+  await adjustFolderCounters(accountId, destFolder, {
+    messagesDelta: uids.length,
+    unseenDelta: unreadMoved,
+  });
+
+  publishFolderChanged(account, sourceFolder, uids);
+}
+
+/**
+ * Suppression permanente côté IMAP + purge locale + compteurs.
+ */
+async function deletePermanently(
+  account: IAccountDocument,
+  client: ImapFlow,
+  folder: string,
+  uids: number[],
+  errorLabel: string,
+  range?: number | number[],
+): Promise<void> {
+  const accountId = String(account._id);
+  const docs = await MessageModel.find({ accountId, folder, uid: { $in: uids } })
+    .select('flags.seen')
+    .lean();
+
+  const result = await client.messageDelete(range ?? (uids.length === 1 ? uids[0] : uids), { uid: true });
+  if (result === false) {
+    throw AppError.unprocessable(`${errorLabel} : le serveur a refusé la suppression`);
+  }
+
+  await MessageModel.deleteMany({ accountId, folder, uid: { $in: uids } });
+  await Promise.all(uids.map((uid) => deleteCachedBody(accountId, folder, uid)));
+
+  const unreadDeleted = docs.filter((d) => d.flags?.seen === false).length;
+  await adjustFolderCounters(accountId, folder, {
+    messagesDelta: -uids.length,
+    unseenDelta: -unreadDeleted,
+  });
+
+  publishFolderChanged(account, folder, uids);
+}
+
+/**
  * Met à jour les flags d'un message côté IMAP et en base.
  * Ouvre le dossier en read-write (nécessaire pour STORE).
  */
@@ -37,6 +177,15 @@ export async function updateFlags(
 
   try {
     await client.mailboxOpen(folder, { readOnly: false });
+
+    // État « lu » antérieur pour ajuster le compteur unseen du dossier.
+    let prevSeen: boolean | undefined;
+    if (flags.seen !== undefined) {
+      const doc = await MessageModel.findOne({ accountId, folder, uid })
+        .select('flags.seen')
+        .lean();
+      prevSeen = doc?.flags?.seen;
+    }
 
     if (flags.seen === true) {
       await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
@@ -65,6 +214,12 @@ export async function updateFlags(
     if (Object.keys(updateFields).length > 0) {
       await MessageModel.updateOne({ accountId, folder, uid }, { $set: updateFields });
     }
+
+    if (flags.seen !== undefined && prevSeen !== undefined && prevSeen !== flags.seen) {
+      await adjustFolderCounters(accountId, folder, {
+        unseenDelta: flags.seen ? -1 : 1,
+      });
+    }
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(
@@ -76,7 +231,8 @@ export async function updateFlags(
 }
 
 /**
- * Supprime un message. Par défaut, déplace vers Trash. Si permanent=true, supprime définitivement.
+ * Supprime un message. Par défaut, déplace vers Trash. Si permanent=true — ou
+ * si le message est déjà dans la Corbeille — supprime définitivement.
  */
 export async function deleteMessage(
   account: IAccountDocument,
@@ -90,16 +246,21 @@ export async function deleteMessage(
   try {
     await client.mailboxOpen(folder, { readOnly: false });
 
-    if (permanent) {
-      await client.messageDelete(uid, { uid: true });
-    } else {
-      // Cherche le dossier Trash via specialUse + fallbacks, dernier recours 'Trash'.
-      const trashPath = (await findTrashFolder(account)) ?? 'Trash';
-      await client.messageMove(uid, trashPath, { uid: true });
+    const trashPath = await resolveTrashPath(client, account);
+
+    if (permanent || folder.toLowerCase() === trashPath.toLowerCase()) {
+      await deletePermanently(account, client, folder, [uid], 'Suppression du message échouée');
+      return;
     }
 
-    await MessageModel.deleteOne({ accountId, folder, uid });
-    await deleteCachedBody(accountId, folder, uid);
+    await moveWithTracking({
+      account,
+      client,
+      sourceFolder: folder,
+      uids: [uid],
+      destFolder: trashPath,
+      errorLabel: 'Suppression du message échouée',
+    });
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(
@@ -123,10 +284,17 @@ export async function moveMessage(
   const client = await imapPool.acquire(account);
 
   try {
+    if (destination === folder) return;
+
     await client.mailboxOpen(folder, { readOnly: false });
-    await client.messageMove(uid, destination, { uid: true });
-    await MessageModel.deleteOne({ accountId, folder, uid });
-    await deleteCachedBody(accountId, folder, uid);
+    await moveWithTracking({
+      account,
+      client,
+      sourceFolder: folder,
+      uids: [uid],
+      destFolder: destination,
+      errorLabel: 'Déplacement du message échoué',
+    });
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(
@@ -140,6 +308,7 @@ export async function moveMessage(
 /**
  * Marque un message comme spam (déplace vers le dossier Junk).
  * Détecte le dossier Junk via specialUse (\\Junk) avec fallbacks (Junk, Spam, etc.).
+ * No-op si le message est déjà dans le dossier Junk.
  */
 export async function markMessageAsJunk(
   account: IAccountDocument,
@@ -152,9 +321,17 @@ export async function markMessageAsJunk(
   try {
     await client.mailboxOpen(folder, { readOnly: false });
     const junkPath = (await findJunkFolder(account)) ?? 'Junk';
-    await client.messageMove(uid, junkPath, { uid: true });
-    await MessageModel.deleteOne({ accountId, folder, uid });
-    await deleteCachedBody(accountId, folder, uid);
+
+    if (folder.toLowerCase() === junkPath.toLowerCase()) return;
+
+    await moveWithTracking({
+      account,
+      client,
+      sourceFolder: folder,
+      uids: [uid],
+      destFolder: junkPath,
+      errorLabel: 'Marquage comme spam échoué',
+    });
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(
@@ -185,23 +362,33 @@ export async function batchAction(
     let affected = 0;
 
     switch (action) {
-      case 'markRead':
+      case 'markRead': {
+        const docs = await MessageModel.find({ accountId, folder, uid: { $in: uids }, 'flags.seen': false })
+          .select('_id')
+          .lean();
         await client.messageFlagsAdd(uids, ['\\Seen'], { uid: true });
         affected = uids.length;
         await MessageModel.updateMany(
           { accountId, folder, uid: { $in: uids } },
           { $set: { 'flags.seen': true } },
         );
+        await adjustFolderCounters(accountId, folder, { unseenDelta: -docs.length });
         break;
+      }
 
-      case 'markUnread':
+      case 'markUnread': {
+        const docs = await MessageModel.find({ accountId, folder, uid: { $in: uids }, 'flags.seen': true })
+          .select('_id')
+          .lean();
         await client.messageFlagsRemove(uids, ['\\Seen'], { uid: true });
         affected = uids.length;
         await MessageModel.updateMany(
           { accountId, folder, uid: { $in: uids } },
           { $set: { 'flags.seen': false } },
         );
+        await adjustFolderCounters(accountId, folder, { unseenDelta: docs.length });
         break;
+      }
 
       case 'flag':
         await client.messageFlagsAdd(uids, ['\\Flagged'], { uid: true });
@@ -222,19 +409,38 @@ export async function batchAction(
         break;
 
       case 'delete': {
-        const trashPath = (await findTrashFolder(account)) ?? 'Trash';
-        await client.messageMove(uids, trashPath, { uid: true });
+        const trashPath = await resolveTrashPath(client, account);
         affected = uids.length;
-        await MessageModel.deleteMany({ accountId, folder, uid: { $in: uids } });
+        if (folder.toLowerCase() === trashPath.toLowerCase()) {
+          await deletePermanently(account, client, folder, uids, 'Action en masse échouée', uids);
+        } else {
+          await moveWithTracking({
+            account,
+            client,
+            sourceFolder: folder,
+            uids,
+            destFolder: trashPath,
+            errorLabel: 'Action en masse échouée',
+            range: uids,
+          });
+        }
         break;
       }
 
       case 'markAsJunk': {
-        // Déplace vers le dossier Junk (Spam) détecté via specialUse + fallbacks.
         const junkPath = (await findJunkFolder(account)) ?? 'Junk';
-        await client.messageMove(uids, junkPath, { uid: true });
         affected = uids.length;
-        await MessageModel.deleteMany({ accountId, folder, uid: { $in: uids } });
+        if (folder.toLowerCase() !== junkPath.toLowerCase()) {
+          await moveWithTracking({
+            account,
+            client,
+            sourceFolder: folder,
+            uids,
+            destFolder: junkPath,
+            errorLabel: 'Action en masse échouée',
+            range: uids,
+          });
+        }
         break;
       }
 
@@ -242,9 +448,18 @@ export async function batchAction(
         if (!destination) {
           throw AppError.badRequest('Dossier de destination requis pour l\'action move');
         }
-        await client.messageMove(uids, destination, { uid: true });
         affected = uids.length;
-        await MessageModel.deleteMany({ accountId, folder, uid: { $in: uids } });
+        if (destination !== folder) {
+          await moveWithTracking({
+            account,
+            client,
+            sourceFolder: folder,
+            uids,
+            destFolder: destination,
+            errorLabel: 'Action en masse échouée',
+            range: uids,
+          });
+        }
         break;
       }
 

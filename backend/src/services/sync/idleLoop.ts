@@ -4,6 +4,7 @@ import { logger } from '../../config/logger.js';
 import { Types } from 'mongoose';
 import { MessageModel } from '../../models/Message.js';
 import { MessageBodyModel } from '../../models/MessageBody.js';
+import { adjustFolderCounters } from '../email/folderCounters.js';
 import { mapFetchResultToMessage } from './messageMapper.js';
 import { reconcileFolder } from './reconcileFolder.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
@@ -58,11 +59,18 @@ export async function runIdleLoop(
       for await (const msg of client.fetch(range, FETCH_QUERY)) {
         try {
           const messageInput = mapFetchResultToMessage(accountId, folder, msg);
-          await MessageModel.updateOne(
+          const upsertResult = await MessageModel.updateOne(
             { accountId, folder: messageInput.folder, uid: messageInput.uid },
             { $set: messageInput },
             { upsert: true },
           );
+          // Insert réel (pas une mise à jour) → ajuste les compteurs du cache Folder.
+          if (upsertResult.upsertedId) {
+            adjustFolderCounters(accountId, messageInput.folder, {
+              messagesDelta: 1,
+              unseenDelta: messageInput.flags?.seen ? 0 : 1,
+            }).catch(() => {});
+          }
           // Notifie le frontend du nouveau message.
           publishEvent({
             type: 'message:new',
@@ -117,7 +125,13 @@ export async function runIdleLoop(
   const onExpunge = async (data: ExpungeEvent): Promise<void> => {
     if (data.uid) {
       try {
-        await MessageModel.deleteOne({ accountId, folder, uid: data.uid });
+        const deleted = await MessageModel.findOneAndDelete({ accountId, folder, uid: data.uid });
+        if (deleted) {
+          adjustFolderCounters(accountId, folder, {
+            messagesDelta: -1,
+            unseenDelta: deleted.flags?.seen === false ? -1 : 0,
+          }).catch(() => {});
+        }
         // Purge le cache corps associé (best-effort).
         MessageBodyModel.deleteOne({ accountId, folder, uid: data.uid }).catch(() => {});
         if (env.NODE_ENV !== 'production') {
@@ -172,10 +186,16 @@ export async function runIdleLoop(
         answered: flagsSet.has('\\Answered'),
         flagged: flagsSet.has('\\Flagged'),
       };
-      await MessageModel.updateOne(
+      // findOneAndUpdate retourne l'ancien document → delta unseen si bascule.
+      const prev = await MessageModel.findOneAndUpdate(
         { accountId, folder, uid },
         { $set: { flags } },
       );
+      if (prev && prev.flags?.seen !== flags.seen) {
+        adjustFolderCounters(accountId, folder, {
+          unseenDelta: flags.seen ? -1 : 1,
+        }).catch(() => {});
+      }
       // Notifie le frontend du changement de flags.
       publishEvent({
         type: 'message:flags',

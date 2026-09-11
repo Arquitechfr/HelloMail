@@ -16,6 +16,12 @@ vi.mock('../../models/Message.js', () => ({
   },
 }));
 
+// Mock de folderCounters (compteurs du cache Folder).
+vi.mock('../email/folderCounters.js', () => ({
+  adjustFolderCounters: vi.fn().mockResolvedValue(undefined),
+  setFolderCounts: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock de logger.
 vi.mock('../../config/logger.js', () => ({
   logger: {
