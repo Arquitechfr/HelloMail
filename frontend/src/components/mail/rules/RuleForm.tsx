@@ -30,16 +30,10 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
 
   const [name, setName] = useState(() => ruleToEdit?.name ?? "");
   const [accountId, setAccountId] = useState(() => ruleToEdit?.accountId ?? "");
-  const [conditionMatch, setConditionMatch] = useState<RuleConditionMatch>(
-    () => ruleToEdit?.conditionMatch ?? "all",
-  );
-  const [stopProcessing, setStopProcessing] = useState(
-    () => ruleToEdit?.stopProcessing ?? false,
-  );
+  const [conditionMatch, setConditionMatch] = useState<RuleConditionMatch>(() => ruleToEdit?.conditionMatch ?? "all");
+  const [stopProcessing, setStopProcessing] = useState(() => ruleToEdit?.stopProcessing ?? false);
   const [conditions, setConditions] = useState<RuleCondition[]>(() =>
-    ruleToEdit?.conditions?.length
-      ? ruleToEdit.conditions
-      : [{ field: "from", operator: "contains", value: "" }],
+    ruleToEdit?.conditions?.length ? ruleToEdit.conditions : [{ field: "from", operator: "contains", value: "" }],
   );
   const [actions, setActions] = useState<RuleAction[]>(() =>
     ruleToEdit?.actions?.length ? ruleToEdit.actions : [{ type: "markAsRead" }],
