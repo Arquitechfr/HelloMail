@@ -18,6 +18,8 @@ vi.mock('./imapPool.js', () => ({
 
 vi.mock('./folderService.js', () => ({
   folderExists: vi.fn(),
+  folderPathExists: vi.fn().mockResolvedValue(false),
+  VIRTUAL_SNOOZED_FOLDER: '__snoozed__',
 }));
 
 vi.mock('../../models/Message.js', () => ({

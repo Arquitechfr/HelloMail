@@ -4,6 +4,7 @@ import { AppError } from '../utils/AppError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { executeUnsubscribe } from '../services/email/unsubscribeService.js';
+import { resolveMessageFolder } from '../services/email/folderService.js';
 
 export const unsubscribe = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
@@ -14,7 +15,9 @@ export const unsubscribe = asyncHandler(
       throw AppError.notFound('Compte introuvable');
     }
 
-    const result = await executeUnsubscribe(account, folder, Number(uid));
+    // Résout le dossier réel si la requête vient de la vue virtuelle « En sommeil ».
+    const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+    const result = await executeUnsubscribe(account, realFolder, Number(uid));
     res.status(200).json(result);
   },
 );

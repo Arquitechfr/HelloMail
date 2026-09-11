@@ -4,7 +4,7 @@ import { MessageModel } from '../../models/Message.js';
 import { AppError } from '../../utils/AppError.js';
 import { logger } from '../../config/logger.js';
 import { imapPool } from './imapPool.js';
-import { folderExists } from './folderService.js';
+import { folderExists, folderPathExists, VIRTUAL_SNOOZED_FOLDER } from './folderService.js';
 import { mapFetchResultToMessage } from '../sync/messageMapper.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
 
@@ -29,7 +29,9 @@ export async function importEml(
 ): Promise<ImportEmailResult> {
   const accountId = String(account._id);
 
-  if (folder === 'Snoozed') {
+  // '__snoozed__' est le dossier virtuel « En sommeil » (jamais réel).
+  // 'Snoozed' n'est virtuel que s'il n'existe pas comme vrai dossier IMAP.
+  if (folder === VIRTUAL_SNOOZED_FOLDER || (folder === 'Snoozed' && !(await folderPathExists(accountId, 'Snoozed')))) {
     throw AppError.badRequest("Impossible d'importer des messages dans le dossier virtuel En sommeil");
   }
 

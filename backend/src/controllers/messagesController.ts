@@ -21,14 +21,13 @@ import {
 } from '../services/email/messageActionService.js';
 import { snoozeMessage } from '../services/email/snoozeService.js';
 import { pinMessage } from '../services/email/pinService.js';
-import { folderExists } from '../services/email/folderService.js';
+import { folderExists, folderPathExists, resolveCanonicalFolder, resolveMessageFolder, VIRTUAL_SNOOZED_FOLDER } from '../services/email/folderService.js';
 import { logger } from '../config/logger.js';
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
   const folderParam = req.query.folder ? String(req.query.folder) : undefined;
   const tagParam = req.query.tag ? String(req.query.tag) : undefined;
-  const folder = folderParam ?? (tagParam ? undefined : 'INBOX');
   const page = Number(req.query.page ?? 1);
   const limit = Number(req.query.limit ?? 20);
 
@@ -39,18 +38,30 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
     throw AppError.notFound('Compte introuvable');
   }
 
+  // Canonicalise l'alias de la boîte de réception (ex. « Boîte de réception »
+  // chez Zoho, flag \Inbox) vers 'INBOX', le nom de stockage en base.
+  const resolvedFolder = folderParam ? await resolveCanonicalFolder(accountId, folderParam) : undefined;
+  const folder = resolvedFolder ?? (tagParam ? undefined : 'INBOX');
+
+  // Désambiguïsation du dossier virtuel « En sommeil » : '__snoozed__' est
+  // toujours virtuel ; 'Snoozed' n'est virtuel que si aucun vrai dossier de
+  // ce nom n'existe (certains serveurs, ex. Zoho, ont un dossier « Snoozed »).
+  const isVirtualSnoozed =
+    folder === VIRTUAL_SNOOZED_FOLDER ||
+    (folder === 'Snoozed' && !(await folderPathExists(accountId, 'Snoozed')));
+
   // Valide l'existence du dossier via le cache Folder (D10).
-  // Bypass : dossier virtuel 'Snoozed' et requêtes filtrées par tag (folder libre).
+  // Bypass : dossier virtuel « En sommeil » et requêtes filtrées par tag (folder libre).
   // Si le cache n'est pas peuplé, folderExists dégrade en permissif.
-  if (folder && folder !== 'Snoozed' && !(await folderExists(account, folder))) {
+  if (folder && !isVirtualSnoozed && !(await folderExists(account, folder))) {
     throw AppError.notFound('Dossier introuvable');
   }
 
   const filter: Record<string, unknown> = { accountId };
   const sortOption: Record<string, 1 | -1> =
-    folder === 'Snoozed' ? { isPinned: -1, snoozedUntil: 1 } : { isPinned: -1, date: -1 };
+    isVirtualSnoozed ? { isPinned: -1, snoozedUntil: 1 } : { isPinned: -1, date: -1 };
 
-  if (folder === 'Snoozed') {
+  if (isVirtualSnoozed) {
     filter.snoozedUntil = { $gt: new Date() };
   } else {
     if (folder) filter.folder = folder;
@@ -86,6 +97,10 @@ export const search = asyncHandler(async (req: AuthenticatedRequest, res: Respon
   }
 
   const query = req.query as never as Parameters<typeof searchMessages>[1];
+  // Canonicalise un éventuel alias de boîte de réception (ex. nom localisé).
+  if (query.folder) {
+    query.folder = await resolveCanonicalFolder(accountId, query.folder);
+  }
   const result = await searchMessages(account, query);
 
   // Fallback automatique : si les résultats locaux sont insuffisants,
@@ -120,7 +135,8 @@ export const getOne = asyncHandler(async (req: AuthenticatedRequest, res: Respon
     throw AppError.notFound('Compte introuvable');
   }
 
-  const detail = await fetchMessageDetail(account, folder, Number(uid));
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  const detail = await fetchMessageDetail(account, realFolder, Number(uid));
   res.status(200).json(detail);
 });
 
@@ -132,9 +148,10 @@ export const getAttachment = asyncHandler(async (req: AuthenticatedRequest, res:
     throw AppError.notFound('Compte introuvable');
   }
 
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const { stream, contentType, filename, size } = await fetchAttachmentStream(
     account,
-    folder,
+    realFolder,
     Number(uid),
     part,
   );
@@ -156,9 +173,10 @@ export const getRaw = asyncHandler(async (req: AuthenticatedRequest, res: Respon
     throw AppError.notFound('Compte introuvable');
   }
 
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const { stream, contentType, filename, size } = await fetchRawMessageStream(
     account,
-    folder,
+    realFolder,
     Number(uid),
   );
 
@@ -191,7 +209,8 @@ export const updateFlags = asyncHandler(async (req: AuthenticatedRequest, res: R
     throw AppError.notFound('Compte introuvable');
   }
 
-  await updateMessageFlags(account, folder, Number(uid), req.body);
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  await updateMessageFlags(account, realFolder, Number(uid), req.body);
   res.status(200).json({ ok: true });
 });
 
@@ -204,7 +223,8 @@ export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Respon
   }
 
   const permanent = req.query.permanent === 'true';
-  await deleteMessage(account, folder, Number(uid), permanent);
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  await deleteMessage(account, realFolder, Number(uid), permanent);
   res.status(204).send();
 });
 
@@ -216,7 +236,8 @@ export const move = asyncHandler(async (req: AuthenticatedRequest, res: Response
     throw AppError.notFound('Compte introuvable');
   }
 
-  await moveMessage(account, folder, Number(uid), req.body.destination);
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  await moveMessage(account, realFolder, Number(uid), req.body.destination);
   res.status(200).json({ ok: true });
 });
 
@@ -228,18 +249,21 @@ export const markAsJunk = asyncHandler(async (req: AuthenticatedRequest, res: Re
     throw AppError.notFound('Compte introuvable');
   }
 
-  await markMessageAsJunk(account, folder, Number(uid));
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  await markMessageAsJunk(account, realFolder, Number(uid));
   res.status(200).json({ ok: true });
 });
 
 export const batch = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
-  const folder = String(req.body.folder ?? req.query.folder ?? 'INBOX');
+  const requestedFolder = String(req.body.folder ?? req.query.folder ?? 'INBOX');
 
   const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
   if (!account) {
     throw AppError.notFound('Compte introuvable');
   }
+
+  const folder = await resolveCanonicalFolder(accountId, requestedFolder);
 
   const result = await batchAction(
     account,
@@ -259,7 +283,8 @@ export const fetchMore = asyncHandler(async (req: AuthenticatedRequest, res: Res
     throw AppError.notFound('Compte introuvable');
   }
 
-  const result = await fetchMoreMessages(account, req.body.folder, req.body.count);
+  const folder = await resolveCanonicalFolder(accountId, req.body.folder);
+  const result = await fetchMoreMessages(account, folder, req.body.count);
   res.status(200).json(result);
 });
 
@@ -271,7 +296,8 @@ export const getThread = asyncHandler(async (req: AuthenticatedRequest, res: Res
     throw AppError.notFound('Compte introuvable');
   }
 
-  const thread = await getConversationThread(accountId, folder, Number(uid));
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  const thread = await getConversationThread(accountId, realFolder, Number(uid));
   res.status(200).json(thread);
 });
 
@@ -283,7 +309,8 @@ export const sendReceipt = asyncHandler(async (req: AuthenticatedRequest, res: R
     throw AppError.notFound('Compte introuvable');
   }
 
-  const result = await sendReadReceipt(account, folder, Number(uid));
+  const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
+  const result = await sendReadReceipt(account, realFolder, Number(uid));
   res.status(200).json(result);
 });
 

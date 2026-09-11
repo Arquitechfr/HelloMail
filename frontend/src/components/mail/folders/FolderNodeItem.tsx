@@ -61,7 +61,10 @@ export function FolderNodeItem({
 }: FolderNodeItemProps) {
   const [expanded, setExpanded] = useState(depth === 0);
   const [isDragOver, setIsDragOver] = useState(false);
-  const isSelected = node.path === selectedFolder;
+  // Path canonique : la boîte de réception navigue toujours vers 'INBOX'
+  // même si le serveur liste un nom localisé (ex. « Boîte de réception »).
+  const effectivePath = node.specialUse?.toLowerCase() === "\\inbox" ? "INBOX" : node.path;
+  const isSelected = effectivePath === selectedFolder;
   const hasChildren = node.children.length > 0;
   const unseen = node.status?.unseen ?? 0;
   const isNoSelect = node.flags?.includes("\\Noselect");
@@ -73,7 +76,7 @@ export function FolderNodeItem({
       const raw = e.dataTransfer.getData("application/json");
       if (!raw) return;
       const payload = JSON.parse(raw) as { accountId: string; folder: string; uid: number };
-      if (payload.accountId === accountId && payload.folder !== node.path) {
+      if (payload.accountId === accountId && payload.folder !== effectivePath) {
         moveMessage.mutate(
           { uid: payload.uid, destination: node.path },
           {
@@ -107,7 +110,7 @@ export function FolderNodeItem({
             isDragOver && "ring-2 ring-primary/80 bg-primary/20 scale-[1.01] shadow-xs text-primary font-medium",
           )}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => onSelectFolder(node.path)}
+          onClick={() => onSelectFolder(effectivePath)}
           onDragOver={(e) => {
             if (isNoSelect) return;
             e.preventDefault();

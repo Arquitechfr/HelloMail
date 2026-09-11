@@ -140,7 +140,11 @@ async function getFoldersToPoll(
       const list = await client.list();
       if (Array.isArray(list)) {
         for (const item of list) {
+          // Exclut la boîte de réception (gérée par IDLE) — que ce soit par
+          // son nom réservé « INBOX » ou par le flag \Inbox quand le serveur
+          // liste un nom localisé (ex. « Boîte de réception » chez Zoho).
           if (!item.path || item.path.toUpperCase() === 'INBOX') continue;
+          if (item.specialUse?.toLowerCase() === '\\inbox') continue;
           const flags = item.flags;
           const isNoSelect = flags && (
             (flags instanceof Set && (flags.has('\\Noselect') || flags.has('\\NoSelect'))) ||
@@ -162,9 +166,10 @@ async function getFoldersToPoll(
   // 3. Complément depuis le cache Folder en base si MongoDB est connectée
   try {
     if (mongoose.connection.readyState === 1) {
-      const cached = await FolderModel.find({ accountId: account._id }).select('path flags').lean();
+      const cached = await FolderModel.find({ accountId: account._id }).select('path flags specialUse').lean();
       for (const f of cached) {
         if (!f.path || f.path.toUpperCase() === 'INBOX') continue;
+        if (f.specialUse?.toLowerCase() === '\\inbox') continue;
         const flags = f.flags ?? [];
         const isNoSelect = flags.includes('\\Noselect') || flags.includes('\\NoSelect');
         if (!isNoSelect) {

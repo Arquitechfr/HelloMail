@@ -294,4 +294,26 @@ describe('pollingSync', () => {
     expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Projets', expect.any(String));
     expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'NonSelectable', expect.anything());
   });
+
+  it('exclut la boîte de réception localisée (flag \\Inbox) du polling', async () => {
+    [mockFindSentFolder, mockFindDraftsFolder, mockFindTrashFolder, mockFindJunkFolder, mockFindArchiveFolder].forEach((f) => f.mockResolvedValue(null));
+
+    // Zoho liste la boîte de réception sous un nom localisé avec le flag \Inbox.
+    mockList.mockResolvedValueOnce([
+      { path: 'Boîte de réception', flags: new Set([]), specialUse: '\\Inbox' },
+      { path: 'Projets', flags: new Set([]) },
+    ]);
+
+    const controller = new AbortController();
+    const promise = startPollingSync(makeAccount(), controller.signal);
+
+    await flush();
+    controller.abort();
+    await flush();
+    await promise;
+
+    // « Boîte de réception » est exclue (doublon de l'IDLE INBOX) ; « Projets » est pollé.
+    expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Boîte de réception', expect.anything());
+    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Projets', expect.any(String));
+  });
 });

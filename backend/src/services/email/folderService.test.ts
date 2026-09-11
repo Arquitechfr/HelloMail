@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import type { IAccountDocument } from '../../models/Account.js';
+import { FolderModel } from '../../models/Folder.js';
+import { setupTestDb, teardownTestDb, clearDb } from '../../test/setup.js';
 
 const mockClient = {
   usable: true,
@@ -31,6 +33,9 @@ const {
   deleteFolder,
   getFolderStatus,
   findSpecialUseFolder,
+  folderExists,
+  resolveCanonicalFolder,
+  folderPathExists,
 } = await import('./folderService.js');
 
 function makeAccount(): IAccountDocument {
@@ -46,8 +51,17 @@ function makeAccount(): IAccountDocument {
 }
 
 describe('folderService', () => {
-  beforeEach(() => {
+  beforeAll(async () => {
+    await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb();
+  });
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await clearDb();
   });
 
   afterEach(() => {
@@ -267,6 +281,116 @@ describe('folderService', () => {
       mockClient.mailboxDelete.mockRejectedValueOnce(new Error('Le dossier n\'existe pas'));
 
       await expect(deleteFolder(makeAccount(), 'X')).rejects.toThrow('Dossier introuvable');
+    });
+  });
+
+  describe('folderExists', () => {
+    it('retourne true pour INBOX même si le cache liste un nom localisé (Zoho)', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'Boîte de réception',
+        name: 'Boîte de réception',
+        specialUse: '\\Inbox',
+        syncedAt: new Date(),
+      });
+
+      expect(await folderExists(account, 'INBOX')).toBe(true);
+      expect(await folderExists(account, 'inbox')).toBe(true);
+      expect(await folderExists(account, 'Boîte de réception')).toBe(true);
+    });
+
+    it('retourne false pour un dossier inconnu quand le cache est peuplé', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'INBOX',
+        name: 'INBOX',
+        specialUse: '\\Inbox',
+        syncedAt: new Date(),
+      });
+
+      expect(await folderExists(account, 'DossierInexistant')).toBe(false);
+    });
+  });
+
+  describe('resolveCanonicalFolder', () => {
+    it('canonicalise un inbox localisé (flag \\Inbox) vers INBOX', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'Boîte de réception',
+        name: 'Boîte de réception',
+        specialUse: '\\Inbox',
+        syncedAt: new Date(),
+      });
+
+      expect(await resolveCanonicalFolder(String(account._id), 'Boîte de réception')).toBe('INBOX');
+      expect(await resolveCanonicalFolder(String(account._id), 'INBOX')).toBe('INBOX');
+      expect(await resolveCanonicalFolder(String(account._id), 'inbox')).toBe('INBOX');
+    });
+
+    it('laisse les autres dossiers inchangés', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'Envoyé',
+        name: 'Envoyé',
+        specialUse: '\\Sent',
+        syncedAt: new Date(),
+      });
+
+      expect(await resolveCanonicalFolder(String(account._id), 'Envoyé')).toBe('Envoyé');
+      expect(await resolveCanonicalFolder(String(account._id), 'Projets')).toBe('Projets');
+    });
+  });
+
+  describe('folderPathExists', () => {
+    it('détecte un vrai dossier nommé Snoozed (collision dossier virtuel)', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'Snoozed',
+        name: 'Snoozed',
+        syncedAt: new Date(),
+      });
+
+      expect(await folderPathExists(String(account._id), 'Snoozed')).toBe(true);
+      expect(await folderPathExists(String(account._id), 'Inexistant')).toBe(false);
+    });
+  });
+
+  describe('protection des dossiers système localisés', () => {
+    it('interdit de renommer un dossier avec specialUse \\Inbox même si le nom est localisé', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'Boîte de réception',
+        name: 'Boîte de réception',
+        specialUse: '\\Inbox',
+        syncedAt: new Date(),
+      });
+
+      await expect(renameFolder(account, 'Boîte de réception', 'X')).rejects.toThrow(
+        'est protégé et ne peut pas être renommé',
+      );
+      expect(mockClient.mailboxRename).not.toHaveBeenCalled();
+    });
+
+    it('interdit de supprimer un dossier avec specialUse \\Trash localisé', async () => {
+      const account = makeAccount();
+      await FolderModel.create({
+        accountId: account._id,
+        path: 'Poubelle',
+        name: 'Poubelle',
+        specialUse: '\\Trash',
+        syncedAt: new Date(),
+      });
+
+      await expect(deleteFolder(account, 'Poubelle')).rejects.toThrow(
+        'est protégé et ne peut pas être supprimé',
+      );
+      expect(mockClient.mailboxDelete).not.toHaveBeenCalled();
     });
   });
 });

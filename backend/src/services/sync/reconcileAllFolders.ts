@@ -44,7 +44,8 @@ export async function reconcileAllFolders(
   for (const { name, resolver } of specialFolders) {
     try {
       const path = await resolver(account);
-      if (!path || path === 'INBOX') continue;
+      // INBOX est déjà réconciliée — insensible à la casse (nom réservé RFC 3501).
+      if (!path || path.toUpperCase() === 'INBOX') continue;
 
       totalDeleted += await safeReconcile(client, accountId, path);
     } catch (error) {

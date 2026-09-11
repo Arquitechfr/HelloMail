@@ -7,6 +7,7 @@ import * as importEmailController from '../controllers/importEmailController.js'
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { sendRateLimit } from '../middleware/rateLimit.js';
+import { resolveCanonicalFolder } from '../services/email/folderService.js';
 import { setMessageTagsSchema } from '../schemas/tagSchemas.js';
 import {
   listMessagesParamsSchema,
@@ -29,6 +30,29 @@ import {
 } from '../schemas/messageSchemas.js';
 
 const router = Router();
+
+// Canonicalise le paramètre :folder : tout alias de la boîte de réception
+// (casse quelconque de « INBOX » ou path listé portant le flag \Inbox —
+// ex. « Boîte de réception » chez Zoho) est résolu vers 'INBOX', le nom
+// canonique sous lequel la sync stocke les messages.
+router.param('folder', async (req, _res, next, value) => {
+  try {
+    const accountId = req.params.accountId;
+    // Garde-fou : accountId n'est pas encore validé par Zod ici — ignorer la
+    // canonicalisation s'il n'est pas un ObjectId (évite un CastError 500 ;
+    // la validation params retournera un 400 propre ensuite).
+    if (
+      typeof accountId === 'string' &&
+      /^[0-9a-fA-F]{24}$/.test(accountId) &&
+      typeof value === 'string'
+    ) {
+      req.params.folder = await resolveCanonicalFolder(accountId, value);
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Routes ordonnées du plus spécifique au moins spécifique pour éviter les conflits.
 

@@ -3,6 +3,7 @@ import { TagModel, type ITagDocument } from '../../models/Tag.js';
 import { MessageModel, type IMessageDocument } from '../../models/Message.js';
 import { AccountModel } from '../../models/Account.js';
 import { AppError } from '../../utils/AppError.js';
+import { VIRTUAL_SNOOZED_FOLDER } from './folderService.js';
 import type {
   CreateTagInput,
   UpdateTagInput,
@@ -123,7 +124,11 @@ export async function setMessageTags(
   }
 
   const message = await MessageModel.findOneAndUpdate(
-    { accountId: account._id, folder, uid },
+    {
+      accountId: account._id,
+      uid,
+      ...(folder === VIRTUAL_SNOOZED_FOLDER ? { snoozedUntil: { $gt: new Date() } } : { folder }),
+    },
     { $set: { tags } },
     { returnDocument: 'after' },
   );

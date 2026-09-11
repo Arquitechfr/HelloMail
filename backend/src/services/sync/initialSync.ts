@@ -1,4 +1,5 @@
 import type { ImapFlow } from 'imapflow';
+import mongoose from 'mongoose';
 import { MessageModel } from '../../models/Message.js';
 import { FolderSyncStateModel } from '../../models/FolderSyncState.js';
 import { INITIAL_SYNC_MESSAGE_COUNT } from '../../config/constants.js';
@@ -251,8 +252,9 @@ export async function runInitialSyncAll(
         continue;
       }
 
-      // Évite de re-sync INBOX si un fallback specialFolders retourne "INBOX".
-      if (path === 'INBOX') continue;
+      // Évite de re-sync INBOX si un fallback specialFolders retourne "INBOX"
+      // (insensible à la casse — le nom réservé est case-insensitive, RFC 3501).
+      if (path.toUpperCase() === 'INBOX') continue;
 
       total += await runInitialSyncForFolder(client, accountId, path, userId);
     } catch (error) {
@@ -275,5 +277,55 @@ export async function runInitialSyncAll(
     );
   }
 
+  // 4. Purge les données stockées sous un alias localisé d'INBOX (ex. Zoho
+  //    liste « Boîte de réception » avec flag \Inbox). Le polling historique
+  //    pouvait synchroniser le même mailbox sous son nom listé, créant des
+  //    doublons de la copie canonique « INBOX ». Données dérivées : la purge
+  //    est sans risque, la resync repasse par 'INBOX'.
+  try {
+    await purgeInboxAliasData(accountId);
+  } catch (error) {
+    logger.warn(
+      { accountId, error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'Échec purge alias INBOX localisé (non bloquant)',
+    );
+  }
+
   return total;
+}
+
+/**
+ * Supprime les messages/caches/états stockés sous le path localisé de la
+ * boîte de réception (doc Folder avec specialUse '\Inbox' et path ≠ 'INBOX').
+ * No-op si l'inbox est listée sous son nom réservé.
+ */
+async function purgeInboxAliasData(accountId: string): Promise<void> {
+  if (mongoose.connection.readyState !== 1) {
+    return;
+  }
+  const { FolderModel } = await import('../../models/Folder.js');
+  const { MessageBodyModel } = await import('../../models/MessageBody.js');
+
+  const inboxAlias = await FolderModel.findOne({
+    accountId,
+    specialUse: /^\\inbox$/i,
+    path: { $ne: 'INBOX' },
+  })
+    .select('path')
+    .lean();
+
+  if (!inboxAlias) {
+    return;
+  }
+
+  const [deletedMessages] = await Promise.all([
+    MessageModel.deleteMany({ accountId, folder: inboxAlias.path }),
+    MessageBodyModel.deleteMany({ accountId, folder: inboxAlias.path }),
+    FolderSyncStateModel.deleteOne({ accountId, folder: inboxAlias.path }),
+  ]);
+
+  logger.info(
+    { accountId, aliasPath: inboxAlias.path, deleted: deletedMessages.deletedCount },
+    'Purge des données sous l\u2019alias localisé d\u2019INBOX',
+  );
 }

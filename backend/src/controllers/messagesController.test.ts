@@ -8,6 +8,8 @@ import { authRoutes } from '../routes/authRoutes.js';
 import { accountsRoutes } from '../routes/accountsRoutes.js';
 import { messagesRoutes } from '../routes/messagesRoutes.js';
 import { errorHandler } from '../middleware/errorHandler.js';
+import { FolderModel } from '../models/Folder.js';
+import { MessageModel } from '../models/Message.js';
 
 // Mock des tests de connexion IMAP/SMTP.
 vi.mock('../services/email/connectionTest.js', () => ({
@@ -306,5 +308,127 @@ describe('Messages routes (intégration)', () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.sentTo).toBe('sender@test.com');
+  });
+
+  it('GET /:accountId/messages?folder=<inbox localisée> → 200 (Zoho « Boîte de réception »)', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    // Cache Folder : la boîte de réception est listée sous un nom localisé
+    // avec le flag \Inbox, et les messages sont stockés sous 'INBOX'.
+    await FolderModel.create({
+      accountId,
+      path: 'Boîte de réception',
+      name: 'Boîte de réception',
+      specialUse: '\\Inbox',
+      syncedAt: new Date(),
+    });
+    await MessageModel.create({
+      accountId,
+      folder: 'INBOX',
+      uid: 1,
+      subject: 'Message test',
+      from: { address: 'alice@test.com' },
+      date: new Date(),
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages?folder=${encodeURIComponent('Boîte de réception')}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.data[0].subject).toBe('Message test');
+  });
+
+  it('GET /:accountId/messages?folder=INBOX → 200 même si le cache liste un nom localisé', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    await FolderModel.create({
+      accountId,
+      path: 'Boîte de réception',
+      name: 'Boîte de réception',
+      specialUse: '\\Inbox',
+      syncedAt: new Date(),
+    });
+    await MessageModel.create({
+      accountId,
+      folder: 'INBOX',
+      uid: 1,
+      subject: 'Message test',
+      from: { address: 'alice@test.com' },
+      date: new Date(),
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages?folder=INBOX`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+  });
+
+  it('GET /:accountId/messages?folder=__snoozed__ → vue virtuelle « En sommeil »', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    // Un vrai dossier IMAP « Snoozed » existe chez ce compte (Zoho) —
+    // '__snoozed__' reste néanmoins la vue virtuelle.
+    await FolderModel.create({
+      accountId,
+      path: 'Snoozed',
+      name: 'Snoozed',
+      syncedAt: new Date(),
+    });
+    await MessageModel.create({
+      accountId,
+      folder: 'INBOX',
+      uid: 7,
+      subject: 'En sommeil',
+      from: { address: 'alice@test.com' },
+      date: new Date(),
+      snoozedUntil: new Date(Date.now() + 3_600_000),
+    });
+    await MessageModel.create({
+      accountId,
+      folder: 'Snoozed',
+      uid: 3,
+      subject: 'Vrai dossier Snoozed',
+      from: { address: 'bob@test.com' },
+      date: new Date(),
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages?folder=__snoozed__`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.data[0].subject).toBe('En sommeil');
+  });
+
+  it('GET /:accountId/messages?folder=Snoozed → vrai dossier IMAP quand il existe', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    await FolderModel.create({
+      accountId,
+      path: 'Snoozed',
+      name: 'Snoozed',
+      syncedAt: new Date(),
+    });
+    await MessageModel.create({
+      accountId,
+      folder: 'Snoozed',
+      uid: 3,
+      subject: 'Vrai dossier Snoozed',
+      from: { address: 'bob@test.com' },
+      date: new Date(),
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages?folder=Snoozed`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.data[0].subject).toBe('Vrai dossier Snoozed');
   });
 });

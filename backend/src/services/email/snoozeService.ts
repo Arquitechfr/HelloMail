@@ -3,6 +3,7 @@ import { MessageModel, type IMessageDocument } from '../../models/Message.js';
 import { AppError } from '../../utils/AppError.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
 import { logger } from '../../config/logger.js';
+import { VIRTUAL_SNOOZED_FOLDER } from './folderService.js';
 
 /**
  * Met en sommeil un message jusqu'à une date future donnée,
@@ -14,10 +15,13 @@ export async function snoozeMessage(
   uid: number,
   snoozedUntilDate: Date | null,
 ): Promise<IMessageDocument> {
+  // Depuis la vue virtuelle « En sommeil », le dossier stocké du message est
+  // inconnu — on le retrouve par uid + snoozedUntil actif (même périmètre que
+  // la vue virtuelle).
   const message = await MessageModel.findOne({
     accountId: account._id,
-    folder,
     uid,
+    ...(folder === VIRTUAL_SNOOZED_FOLDER ? { snoozedUntil: { $gt: new Date() } } : { folder }),
   });
 
   if (!message) {

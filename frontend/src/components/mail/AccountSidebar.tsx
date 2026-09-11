@@ -132,13 +132,13 @@ export function AccountSidebar() {
                     <div
                       className={cn(
                         "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer mt-0.5",
-                        selectedFolder === "Snoozed"
+                        selectedFolder === "__snoozed__"
                           ? "bg-primary/15 text-primary font-medium"
                           : "hover:bg-muted/50 text-foreground/80",
                       )}
-                      onClick={() => handleSelectFolder("Snoozed", account._id)}
+                      onClick={() => handleSelectFolder("__snoozed__", account._id)}
                     >
-                      <Clock className={cn("size-4 shrink-0", selectedFolder === "Snoozed" ? "text-primary" : "text-muted-foreground")} />
+                      <Clock className={cn("size-4 shrink-0", selectedFolder === "__snoozed__" ? "text-primary" : "text-muted-foreground")} />
                       <span className="flex-1 truncate">En sommeil</span>
                     </div>
                   </div>

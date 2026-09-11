@@ -6,8 +6,16 @@ import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { invalidateSpecialFolderCache } from './specialFolders.js';
 import { isProtectedFolder } from './folderProtection.js';
+import { getFolderSpecialUse } from './folderResolution.js';
 
 export { isProtectedFolder };
+// Ré-export des helpers de résolution (implémentés dans folderResolution.ts).
+export {
+  VIRTUAL_SNOOZED_FOLDER,
+  resolveCanonicalFolder,
+  folderPathExists,
+  resolveMessageFolder,
+} from './folderResolution.js';
 
 /** Durée de fraîcheur du cache Folder en base (5 min). */
 const FOLDER_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -67,8 +75,15 @@ export async function syncFolderCacheFromClient(
  * Indique si un dossier existe pour ce compte, d'après le cache Folder.
  * Retourne `true` si le cache est vide (inconnu) — dégradation permissive,
  * le comportement historique retournait une liste vide.
+ *
+ * `INBOX` (toute casse) retourne toujours `true` : c'est un nom réservé
+ * garanti par la RFC 3501, même quand le serveur liste la boîte de
+ * réception sous un nom localisé (ex. « Boîte de réception » chez Zoho).
  */
 export async function folderExists(account: IAccountDocument, path: string): Promise<boolean> {
+  if (path.toUpperCase() === 'INBOX') {
+    return true;
+  }
   if (!dbReady()) {
     return true;
   }
@@ -203,7 +218,8 @@ export async function renameFolder(
   path: string,
   newPath: string,
 ): Promise<void> {
-  if (isProtectedFolder(path)) {
+  const specialUse = await getFolderSpecialUse(String(account._id), path);
+  if (isProtectedFolder(path, specialUse)) {
     throw AppError.forbidden(`Le dossier système « ${path} » est protégé et ne peut pas être renommé`);
   }
   if (isProtectedFolder(newPath)) {
@@ -243,7 +259,8 @@ export async function renameFolder(
  * Supprime un dossier IMAP.
  */
 export async function deleteFolder(account: IAccountDocument, path: string): Promise<void> {
-  if (isProtectedFolder(path)) {
+  const specialUse = await getFolderSpecialUse(String(account._id), path);
+  if (isProtectedFolder(path, specialUse)) {
     throw AppError.forbidden(`Le dossier système « ${path} » est protégé et ne peut pas être supprimé`);
   }
 
