@@ -1,5 +1,6 @@
 import type { ImapFlow } from 'imapflow';
 import { MessageModel } from '../../models/Message.js';
+import { FolderSyncStateModel } from '../../models/FolderSyncState.js';
 import { INITIAL_SYNC_MESSAGE_COUNT } from '../../config/constants.js';
 import { logger } from '../../config/logger.js';
 import { mapFetchResultToMessage } from './messageMapper.js';
@@ -11,6 +12,7 @@ import {
   findArchiveFolder,
 } from '../email/specialFolders.js';
 import type { IAccountDocument } from '../../models/Account.js';
+import { syncFolderCacheFromClient } from '../email/folderService.js';
 
 const FETCH_QUERY = {
   uid: true,
@@ -43,7 +45,39 @@ export async function runInitialSyncForFolder(
   const mailbox = await client.mailboxOpen(folder, { readOnly: false });
 
   const totalMessages = mailbox.exists;
+  const uidValidity = String(mailbox.uidValidity ?? '');
+  const openedModseq = mailbox.highestModseq;
+
+  const prevState = await FolderSyncStateModel.findOne({ accountId, folder }).lean();
+
+  // uidValidity changé → les UID trackés en base sont obsolètes → purge + resync.
+  if (prevState && uidValidity && prevState.uidValidity !== uidValidity) {
+    await MessageModel.deleteMany({ accountId, folder });
+    logger.info({ accountId, folder }, 'UIDVALIDITY changé, purge et resync du dossier');
+  }
+
+  // Delta sync CONDSTORE : si un highestModseq est déjà persisté pour ce
+  // dossier, on ne rapatrie que les changements (flags inclus) au lieu de
+  // re-fetcher les N derniers messages.
+  if (prevState?.highestModseq && prevState.uidValidity === uidValidity) {
+    try {
+      const delta = await syncFolderDelta(client, accountId, folder, prevState.highestModseq);
+      // Sans highestModseq : ne pas écraser le max modseq observé par la delta
+      // (qui peut dépasser le modseq d'ouverture de mailbox).
+      await saveFolderSyncState(accountId, folder, uidValidity);
+      logger.info({ accountId, folder, delta }, 'Delta sync CONDSTORE terminée');
+      return delta;
+    } catch (error) {
+      // CONDSTORE non supporté ou modseq invalide → fallback sur le fetch complet.
+      logger.warn(
+        { accountId, folder, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Delta sync impossible, fallback sur la sync classique',
+      );
+    }
+  }
+
   if (totalMessages === 0) {
+    await saveFolderSyncState(accountId, folder, uidValidity, openedModseq);
     logger.info({ accountId, folder }, 'Dossier vide, aucune sync initiale');
     return 0;
   }
@@ -55,6 +89,8 @@ export async function runInitialSyncForFolder(
       { accountId, folder, count: existingCount },
       'Messages déjà synchronisés, sync initiale ignorée',
     );
+    // Persiste quand même l'état (modseq d'ouverture) pour la delta sync future.
+    await saveFolderSyncState(accountId, folder, uidValidity, openedModseq);
     return 0;
   }
 
@@ -92,7 +128,78 @@ export async function runInitialSyncForFolder(
 
   logger.info({ accountId, folder, synced }, 'Sync initiale terminée');
 
+  // Persiste l'état de sync pour permettre la delta sync au prochain cycle.
+  await saveFolderSyncState(accountId, folder, uidValidity, openedModseq);
+
   return synced;
+}
+
+/**
+ * Delta sync CONDSTORE : ne fetch que les messages dont le modseq a changé
+ * depuis la dernière sync connue (nouveaux messages + changements de flags).
+ * Persiste le nouveau highestModseq (max vu dans les réponses).
+ *
+ * @returns Le nombre de messages modifiés/upsertés.
+ */
+async function syncFolderDelta(
+  client: ImapFlow,
+  accountId: string,
+  folder: string,
+  lastModseq: string,
+): Promise<number> {
+  let delta = 0;
+  let maxModseq = BigInt(lastModseq);
+
+  for await (const msg of client.fetch('1:*', FETCH_QUERY, {
+    uid: true,
+    changedSince: BigInt(lastModseq),
+  })) {
+    try {
+      const messageInput = mapFetchResultToMessage(accountId, folder, msg);
+      await MessageModel.updateOne(
+        { accountId, folder: messageInput.folder, uid: messageInput.uid },
+        { $set: messageInput },
+        { upsert: true },
+      );
+      if (msg.modseq && msg.modseq > maxModseq) {
+        maxModseq = msg.modseq;
+      }
+      delta++;
+    } catch (error) {
+      logger.error(
+        { accountId, folder, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Erreur upsert UID (delta sync)',
+      );
+    }
+  }
+
+  // Persiste le max modseq réellement observé (plus précis que l'ouverture).
+  await FolderSyncStateModel.updateOne(
+    { accountId, folder },
+    { $set: { highestModseq: maxModseq.toString() } },
+  );
+
+  return delta;
+}
+
+/** Persiste l'état de sync d'un dossier (uidValidity + highestModseq). */
+async function saveFolderSyncState(
+  accountId: string,
+  folder: string,
+  uidValidity: string,
+  highestModseq?: bigint,
+): Promise<void> {
+  await FolderSyncStateModel.updateOne(
+    { accountId, folder },
+    {
+      $set: {
+        uidValidity,
+        lastSyncAt: new Date(),
+        ...(highestModseq !== undefined && { highestModseq: highestModseq.toString() }),
+      },
+    },
+    { upsert: true },
+  );
 }
 
 /**
@@ -145,6 +252,17 @@ export async function runInitialSyncAll(
         'Échec sync dossier spécial (non bloquant)',
       );
     }
+  }
+
+  // 3. Rafraîchit le cache Folder en base (évite un LIST IMAP côté API).
+  //    Best-effort : une erreur ne fait pas échouer la sync.
+  try {
+    await syncFolderCacheFromClient(client, accountId);
+  } catch (error) {
+    logger.warn(
+      { accountId, error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'Échec rafraîchissement cache Folder (non bloquant)',
+    );
   }
 
   return total;

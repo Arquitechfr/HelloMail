@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getMetrics, redisConnectedGauge, mongodbConnectedGauge } from '../services/observability/metricsService.js';
+import { getWorkerStatus } from '../services/observability/workerHeartbeat.js';
 
 const START_TIME = Date.now();
 
@@ -27,8 +28,11 @@ export const healthCheck = asyncHandler(async (_req: Request, res: Response, _ne
   }
   redisConnectedGauge.set(redisReady ? 1 : 0);
 
-  const status = mongoReady ? 'ok' : 'degraded';
-  const httpStatus = mongoReady ? 200 : 503;
+  // État du sync worker (heartbeat Redis écrit par worker.ts toutes les 30s).
+  const workerStatus = await getWorkerStatus();
+
+  const status = mongoReady && workerStatus !== 'stale' ? 'ok' : 'degraded';
+  const httpStatus = status === 'ok' ? 200 : 503;
 
   res.status(httpStatus).json({
     status,
@@ -38,6 +42,7 @@ export const healthCheck = asyncHandler(async (_req: Request, res: Response, _ne
     services: {
       mongodb: mongoReady ? 'connected' : 'disconnected',
       redis: redisReady ? 'connected' : 'disconnected',
+      worker: workerStatus,
     },
   });
 });

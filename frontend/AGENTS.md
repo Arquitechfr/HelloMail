@@ -34,6 +34,7 @@ pnpm --filter frontend dev        # Démarre le frontend (port 3000)
 pnpm --filter frontend build      # Build production Next.js
 pnpm --filter frontend lint       # ESLint
 pnpm --filter frontend typecheck  # tsc --noEmit
+pnpm --filter frontend test       # Vitest + Testing Library (jsdom)
 pnpm --filter frontend start      # Démarre en production
 ```
 
@@ -63,6 +64,7 @@ frontend/src/
 │                           # FolderTree, MessageList, MessageListItem, MessageReader, ReadReceiptBanner, NotificationSettings,
 │                           # TagBadge, TagSelectPopover, TagManager, UndoSendDock, UndoSendSettings,
 │                           # ComposeRecipients, ComposeActions, rules/ (RuleDialog, RuleForm, RulesList), EmailIframe, etc.
+├── test/                # setup.ts (jest-dom) + lucide-stub.tsx (icônes → svg vides en test)
 ├── lib/
 │   ├── api.ts              # fetch wrapper + interceptor 401 → refresh (lock en vol)
 │   ├── api-types.ts        # types API globaux + ré-export types modulaires

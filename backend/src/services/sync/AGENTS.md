@@ -48,9 +48,10 @@ au format JSON.
 
 Une classe/fonction par responsabilité, pas de logique éparpillée :
 - `SyncManager` — cycle de vie d'un compte (connect, sync, idle, reconnexion, polling multi-dossiers Phase 6)
-- `accountRegistry` — découverte des comptes actifs (polling) + réveil automatique des messages mis en sommeil (`checkExpiredSnoozes()` Phase 9)
-- `initialSync` — fetch des 50 derniers messages, upsert idempotent
-- `idleLoop` — boucle IDLE + handlers exists/expunge/flags (INBOX uniquement)
+- `accountRegistry` — découverte des comptes actifs (polling, tous providers incl. OAuth) + lock distribué par compte + réveil automatique des messages mis en sommeil (`checkExpiredSnoozes()` Phase 9)
+- `syncLock` — lock distribué Redis par compte (`SET NX PX` + token propriétaire + renouvellement de bail + fail-open) (Phase 10)
+- `initialSync` — fetch des 50 derniers messages, upsert idempotent + delta sync CONDSTORE via `changedSince` (état dans `FolderSyncState`) + refresh du cache `Folder` (Phase 10)
+- `idleLoop` — boucle IDLE + handlers exists/expunge/flags (INBOX uniquement) + ajout auto des expéditeurs aux contacts (opt-in `autoAddContacts`, Phase 10)
 - `pollingSync` — polling des dossiers spéciaux via 2e connexion IMAP (Phase 6)
 - `reconcileFolder` — reconciliation bornée sur expunge sans UID
 - `reconcileAllFolders` — reconciliation multi-dossiers au démarrage (INBOX + dossiers spéciaux)
@@ -81,6 +82,26 @@ de doute.
 `qresync: true` est activé sur le client ImapFlow. Si le serveur ne supporte
 pas QRESYNC, ImapFlow fait un fallback gracieux. Sans QRESYNC, les événements
 EXPUNGE ne contiennent pas d'UID — `reconcileFolder` prend le relais.
+
+### Delta sync CONDSTORE (Phase 10)
+
+`runInitialSyncForFolder` exploite maintenant `highestModseq` : si un état
+`FolderSyncState` (uidValidity + highestModseq persistés en base) existe pour
+le dossier, seuls les changements sont fetches via
+`client.fetch('1:*', { ..., changedSince })` — nouveaux messages et
+changements de flags inclus. Fallback automatique sur la sync classique si le
+serveur ne supporte pas CONDSTORE. Un changement d'`uidValidity` purge les
+messages du dossier et force une resync complète.
+
+## Lock distribué (Phase 10)
+
+`syncLock.ts` empêche deux workers de synchroniser le même compte :
+acquisition atomique `SET <key> <token> NX PX <ttl>` (TTL 90 s, renouvelé
+toutes les 30 s), token propriétaire vérifié par script Lua à la libération.
+Fail-open si Redis est indisponible (lock no-op). Si le bail est perdu en
+cours de route (expiration, vol), le `SyncManager` est arrêté proprement.
+Le worker publie aussi un heartbeat (`workerHeartbeat.ts`) lu par
+`/api/health` pour exposer `services.worker` (running/stale/unknown).
 
 ## Publication d'événements temps réel (Phase 5)
 

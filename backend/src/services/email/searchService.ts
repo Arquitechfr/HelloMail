@@ -21,6 +21,8 @@ export interface SearchResult {
   page: number;
   limit: number;
   total: number;
+  /** 'local' = MongoDB uniquement, 'server' = résultats enrichis via IMAP. */
+  source?: 'local' | 'server';
 }
 
 export interface ParsedSearch {

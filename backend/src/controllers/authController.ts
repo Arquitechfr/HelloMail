@@ -84,9 +84,14 @@ export const me = asyncHandler(async (req: AuthenticatedRequest, res: Response, 
 });
 
 export const updatePreferences = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  // Patch champ par champ — ne pas écraser les préférences non fournies.
+  const update: Record<string, unknown> = {};
+  if (req.body.undoSendDelay !== undefined) update['preferences.undoSendDelay'] = req.body.undoSendDelay;
+  if (req.body.autoAddContacts !== undefined) update['preferences.autoAddContacts'] = req.body.autoAddContacts;
+
   const user = await UserModel.findByIdAndUpdate(
     req.user.id,
-    { $set: { preferences: req.body } },
+    { $set: update },
     { returnDocument: 'after', runValidators: true },
   );
   if (!user) {

@@ -1,5 +1,7 @@
 import { ContactModel, type IContactDocument } from '../../models/Contact.js';
+import { UserModel } from '../../models/User.js';
 import { AppError } from '../../utils/AppError.js';
+import { logger } from '../../config/logger.js';
 
 export interface ContactInput {
   name: string;
@@ -104,4 +106,44 @@ export async function searchContacts(userId: string, query: string): Promise<Con
     .lean();
 
   return contacts.map((c) => toResult(c as unknown as IContactDocument));
+}
+
+/**
+ * Ajoute l'expéditeur d'un message entrant au carnet d'adresses, si la
+ * préférence utilisateur `autoAddContacts` est activée (opt-in).
+ *
+ * Best-effort : n'écrase jamais un contact existant ($setOnInsert),
+ * ignore silencieusement les doublons et les adresses invalides.
+ * Appelé par le sync worker (idleLoop) à l'arrivée d'un message en INBOX.
+ */
+export async function addSenderContactIfEnabled(
+  userId: string,
+  from: { name?: string; address: string },
+): Promise<boolean> {
+  const user = await UserModel.findById(userId).select('preferences.autoAddContacts').lean();
+  if (!user?.preferences?.autoAddContacts) {
+    return false;
+  }
+
+  const email = from.address?.toLowerCase().trim();
+  // Adresse minimalement valide + exclusion des noreply évidents.
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || /^(no-?reply|noreply|donotreply)@/i.test(email)) {
+    return false;
+  }
+
+  try {
+    const result = await ContactModel.updateOne(
+      { userId, email },
+      { $setOnInsert: { name: from.name?.trim() || email, email } },
+      { upsert: true },
+    );
+    return (result.upsertedCount ?? 0) > 0;
+  } catch (error) {
+    // Doublon concurrent (index unique userId+email) → ignoré.
+    logger.debug(
+      { userId, error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'Ajout contact expéditeur ignoré (doublon)',
+    );
+    return false;
+  }
 }

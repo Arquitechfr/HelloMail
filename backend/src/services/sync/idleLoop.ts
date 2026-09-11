@@ -3,10 +3,12 @@ import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
 import { Types } from 'mongoose';
 import { MessageModel } from '../../models/Message.js';
+import { MessageBodyModel } from '../../models/MessageBody.js';
 import { mapFetchResultToMessage } from './messageMapper.js';
 import { reconcileFolder } from './reconcileFolder.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
 import { applyRulesToIncomingMessage } from '../email/ruleService.js';
+import { addSenderContactIfEnabled } from '../contacts/contactService.js';
 
 const FETCH_QUERY = {
   uid: true,
@@ -87,6 +89,15 @@ export async function runIdleLoop(
               );
             });
           }
+
+          // Ajout auto de l'expéditeur au carnet d'adresses (opt-in utilisateur,
+          // best-effort — aucune erreur ne doit interrompre la sync).
+          addSenderContactIfEnabled(userId, messageInput.from).catch((contactErr) => {
+            logger.warn(
+              { accountId, error: contactErr instanceof Error ? contactErr.message : 'inconnu' },
+              'Erreur ajout contact expéditeur (non bloquant)',
+            );
+          });
         } catch (error) {
           logger.error(
             { accountId, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
@@ -107,6 +118,8 @@ export async function runIdleLoop(
     if (data.uid) {
       try {
         await MessageModel.deleteOne({ accountId, folder, uid: data.uid });
+        // Purge le cache corps associé (best-effort).
+        MessageBodyModel.deleteOne({ accountId, folder, uid: data.uid }).catch(() => {});
         if (env.NODE_ENV !== 'production') {
           logger.info({ accountId, uid: data.uid }, 'Message supprimé (expunge)');
         }

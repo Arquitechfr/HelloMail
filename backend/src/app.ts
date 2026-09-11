@@ -24,6 +24,7 @@ import logoRoutes from './routes/logoRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
+import { mountBodyParsers } from './middleware/bodyParsers.js';
 import { imapPool } from './services/email/imapPool.js';
 
 async function bootstrap(): Promise<void> {
@@ -44,12 +45,11 @@ async function bootstrap(): Promise<void> {
   // Logging structuré des requêtes HTTP (pino-http).
   app.use(requestLogger);
 
-  app.use(express.json({ limit: '100kb' }));
+  // Body parsers JSON : 30 Mo sur /send (pièces jointes base64) monté avant
+  // le global 100 Ko — voir middleware/bodyParsers.ts.
+  mountBodyParsers(app);
   app.use(cookieParser());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
-
-  // Limite étendue pour l'envoi d'emails avec pièces jointes (jusqu'à 30 Mo).
-  app.use('/api/accounts/:accountId/send', express.json({ limit: '30mb' }));
 
   // Rate limit global sur l'API (100 req/15 min/IP). Bypass en mode test.
   app.use('/api', globalRateLimit);

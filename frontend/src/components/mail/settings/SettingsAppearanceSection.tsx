@@ -2,6 +2,7 @@
 
 import { ThemeToggle } from "@/components/mail/ThemeToggle";
 import { UndoSendSettings } from "@/components/mail/UndoSendSettings";
+import { AutoContactsSettings } from "@/components/mail/AutoContactsSettings";
 import { Sliders, SunMoon, Radio } from "lucide-react";
 
 export function SettingsAppearanceSection() {
@@ -62,10 +63,13 @@ export function SettingsAppearanceSection() {
         <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border/50">
           <Sliders className="size-4 text-primary" />
           <h2 className="text-sm font-bold font-display text-foreground">
-            Comportement d&apos;Envoi
+            Comportement
           </h2>
         </div>
         <UndoSendSettings />
+        <div className="border-t border-border/40">
+          <AutoContactsSettings />
+        </div>
       </div>
     </div>
   );

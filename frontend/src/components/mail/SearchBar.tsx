@@ -61,6 +61,14 @@ export function SearchBar({ accountId, onResults }: SearchBarProps) {
           <div className="size-2.5 animate-pulse rounded-full bg-primary" />
         </div>
       )}
+      {data?.source === "server" && !isFetching && (
+        <span
+          className="absolute right-7 top-1/2 -translate-y-1/2 rounded border border-border bg-muted/60 px-1 py-px text-[9px] font-medium text-muted-foreground"
+          title="Recherche étendue à l'ensemble du serveur de messagerie"
+        >
+          serveur
+        </span>
+      )}
       {query && !isFetching && (
         <button
           type="button"

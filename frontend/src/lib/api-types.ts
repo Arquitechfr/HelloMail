@@ -7,6 +7,7 @@
 
 export interface UserPreferences {
   undoSendDelay?: number; // 0 (immédiat), 5, 10, 15, 30 secondes
+  autoAddContacts?: boolean; // ajout auto des expéditeurs au carnet d'adresses
 }
 
 export interface User {
@@ -146,6 +147,8 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   total: number;
+  /** 'local' = base MongoDB, 'server' = résultats enrichis via recherche IMAP. */
+  source?: "local" | "server";
 }
 
 export interface AttachmentInfo {

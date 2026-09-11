@@ -124,7 +124,7 @@ export function useUpdatePreferences() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const { accessToken } = useAuthStore();
   return useMutation({
-    mutationFn: (body: { undoSendDelay?: number }) =>
+    mutationFn: (body: { undoSendDelay?: number; autoAddContacts?: boolean }) =>
       apiFetch<{ user: User }>("/api/auth/preferences", {
         method: "PATCH",
         body: JSON.stringify(body),

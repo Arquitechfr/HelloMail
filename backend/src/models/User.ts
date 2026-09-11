@@ -11,6 +11,7 @@ export interface WebAuthnCredential {
 
 export interface IUserPreferences {
   undoSendDelay?: number; // 0, 5, 10, 15, 30 secondes (défaut: 5)
+  autoAddContacts?: boolean; // ajout auto des expéditeurs au carnet (défaut: false)
 }
 
 export interface IUserDocument extends Document {
@@ -82,6 +83,10 @@ const userSchema = new Schema<IUserDocument>(
       undoSendDelay: {
         type: Number,
         default: 5,
+      },
+      autoAddContacts: {
+        type: Boolean,
+        default: false,
       },
     },
     defaultsSeededAt: {

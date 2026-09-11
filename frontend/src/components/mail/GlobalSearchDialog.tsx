@@ -187,6 +187,14 @@ export function GlobalSearchDialog() {
           )}
         </div>
 
+        {/* Indicateur de recherche étendue au serveur IMAP */}
+        {data?.source === "server" && !isFetching && (
+          <div className="flex items-center gap-1.5 border-b border-border/60 bg-primary/5 px-4 py-1.5 text-[11px] text-muted-foreground">
+            <Search className="size-3 text-primary" />
+            Résultats étendus à l&apos;ensemble du serveur de messagerie
+          </div>
+        )}
+
         {/* Résultats de recherche ou guide syntaxique */}
         <div className="max-h-[380px] overflow-y-auto p-2">
           {!effectiveAccountId ? (

@@ -11,7 +11,8 @@ import { logger } from '../config/logger.js';
  * 1. ZodError → 400 avec fieldErrors
  * 2. Mongoose ValidationError → 400
  * 3. AppError → statusCode du message
- * 4. Sinon → 500, message générique en production
+ * 4. Erreurs body-parser/Express (entity.too.large → 413, entity.parse.failed → 400)
+ * 5. Sinon → 500, message générique en production
  *
  * Ne loggue jamais req.body (peut contenir des secrets en clair).
  */
@@ -40,6 +41,21 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(err.statusCode).json({
       error: { message: err.message },
     });
+    return;
+  }
+
+  // Erreurs des middlewares Express/body-parser — elles portent `type` + `status`.
+  const bodyParserStatus = (err as { status?: number; statusCode?: number }).status
+    ?? (err as { statusCode?: number }).statusCode;
+  if (typeof bodyParserStatus === 'number' && bodyParserStatus >= 400 && bodyParserStatus < 500) {
+    const errType = (err as { type?: string }).type;
+    const message =
+      errType === 'entity.too.large'
+        ? 'Corps de requête trop volumineux'
+        : errType === 'entity.parse.failed'
+          ? 'Corps JSON invalide'
+          : 'Requête invalide';
+    res.status(bodyParserStatus).json({ error: { message } });
     return;
   }
 

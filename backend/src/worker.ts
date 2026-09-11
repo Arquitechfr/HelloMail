@@ -2,10 +2,14 @@ import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { accountRegistry } from './services/sync/accountRegistry.js';
+import { startWorkerHeartbeat, stopWorkerHeartbeat } from './services/observability/workerHeartbeat.js';
 
 async function bootstrap(): Promise<void> {
   await mongoose.connect(env.MONGO_URI);
   logger.info('Connecté à MongoDB');
+
+  // Heartbeat Redis : permet à /api/health d'exposer l'état du worker.
+  startWorkerHeartbeat();
 
   // Démarre le registry : premier cycle immédiat, puis intervalle de 30s.
   accountRegistry.start();
@@ -14,6 +18,7 @@ async function bootstrap(): Promise<void> {
   // Arrêt propre sur SIGTERM/SIGINT.
   const shutdown = async (): Promise<void> => {
     logger.info('Signal d\'arrêt reçu, fermeture en cours...');
+    await stopWorkerHeartbeat();
     await accountRegistry.shutdown();
     try {
       await mongoose.disconnect();

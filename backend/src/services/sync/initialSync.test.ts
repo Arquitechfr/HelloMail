@@ -5,12 +5,31 @@ import type { FetchMessageObject } from 'imapflow';
 // Mock de MessageModel.
 const mockCountDocuments = vi.fn();
 const mockUpdateOne = vi.fn().mockResolvedValue({});
+const mockDeleteMany = vi.fn().mockResolvedValue({});
 
 vi.mock('../../models/Message.js', () => ({
   MessageModel: {
     countDocuments: mockCountDocuments,
     updateOne: mockUpdateOne,
+    deleteMany: mockDeleteMany,
   },
+}));
+
+// Mock de FolderSyncStateModel (état CONDSTORE pour la delta sync).
+// findOne retourne un objet avec .lean() comme la vraie requête Mongoose.
+const mockFindOneState = vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+const mockUpdateOneState = vi.fn().mockResolvedValue({});
+
+vi.mock('../../models/FolderSyncState.js', () => ({
+  FolderSyncStateModel: {
+    findOne: mockFindOneState,
+    updateOne: mockUpdateOneState,
+  },
+}));
+
+// Mock de folderService (rafraîchissement du cache Folder en fin de sync).
+vi.mock('../email/folderService.js', () => ({
+  syncFolderCacheFromClient: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock de logger.
@@ -181,6 +200,69 @@ describe('initialSync', () => {
 
       expect(synced).toBe(1);
       expect(client.mailboxOpen).toHaveBeenCalledWith('Sent', { readOnly: false });
+    });
+
+    it('delta sync : ne fetch que les changements via changedSince', async () => {
+      mockFindOneState.mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue({ uidValidity: '5', highestModseq: '100' }),
+      });
+      const changed = [makeFetchResult(7, 'Changed')];
+      const client = makeMockClient(changed, 10);
+      client.mailboxOpen.mockResolvedValueOnce({ exists: 10, uidValidity: 5, highestModseq: 200n });
+
+      const synced = await runInitialSyncForFolder(client as never, 'acc1', 'INBOX');
+
+      expect(synced).toBe(1);
+      expect(client.fetch).toHaveBeenCalledWith(
+        '1:*',
+        expect.objectContaining({ envelope: true }),
+        expect.objectContaining({ uid: true, changedSince: 100n }),
+      );
+      // Persiste le nouveau highestModseq.
+      expect(mockUpdateOneState).toHaveBeenCalled();
+    });
+
+    it('purge le dossier si uidValidity a changé, puis resync complet', async () => {
+      mockFindOneState.mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue({ uidValidity: '4', highestModseq: '100' }),
+      });
+      const messages = [makeFetchResult(1, 'A')];
+      const client = makeMockClient(messages, 1);
+      client.mailboxOpen.mockResolvedValueOnce({ exists: 1, uidValidity: 5, highestModseq: 200n });
+      mockCountDocuments.mockResolvedValueOnce(0);
+
+      const synced = await runInitialSyncForFolder(client as never, 'acc1', 'INBOX');
+
+      expect(mockDeleteMany).toHaveBeenCalledWith({ accountId: 'acc1', folder: 'INBOX' });
+      expect(synced).toBe(1);
+      // Fetch classique par range de séquence, pas changedSince.
+      expect(client.fetch).toHaveBeenCalledWith('1:1', expect.not.objectContaining({ changedSince: expect.anything() }));
+    });
+
+    it('fallback sur la sync classique si la delta sync échoue (CONDSTORE absent)', async () => {
+      mockFindOneState.mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue({ uidValidity: '5', highestModseq: '100' }),
+      });
+      const messages = [makeFetchResult(1, 'A')];
+      const client = {
+        mailboxOpen: vi.fn().mockResolvedValue({ exists: 1, uidValidity: 5, highestModseq: 200n }),
+        fetch: vi
+          .fn()
+          .mockImplementationOnce(() => {
+            throw new Error('BADCONDSTORE not supported');
+          })
+          .mockImplementationOnce(() => ({
+            async *[Symbol.asyncIterator]() {
+              for (const msg of messages) yield msg;
+            },
+          })),
+      };
+      mockCountDocuments.mockResolvedValueOnce(0);
+
+      const synced = await runInitialSyncForFolder(client as never, 'acc1', 'INBOX');
+
+      expect(synced).toBe(1);
+      expect(client.fetch).toHaveBeenCalledTimes(2);
     });
   });
 

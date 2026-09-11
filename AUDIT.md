@@ -1,6 +1,6 @@
 # Audit HelloMail — État du projet et prochaines étapes
 
-> Date : 2026-09-10 (mis à jour 2026-09-12 — Phase 6 livrée : sync multi-dossiers + pagination + OAuth Google + 2FA + contacts + observabilité)
+> Date : 2026-09-10 (mis à jour 2026-09-12 — Phase 10 livrée : durcissement sync & recherche — lock distribué, heartbeat worker, QRESYNC delta, recherche IMAP serveur, caches Folder/MessageBody, contacts automatiques, tests frontend)
 > Auteur : Devin (audit automatisé)
 > Périmètre : monorepo `HelloMail/` (backend + frontend)
 
@@ -36,8 +36,9 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 7** | Autoconfiguration des comptes email (Mozilla ISPDB + DNS MX + heuristiques) + OAuth Microsoft 365 / Outlook.com (XOAUTH2) + Signatures d'email personnalisées par compte + Pièces jointes avancées (drag & drop, jauge 25 Mo, preview, suppressions individuelles) + Rate Limiting distribué Redis (`rate-limit-redis`) + Résorption intégrale de la dette technique D2, D10 et D12 (0 `as any`) + 16 nouveaux tests (339 total, 34 fichiers) | — | ~2 100 |
 | **Phase 8** | Threading & Conversation (Lots 8.1 & 8.2 : `inReplyTo` + `messageId` + normalisation sujet, endpoint `GET /thread`, timeline `MessageThreadView`, réponse rapide `QuickReplyBar` + export .eml streamé PEEK + impression `@media print`) + Notifications de bureau & carillon Web Audio (Lot 8.3) + Moteur de règles & filtres automatiques (Lot 8.4 : modèle `Rule`, validation Zod, service d'évaluation et actions, intégration IDLE loop, page UI `/mail/settings/rules`) + Accusés de lecture (Lot 8.5 : RFC 3798 MDN, `Disposition-Notification-To`, bannière `ReadReceiptBanner` interactive, émission rapport MIME multipart/report) + 31 nouveaux tests (370 total, 38 fichiers, 0 `as any`) | — | ~3 100 |
 | **Phase 9** | Productivité & Organisation — **Intégralité livrée (Lots 9.1 à 9.4)** : Étiquettes & Libellés colorés (Lot 9.1) + Annulation d'envoi "Undo Send" 5s-30s (Lot 9.2 : dock interactif décompté, annulation Z, restauration formulaires & PJ, PATCH /preferences) + Modèles d'emails & Réponses types (Lot 9.3 : modèle Template, Zod schemas, service & routes /api/templates, dropdown d'insertion dans compose et quick reply, TemplateManager dans réglages) + Mise en sommeil "Snooze" (Lot 9.4 : champ snoozedUntil sur Message, filtrage automatique boîte de réception, dossier virtuel Snoozed, réveil périodique dans worker, popover avec presets temporels et date personnalisée) + 34 nouveaux tests (404 total, 43 fichiers, 0 `as any`) | — | ~3 600 |
+|| **Phase 10** | Durcissement post-audit : sync des comptes OAuth dans `accountRegistry` (tous providers), parser `/send` 30 Mo monté avant le parser global (413 correct), logger pino partout dans le worker, **lock distribué Redis** (`syncLock.ts` — SET NX PX + token propriétaire + renouvellement de bail + fail-open), **heartbeat worker** dans `/api/health` (`services.worker`), **cache Folder en base** (TTL 5 min + invalidation CRUD + validation `folder` dans `messagesController.list`), **recherche IMAP serveur** en fallback automatique (`imapSearchService` — PEEK, borne 200 UID, repli sans `TEXT`, badge "serveur" frontend), **QRESYNC delta sync** (`FolderSyncState` + `changedSince` + purge sur changement d'UIDVALIDITY), **sync expéditeurs → contacts** (opt-in `autoAddContacts`, best-effort dans idleLoop), **cache corps de messages** (`MessageBody` — TTL 30 j, cap 2 Mo, purge sur delete/move/expunge), **socle de tests frontend** (Vitest + Testing Library + jsdom — 27 tests) | — | ~2 800 |
 
-**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis et couvert par 404 tests Vitest (43 suites). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration transparente et formulaire épuré, la recherche globale universelle Spotlight (Cmd+K) utilisable depuis toutes les pages, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN, le système d'étiquettes / libellés colorés, l'annulation d'envoi ("Undo Send"), les modèles d'emails & réponses types réutilisables en 1 clic, la mise en sommeil d'emails ("Snooze"), ainsi qu'un Hub de Réglages Master-Detail adaptatif responsive et une Fenêtre de Rédaction Universelle flottante accessible depuis n'importe quelle vue de l'application sans interruption de contexte. Typecheck, ESLint et Next.js Build sont 100% verts.
+**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis, lock de sync distribué et heartbeat worker, et couvert par 400+ tests Vitest backend. Le frontend dispose désormais d'un socle Vitest + Testing Library (27 tests). Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration transparente et formulaire épuré, la recherche globale universelle Spotlight (Cmd+K) utilisable depuis toutes les pages, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN, le système d'étiquettes / libellés colorés, l'annulation d'envoi ("Undo Send"), les modèles d'emails & réponses types réutilisables en 1 clic, la mise en sommeil d'emails ("Snooze"), ainsi qu'un Hub de Réglages Master-Detail adaptatif responsive et une Fenêtre de Rédaction Universelle flottante accessible depuis n'importe quelle vue de l'application sans interruption de contexte. Typecheck, ESLint et Next.js Build sont 100% verts.
 
 ---
 
@@ -68,7 +69,10 @@ backend/src/
 │   ├── RefreshToken.ts    # Rotation + TTL index + détection de réutilisation
 │   ├── Account.ts          # Multi-provider (imap, google_oauth, microsoft_oauth) + oauthConfig (Phase 6: OAuth Google XOAUTH2)
 │   ├── Message.ts          # accountId, folder, uid, envelope, flags, size + index textuel
-│   └── Contact.ts          # userId, name, email, phone, notes + index textuel + unique (userId, email) (Phase 6)
+│   ├── Contact.ts          # userId, name, email, phone, notes + index textuel + unique (userId, email) (Phase 6)
+│   ├── Folder.ts           # Cache des dossiers IMAP (path, compteurs, syncedAt) (Phase 10)
+│   ├── FolderSyncState.ts  # État CONDSTORE par dossier (uidValidity, highestModseq) (Phase 10)
+│   └── MessageBody.ts      # Cache corps de messages (text/html sanitizé, TTL 30 j) (Phase 10)
 ├── schemas/
 │   ├── commonSchemas.ts    # emailSchema, passwordSchema, objectIdParamSchema
 │   ├── authSchemas.ts      # registerSchema, loginSchema, verify2FASchema (Phase 6)
@@ -98,19 +102,22 @@ backend/src/
 │   │   ├── specialFolders.ts      # Détection dossiers spéciaux (specialUse + fallbacks + cache)
 │   │   ├── messageActionService.ts # Flags, delete, move, batch, markAsJunk
 │   │   ├── searchService.ts       # Recherche MongoDB + parser d'opérateurs (Phase 5)
+│   │   ├── imapSearchService.ts   # Fallback recherche serveur IMAP (PEEK, borne 200 UID) (Phase 10)
 │   │   ├── draftService.ts        # Brouillons IMAP (messageAppend + flag \Draft) (Phase 5)
 │   │   └── fetchMoreService.ts    # Pagination arrière (fetch IMAP UID range décroissant) (Phase 6)
 │   ├── contacts/
 │   │   └── contactService.ts      # CRUD contacts + recherche/autocomplétion (Phase 6)
 │   ├── observability/
-│   │   └── metricsService.ts      # Métriques Prometheus (prom-client) (Phase 6)
+│   │   ├── metricsService.ts      # Métriques Prometheus (prom-client) (Phase 6)
+│   │   └── workerHeartbeat.ts     # Heartbeat worker via Redis → /api/health (Phase 10)
 │   ├── realtime/
 │   │   ├── eventPublisher.ts      # Publisher Redis Pub/Sub (worker→API) (Phase 5)
 │   │   └── eventSubscriber.ts     # Subscriber Redis + filtrage par userId (Phase 5)
 │   ├── sync/
 │       ├── syncManager.ts         # Cycle de vie d'un compte (connect, sync, idle, reconnex) + polling multi-dossiers (Phase 6)
-│       ├── accountRegistry.ts     # Polling des comptes actifs → SyncManager
-│       ├── initialSync.ts         # Sync 50 derniers messages (INBOX + dossiers spéciaux via runInitialSyncAll)
+│       ├── accountRegistry.ts     # Polling des comptes actifs → SyncManager (tous providers, Phase 10) + lock distribué
+│       ├── syncLock.ts            # Lock distribué Redis par compte (SET NX PX + token + renew) (Phase 10)
+│       ├── initialSync.ts         # Sync 50 derniers + delta CONDSTORE changedSince (Phase 10) + refresh cache Folder
 │       ├── idleLoop.ts            # Listeners exists/expunge/flags + IDLE + publishEvent
 │       ├── pollingSync.ts         # Polling dossiers spéciaux (2e connexion IMAP parallèle IDLE) (Phase 6)
 │       ├── reconcileFolder.ts     # Reconciliation bornée (expunge sans UID)
@@ -330,7 +337,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 | # | Dette | Sévérité | Fichier(s) | Description |
 |---|-------|----------|------------|-------------|
 | D1 | **Aucun test** → ✅ Résolu (Phase 3 + 5) | ✅ Résolue | — | Vitest installé. 227 tests (22 fichiers). Coverage 88.92% lignes, 77.14% branches, 83.56% fonctions, 87.35% statements. Tests unitaires + intégration (Supertest + mongodb-memory-server). |
-| D2 | **Rate limit in-memory** | ⚠️ Partiellement résolu (Phase 5) | `middleware/rateLimit.ts` | Migration vers `express-rate-limit` v7 (store in-memory par défaut, headers draft-7). Le store reste en mémoire (Map) — migration vers Redis prévue pour le scaling horizontal. |
+| D2 | **Rate limit in-memory** | ✅ Résolue (Phase 7) | `middleware/rateLimit.ts` | `express-rate-limit` v7 + `RedisStore` distribué (rate-limit-redis) hors environnement de test — le comptage est partagé entre process API/workers. |
 | D3 | **Logging console.log** | ✅ Résolue (Phase 5) | `config/logger.ts`, `middleware/requestLogger.ts` | Logger structuré `pino` + `pino-http` avec redaction automatique des champs sensibles. Tous les `console.log`/`console.error` remplacés par `logger.info`/`logger.error`. Logs JSON en production, prettifiés en dev. |
 | D4 | **Pas de Helmet** | ✅ Résolue (Phase 5) | `app.ts` | `helmet()` activé avec `contentSecurityPolicy: false` (API REST, pas de HTML rendu côté serveur) et `crossOriginEmbedderPolicy: false` (compatibilité pièces jointes). |
 | D5 | **Sync INBOX uniquement** → ✅ Résolu (Phase 6 — polling multi-dossiers) | ✅ Résolue | `syncManager.ts`, `pollingSync.ts` | La sync initiale couvre INBOX + Sent/Drafts/Trash/Junk/Archive (`runInitialSyncAll`). `saveToSent` fait miroir dans MongoDB. Reconciliation multi-dossiers au démarrage. **Phase 6** : `pollingSync.ts` ajoute le polling temps réel des dossiers spéciaux via une 2e connexion IMAP en parallèle de l'IDLE INBOX. Les changements distants sur Sent/Trash/etc. sont maintenant rattrapés périodiquement (pas seulement à la reconnexion). |
@@ -338,19 +345,19 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 | D7 | **Pas de validation `algorithm` sur JWT verify** | ✅ Résolue (Phase 5) | `authService.ts`, `auth.ts` | `jwt.verify` avec `{ algorithms: ['HS256'] }` — épinglage de l'algorithme pour empêcher l'algorithme confusion (RS256 → HS256). |
 | D8 | **`validate` middleware perd les détails Zod** | ✅ Résolue (Phase 5) | `validate.ts` | La `ZodError` est maintenant laissée passer au `errorHandler` centralisé (qui la gère avec `err.flatten().fieldErrors`) — les détails Zod sont retournés au client. |
 | D9 | **Pas de gestion des graceful shutdown côté API** | ✅ Résolue (Phase 5) | `app.ts` | Handler `SIGTERM`/`SIGINT` : `server.close()` + `imapPool.closeAll()` + `mongoose.disconnect()` avec safety net de 10s. |
-| D10 | **`messagesController.list` sans validation de `folder`** | 🟡 Faible | `messagesController.ts` l.10 | `folder` est validé par Zod (default INBOX) mais aucune vérification que le dossier existe côté IMAP. Un dossier inexistant retourne simplement une liste vide. |
+| D10 | **`messagesController.list` sans validation de `folder`** | ✅ Résolue (Phase 10) | `messagesController.ts`, `folderService.ts` | `folderExists()` vérifie le dossier via le cache `Folder` en base (alimenté par `listFolders` + worker). Dossier inconnu → 404 ; dossier virtuel `Snoozed` bypass ; cache vide → dégradation permissive. |
 | D11 | **Pas d'index sur `Message.folder`** | ✅ Résolue (Phase 5) | `Message.ts` | Index `{accountId, folder, date: -1}` ajouté pour optimiser la liste paginée par dossier. |
-| D12 | **`as any` dans authService et validate** | 🟡 Faible | `authService.ts` l.89,95, `validate.ts` l.23,26 | Casts `as any` pour contourner le typage strict. |
+| D12 | **`as any` dans authService et validate** | ✅ Résolue (Phase 7) | `authService.ts`, `validate.ts` | Élimination intégrale des `as any` en production (0 occurrence). |
 
 ### 4.2 Risques
 
 | # | Risque | Impact | Probabilité |
 |---|-------|--------|-------------|
 | R1 | **Corruption de sync sur reconnexion** | Perte ou doublon de messages | Faible (upsert idempotent) |
-| R2 | **Fuite de données dans les logs** | Exposition d'informations sensibles | Moyenne (console.log sans redaction) |
+| R2 | **Fuite de données dans les logs** | Exposition d'informations sensibles | Faible (pino + redaction partout, worker inclus — Phase 10) |
 | R3 | **Épuisement de la mémoire sur gros volume** | Crash du worker | Faible (fetch par stream, mais 50 messages en mémoire) |
 | R4 | **Désactivation abusive d'un compte** | Compte sain désactivé | Faible (10 échecs + backoff) |
-| R5 | **Concurrence sur un même compte** | Double sync, conflits | Moyenne (si 2 workers tournent — pas de lock distribué) |
+| R5 | **Concurrence sur un même compte** | Double sync, conflits | Faible (Phase 10 : lock distribué Redis `syncLock.ts` — SET NX PX + TTL/lease + renouvellement, arrêt auto si lock perdu) |
 
 ---
 
@@ -725,7 +732,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 ---
 
-### Étape 11 — OAuth Google / Microsoft ✅ LIVRÉ (Phase 6 — Google uniquement)
+### Étape 11 — OAuth Google / Microsoft ✅ LIVRÉ (Phase 6 Google, Phase 7 Microsoft)
 
 **Pourquoi :** Le modèle `Account` a déjà la structure `oauthConfig` mais aucun flux n'est implémenté. L'OAuth permet de connecter Gmail/Outlook sans mot de passe d'application.
 
@@ -870,7 +877,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 | Étape | Priorité | Effort estimé | État |
 |-------|----------|---------------|------|
-| 11. OAuth Google (XOAUTH2) | 🟡 SECONDaire | Élevé | ✅ Livré (Google uniquement — Microsoft non implémenté) |
+| 11. OAuth Google (XOAUTH2) | 🟡 SECONDaire | Élevé | ✅ Livré (Google — Microsoft livré en Phase 7) |
 | 12. 2FA / TOTP + WebAuthn | 🟡 SECONDaire | Moyen | ✅ Livré |
 | 13. Contacts / carnet d'adresses | 🟡 SECONDaire | Faible | ✅ Livré |
 | 14. Logging + observabilité | 🟡 SECONDaire | Faible | ✅ Livré (Prometheus + health enrichi) |
@@ -912,6 +919,19 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 
 **Objectif :** Atteindre une productivité maximale équivalente à Superhuman / Gmail Pro. ✅ Atteint.
 
+### Phase 10 — Durcissement post-audit (sync, recherche, caches, tests) ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 31. Sync OAuth dans `accountRegistry` + logger pino worker + parser `/send` 30 Mo (413) | 🔴 CRITIQUE | Faible | ✅ Livré |
+| 32. Lock distribué Redis (`syncLock.ts`) + heartbeat worker → `/api/health` | 🟠 IMPORTANTE | Moyen | ✅ Livré |
+| 33. Cache `Folder` + validation `folder` dans `list` | 🟠 IMPORTANTE | Moyen | ✅ Livré |
+| 34. Recherche IMAP serveur (fallback auto) + badge frontend | 🟠 IMPORTANTE | Élevé | ✅ Livré |
+| 35. QRESYNC delta sync (`FolderSyncState` + `changedSince`) | 🟠 IMPORTANTE | Moyen | ✅ Livré |
+| 36. Sync expéditeurs → contacts (opt-in `autoAddContacts`) | 🟡 SECONDaire | Faible | ✅ Livré |
+| 37. Cache corps de messages (`MessageBody`, TTL 30 j, cap 2 Mo) | 🟡 SECONDaire | Moyen | ✅ Livré |
+| 38. Socle de tests frontend (Vitest + Testing Library) | 🟠 IMPORTANTE | Faible | ✅ Livré (27 tests) |
+
 ---
 
 ## 7. Matrice de couverture fonctionnelle
@@ -944,10 +964,12 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Backoff + désactivation auto | ✅ | Phase 2 | 10 échecs, backoff exponentiel |
 | Sync multi-dossiers IDLE | ⚠️ | Phase 6 | Polling dossiers spéciaux via 2e connexion (pas IDLE — polling périodique) |
 | Pagination arrière | ✅ | Phase 6 | fetchMoreService — fetch IMAP UID range décroissant |
-| QRESYNC avancé (modseq) | ⚠️ | Phase 2 | Activé mais pas exploité pour delta sync |
+| QRESYNC avancé (modseq) | ✅ | Phase 10 | `FolderSyncState` (uidValidity + highestModseq) + `changedSince` dans `runInitialSyncForFolder`, purge sur changement d'UIDVALIDITY, fallback sync classique si CONDSTORE absent |
+| Lock distribué multi-worker | ✅ | Phase 10 | `syncLock.ts` — SET NX PX + token propriétaire + renouvellement de bail + arrêt auto si lock perdu + fail-open si Redis down |
+| Heartbeat worker | ✅ | Phase 10 | Clé Redis TTL 90 s écrite toutes les 30 s par `worker.ts`, exposée dans `/api/health` (`services.worker` : running/stale/unknown → 503 si stale) |
 | **Messages** | | | |
 | Liste paginée par dossier | ✅ | Phase 2 | Tri par date, filtre par dossier |
-| Lecture du corps (HTML/texte) | ✅ | Phase 3 | messageFetchService + BODY.PEEK |
+| Lecture du corps (HTML/texte) | ✅ | Phase 3 + 10 | messageFetchService + BODY.PEEK + **cache MessageBody** (TTL 30 j, cap 2 Mo, purge sur delete/move/expunge) |
 | Headers complets | ✅ | Phase 3 | Parsing Buffer headers ImapFlow |
 | Pièces jointes (download) | ✅ | Phase 3 | attachmentService (streaming PassThrough) |
 | Marquer lu/non-lu | ✅ | Phase 3 | messageActionService.updateFlags |
@@ -956,7 +978,7 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Déplacer | ✅ | Phase 3 | messageActionService.moveMessage |
 | Actions en masse | ✅ | Phase 3 | batch (markRead/Unread/flag/unflag/delete/move/markAsJunk) |
 | Marquer comme spam | ✅ | Phase 3 | markAsJunk (individuelle + batch) |
-| Recherche | ✅ | Phase 5 | Index textuel MongoDB + parser d'opérateurs (from:/to:/is:/has:/before:/since:) |
+| Recherche | ✅ | Phase 5 + 10 | Index textuel MongoDB + parser d'opérateurs (from:/to:/is:/has:/before:/since:) + **fallback serveur IMAP** automatique (critères SEARCH, import PEEK borné, badge "serveur" dans SearchBar & GlobalSearchDialog) |
 | Fil de discussion / Threading | ✅ | Phase 8 | Regroupement `messageId` + `inReplyTo` + sujet normalisé, API `GET /thread`, `MessageThreadView` |
 | Export brut RFC 822 (.eml) | ✅ | Phase 8 | Téléchargement brut streamé, respect PEEK (`readOnly`), bouton dans le lecteur |
 | Impression dédiée | ✅ | Phase 8 | `@media print` optimisé, masquage des panneaux/headers, raccourci clavier `P` |
@@ -976,7 +998,7 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Annulation d'envoi ("Undo Send") | ✅ | Phase 9 | Délai de grâce configurable (0 à 30s), dock décompté interactif, annulation Z, restauration formulaires & PJ, PATCH /preferences |
 | Modèles & Réponses types | ✅ | Phase 9 | Modèle `Template`, CRUD `/api/templates`, dropdown d'insertion en 1 clic dans compose et quick reply, gestionnaire `/mail/settings` |
 | **Dossiers** | | | |
-| Lister les dossiers | ✅ | Phase 3 | folderService.listFolders (avec status) |
+| Lister les dossiers | ✅ | Phase 3 + 10 | folderService.listFolders + **cache Folder en base** (TTL 5 min, invalidation CRUD, refresh worker) + validation d'existence dans `messagesController.list` |
 | Créer / renommer / supprimer | ✅ | Phase 3 | folderService CRUD + cache invalidation |
 | Détection dossiers spéciaux | ✅ | Phase 3 | specialFolders.ts (specialUse + fallbacks multilingues) |
 | **Sécurité** | | | |
@@ -995,15 +1017,16 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Notifications push (SSE/WS) | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | Notifications bureau & carillon | ✅ | Phase 8 | Notifications Web natives + synthèse Web Audio sans asset + toggle réglages |
 | **Tests** | | | |
-| Tests unitaires & intégration | ✅ | Phase 3 + 5 + 6 + 7 + 8 + 9 | 404 tests, 43 fichiers (100% passants) |
+| Tests unitaires & intégration | ✅ | Phase 3 → 10 | 430+ tests backend + socle frontend Vitest (27 tests : stores, utils, SearchBar, AutoContactsSettings) |
 | **Frontend** | | | |
 | Interface web | ✅ | Phase 4 + 6 + 7 + 8 + 9 | Next.js 16 + shadcn/ui + glassmorphism, auth (login + 2FA), comptes (IMAP + Google/MS OAuth), dossiers, liste virtualisée, lecteur iframe sandbox, compose/reply/forward (autocomplétion contacts, drag&drop PJ, accusés de lecture, dock annulation d'envoi UndoSendDock, modèles de réponses types), brouillons auto-save, recherche, SSE temps réel, mise en sommeil Snooze & dossier virtuel, hub unifié de réglages Master-Detail responsive avec détection de résolution d'écran (/mail/settings), gestionnaires d'étiquettes, modèles, règles de tri, sécurité 2FA et carnet d'adresses |
 | **Observabilité** | | | |
-| Health check | ✅ | Phase 6 | Enrichi (status, uptime, version, MongoDB, Redis, HTTP 503 si dégradé) |
+| Health check | ✅ | Phase 6 + 10 | Enrichi (status, uptime, version, MongoDB, Redis, **worker heartbeat**, HTTP 503 si dégradé) |
 | Métriques Prometheus | ✅ | Phase 6 | prom-client — compteur requêtes, histogramme durée, jauges MongoDB/Redis |
 | **Contacts** | | | |
 | Carnet d'adresses (CRUD) | ✅ | Phase 6 | Modèle Contact + service + controller + routes + index textuel + unique |
 | Autocomplétion compose | ✅ | Phase 6 | ContactAutocomplete (navigation clavier, regex name+email) |
+| Ajout auto des expéditeurs | ✅ | Phase 10 | Opt-in `preferences.autoAddContacts`, `addSenderContactIfEnabled` dans idleLoop (best-effort, $setOnInsert, exclusion noreply), toggle `AutoContactsSettings` |
 | **2FA** | | | |
 | TOTP (app authenticator) | ✅ | Phase 6 | otplib + QR code + secret chiffré AES-256-GCM |
 | Codes de secours | ✅ | Phase 6 | 10 codes à usage unique, hashés bcrypt |

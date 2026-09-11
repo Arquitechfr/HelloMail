@@ -2,6 +2,7 @@ import type { IAccountDocument } from '../../models/Account.js';
 import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { MessageModel } from '../../models/Message.js';
+import { MessageBodyModel } from '../../models/MessageBody.js';
 import { findTrashFolder, findJunkFolder } from './specialFolders.js';
 
 export interface FlagsUpdate {
@@ -11,6 +12,15 @@ export interface FlagsUpdate {
 }
 
 export type BatchAction = 'delete' | 'move' | 'markRead' | 'markUnread' | 'flag' | 'unflag' | 'markAsJunk';
+
+/** Supprime le corps mis en cache (best-effort — le TTL MongoDB nettoie le reste). */
+async function deleteCachedBody(accountId: string, folder: string, uid: number): Promise<void> {
+  try {
+    await MessageBodyModel.deleteOne({ accountId, folder, uid });
+  } catch {
+    // Cache best-effort — ignoré.
+  }
+}
 
 /**
  * Met à jour les flags d'un message côté IMAP et en base.
@@ -89,6 +99,7 @@ export async function deleteMessage(
     }
 
     await MessageModel.deleteOne({ accountId, folder, uid });
+    await deleteCachedBody(accountId, folder, uid);
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(
@@ -115,6 +126,7 @@ export async function moveMessage(
     await client.mailboxOpen(folder, { readOnly: false });
     await client.messageMove(uid, destination, { uid: true });
     await MessageModel.deleteOne({ accountId, folder, uid });
+    await deleteCachedBody(accountId, folder, uid);
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(
@@ -142,6 +154,7 @@ export async function markMessageAsJunk(
     const junkPath = (await findJunkFolder(account)) ?? 'Junk';
     await client.messageMove(uid, junkPath, { uid: true });
     await MessageModel.deleteOne({ accountId, folder, uid });
+    await deleteCachedBody(accountId, folder, uid);
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw AppError.unprocessable(

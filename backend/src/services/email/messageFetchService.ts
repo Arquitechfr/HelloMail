@@ -1,8 +1,14 @@
 import type { ImapFlow, MessageStructureObject } from 'imapflow';
+import mongoose from 'mongoose';
 import type { IAccountDocument } from '../../models/Account.js';
+import { MessageBodyModel } from '../../models/MessageBody.js';
 import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { sanitizeEmailHtml } from './sanitize.js';
+import { logger } from '../../config/logger.js';
+
+/** Taille max cumulée (texte + html) stockée en cache — ~2 Mo. */
+const MAX_CACHED_BODY_BYTES = 2 * 1024 * 1024;
 
 export interface AttachmentInfo {
   filename: string;
@@ -141,19 +147,32 @@ export async function fetchMessageDetail(
     const parts: ParsedParts = { attachments: [] };
     parseBodyStructure(msg.bodyStructure, parts);
 
-    // Télécharge text/plain et text/html si trouvés.
+    // Cache des corps (MessageBody) : si présent, on saute les downloads MIME.
+    const cached = await readBodyCache(accountId, folder, uid);
+
     let textContent: string | undefined;
     let htmlContent: string | undefined;
 
-    if (parts.text !== undefined) {
-      textContent = await downloadPart(client, uid, parts.text);
-    }
-    if (parts.html !== undefined) {
-      htmlContent = await downloadPart(client, uid, parts.html);
+    if (cached) {
+      textContent = cached.text;
+      htmlContent = cached.html; // déjà sanitizé lors de l'écriture
+    } else {
+      // Télécharge text/plain et text/html si trouvés.
+      if (parts.text !== undefined) {
+        textContent = await downloadPart(client, uid, parts.text);
+      }
+      if (parts.html !== undefined) {
+        htmlContent = await downloadPart(client, uid, parts.html);
+      }
     }
 
-    // Sanitize le HTML.
+    // Sanitize le HTML (déjà fait en cache, mais coût négligeable et défense en profondeur).
     const sanitizedHtml = htmlContent !== undefined ? sanitizeEmailHtml(htmlContent) : undefined;
+
+    // Écrit le corps en cache (best-effort, cap de taille).
+    if (!cached) {
+      writeBodyCache(accountId, folder, uid, textContent, sanitizedHtml).catch(() => {});
+    }
 
     // Parse les headers bruts (msg.headers est un Buffer contenant les headers RFC 822).
     const headers: Record<string, string> = {};
@@ -209,5 +228,57 @@ export async function fetchMessageDetail(
     };
   } finally {
     imapPool.release(accountId);
+  }
+}
+
+/** MongoDB connectée ? Le cache corps est ignoré si la base n'est pas dispo. */
+function dbReady(): boolean {
+  return mongoose.connection.readyState === 1;
+}
+
+/** Lit le cache corps pour un message. Null si absent ou DB indisponible. */
+async function readBodyCache(
+  accountId: string,
+  folder: string,
+  uid: number,
+): Promise<{ text?: string; html?: string } | null> {
+  if (!dbReady()) {
+    return null;
+  }
+  const doc = await MessageBodyModel.findOne({ accountId, folder, uid })
+    .select('text html')
+    .lean();
+  return doc ? { text: doc.text, html: doc.html } : null;
+}
+
+/**
+ * Écrit le cache corps pour un message (upsert). Best-effort :
+ * ignore les corps trop volumineux (> 2 Mo cumulés) et les erreurs.
+ */
+async function writeBodyCache(
+  accountId: string,
+  folder: string,
+  uid: number,
+  text?: string,
+  html?: string,
+): Promise<void> {
+  if (!dbReady()) {
+    return;
+  }
+  const totalSize = (text?.length ?? 0) + (html?.length ?? 0);
+  if (totalSize > MAX_CACHED_BODY_BYTES) {
+    return;
+  }
+  try {
+    await MessageBodyModel.updateOne(
+      { accountId, folder, uid },
+      { $set: { text, html, fetchedAt: new Date() } },
+      { upsert: true },
+    );
+  } catch (error) {
+    logger.warn(
+      { accountId, folder, uid, error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'Échec écriture cache corps (non bloquant)',
+    );
   }
 }

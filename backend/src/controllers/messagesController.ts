@@ -8,6 +8,7 @@ import { fetchMessageDetail } from '../services/email/messageFetchService.js';
 import { fetchAttachmentStream, fetchRawMessageStream } from '../services/email/attachmentService.js';
 import { sendEmail } from '../services/email/sendService.js';
 import { searchMessages } from '../services/email/searchService.js';
+import { importSearchResultsFromServer, shouldSearchServer } from '../services/email/imapSearchService.js';
 import { fetchMoreMessages } from '../services/email/fetchMoreService.js';
 import { getConversationThread } from '../services/email/threadService.js';
 import { sendReadReceipt } from '../services/email/receiptService.js';
@@ -19,6 +20,8 @@ import {
   batchAction,
 } from '../services/email/messageActionService.js';
 import { snoozeMessage } from '../services/email/snoozeService.js';
+import { folderExists } from '../services/email/folderService.js';
+import { logger } from '../config/logger.js';
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
@@ -33,6 +36,13 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
   const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
   if (!account) {
     throw AppError.notFound('Compte introuvable');
+  }
+
+  // Valide l'existence du dossier via le cache Folder (D10).
+  // Bypass : dossier virtuel 'Snoozed' et requêtes filtrées par tag (folder libre).
+  // Si le cache n'est pas peuplé, folderExists dégrade en permissif.
+  if (folder && folder !== 'Snoozed' && !(await folderExists(account, folder))) {
+    throw AppError.notFound('Dossier introuvable');
   }
 
   const filter: Record<string, unknown> = { accountId };
@@ -73,8 +83,31 @@ export const search = asyncHandler(async (req: AuthenticatedRequest, res: Respon
     throw AppError.notFound('Compte introuvable');
   }
 
-  const result = await searchMessages(account, req.query as never);
-  res.status(200).json(result);
+  const query = req.query as never as Parameters<typeof searchMessages>[1];
+  const result = await searchMessages(account, query);
+
+  // Fallback automatique : si les résultats locaux sont insuffisants,
+  // on interroge le serveur IMAP (messages au-delà du périmètre synchronisé),
+  // on importe les envelopes en base puis on rejoue la requête locale.
+  if (shouldSearchServer(query, result.total)) {
+    try {
+      const imported = await importSearchResultsFromServer(account, query);
+      if (imported > 0) {
+        const refreshed = await searchMessages(account, query);
+        res.status(200).json({ ...refreshed, source: 'server' });
+        return;
+      }
+    } catch (error) {
+      // Repli gracieux sur les résultats locaux — une panne IMAP ne doit
+      // pas faire échouer la recherche.
+      logger.warn(
+        { accountId, error: error instanceof Error ? error.message : 'erreur inconnue' },
+        'Recherche serveur échouée, repli sur les résultats locaux',
+      );
+    }
+  }
+
+  res.status(200).json({ ...result, source: 'local' });
 });
 
 export const getOne = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {

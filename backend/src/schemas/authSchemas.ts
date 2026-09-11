@@ -42,6 +42,7 @@ export const updatePreferencesSchema = z.object({
     .min(0, 'Le délai minimum est 0 seconde')
     .max(30, 'Le délai maximum est 30 secondes')
     .optional(),
+  autoAddContacts: z.boolean().optional(),
 });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 

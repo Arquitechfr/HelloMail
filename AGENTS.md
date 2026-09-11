@@ -23,6 +23,7 @@ pnpm --filter backend dev:worker    # Démarre le sync worker (tsx watch)
 pnpm --filter frontend dev          # Démarre le frontend (next dev, port 3000)
 pnpm --filter frontend build        # Build production Next.js
 pnpm --filter frontend lint         # ESLint frontend
+pnpm --filter frontend test         # Tests Vitest frontend (Testing Library + jsdom)
 pnpm --filter frontend typecheck    # tsc --noEmit frontend
 ```
 
@@ -68,3 +69,13 @@ HelloMail/
   - **Lot 9.5** : Système de Logos Logo.dev (Endpoint `https://img.logo.dev/:domain` proxifié côté backend `/api/logos/:domain`, format PNG transparent, résolution retina 128px, fallback 404, cache bi-niveau mémoire in-process + Redis 7 jours, composant unifié `EmailAvatar` avec repli instantané sur les initiales, appliqué à la liste d'emails `MessageListItem`, au header utilisateur `UserDropdown`, aux comptes `AccountItem`, aux réglages `SettingsAccountsSection`, au lecteur `MessageMetadataHeader` et aux contacts `ContactsManager`, 0 clé exposée côté frontend).
   - **Lot 9.6** : Contenu prédéfini (presets) — seed automatique à l'inscription et lazy au login/refresh pour les comptes existants (flag `defaultsSeededAt` sur `User`, jamais re-semé après suppression). 8 libellés colorés, 4 règles de tri actives à actions sûres (`applyTag`/`markAsRead`/`markAsFlagged`), 6 modèles d'emails FR avec raccourcis. Champ `isPreset` sur `Tag`/`Rule`/`Template` + badge « Prédéfini » dans `TagManager`, `RulesList` et `TemplateManager`.
   - Couverture : **422 tests Vitest, 45 fichiers, 0 `as any`**.
+- **Phase 10 : Durcissement post-audit (Intégralité livrée)** ✅ :
+  - Sync des comptes OAuth dans `accountRegistry` (tous providers), parser `/send` 30 Mo monté avant le global (erreurs body-parser → 413), logger pino partout dans le worker.
+  - **Lock distribué Redis** (`syncLock.ts`) : `SET NX PX` + token propriétaire + renouvellement de bail + arrêt auto si lock perdu + fail-open si Redis down ; intégré au cycle de vie `accountRegistry`.
+  - **Heartbeat worker** : clé Redis TTL 90 s écrite toutes les 30 s par `worker.ts` ; `/api/health` expose `services.worker` (`running`/`stale`/`unknown`, 503 si stale).
+  - **Cache `Folder` en base** (TTL 5 min, invalidation CRUD, refresh par le worker) + validation d'existence du `folder` dans `messagesController.list` (404 si inconnu, bypass `Snoozed`).
+  - **Recherche IMAP serveur** en fallback automatique (`imapSearchService` — critères SEARCH, import PEEK borné à 200 UID, repli sans `TEXT`, fusion via re-requête locale) + badge "serveur" dans `SearchBar`/`GlobalSearchDialog`.
+  - **QRESYNC delta sync** : modèle `FolderSyncState` (uidValidity + highestModseq), `changedSince` dans `runInitialSyncForFolder`, purge sur changement d'UIDVALIDITY, fallback sync classique.
+  - **Sync expéditeurs → contacts** : préférence opt-in `autoAddContacts` (`PATCH /api/auth/preferences`), `addSenderContactIfEnabled` dans `idleLoop` (best-effort), toggle `AutoContactsSettings`.
+  - **Cache corps de messages** : modèle `MessageBody` (TTL 30 j, cap 2 Mo, purge sur delete/move/expunge) intégré à `messageFetchService`.
+  - **Socle de tests frontend** : Vitest + Testing Library + jsdom (`pnpm --filter frontend test`), stub lucide-react, 27 tests (stores, utils, SearchBar, AutoContactsSettings).
