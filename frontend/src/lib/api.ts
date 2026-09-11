@@ -24,7 +24,7 @@ let refreshPromise: Promise<string | null> | null = null;
  * La Route Handler forward le cookie httpOnly vers le backend.
  * Retourne le nouvel access token ou null si échec.
  */
-async function refreshToken(): Promise<string | null> {
+export async function refreshToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
@@ -111,8 +111,12 @@ async function parseResponse<T>(res: Response): Promise<T> {
   const body = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    const errorBody = body as ApiErrorBody;
-    throw new ApiError(res.status, errorBody?.message ?? "Erreur inconnue", errorBody?.fieldErrors);
+    const errorBody = body as ApiErrorBody | null;
+    // Le backend renvoie { error: { message, details } } — fallback sur la
+    // shape plate { message, fieldErrors } pour compatibilité.
+    const message = errorBody?.error?.message ?? errorBody?.message ?? "Erreur inconnue";
+    const fieldErrors = errorBody?.error?.details ?? errorBody?.fieldErrors;
+    throw new ApiError(res.status, message, fieldErrors);
   }
 
   return body as T;

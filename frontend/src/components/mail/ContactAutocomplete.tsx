@@ -26,7 +26,22 @@ export function ContactAutocomplete({
 
   // Extrait le dernier fragment en cours de saisie (après la dernière virgule).
   const lastFragment = value.split(",").pop()?.trim() ?? "";
-  const { data } = useSearchContacts(lastFragment, showSuggestions && lastFragment.length >= 2);
+  const [debouncedFragment, setDebouncedFragment] = useState(lastFragment);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce 300ms — évite une requête /api/contacts/search par frappe.
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedFragment(lastFragment), 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [lastFragment]);
+
+  const { data } = useSearchContacts(
+    debouncedFragment,
+    showSuggestions && debouncedFragment.length >= 2,
+  );
 
   const suggestions = data?.contacts ?? [];
 

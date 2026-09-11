@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { refreshToken } from "@/lib/api";
 import { playNotificationSound, showDesktopNotification } from "@/lib/notifications";
 import { toast } from "sonner";
 import type { RealtimeEvent } from "@/lib/api-types";
@@ -11,6 +12,20 @@ import type { RealtimeEvent } from "@/lib/api-types";
 const MAX_RECONNECTS = 10;
 const BASE_DELAY = 1000;
 const MAX_DELAY = 30000;
+
+/**
+ * Détecte un JWT expiré ou sur le point d'expirer (skew 30s).
+ * L'access token a une durée de vie courte (~15 min) : une connexion SSE qui
+ * survit à son token ne peut plus se reconnecter sans refresh préalable.
+ */
+export function isTokenExpiredOrExpiring(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1])) as { exp?: number };
+    return typeof payload.exp !== "number" || payload.exp * 1000 < Date.now() + 30_000;
+  } catch {
+    return true;
+  }
+}
 
 /**
  * Hook SSE — connexion temps réel vers /api/events?token=<accessToken>.
@@ -93,6 +108,14 @@ export function useSSE(enabled: boolean) {
         es.close();
 
         if (cancelled) return;
+
+        // Token expiré (ex. onglet ouvert > 15 min) : le refresh met à jour le
+        // store, ce qui relance cet effet avec le nouveau token — pas de timer.
+        const currentToken = useAuthStore.getState().accessToken;
+        if (currentToken && isTokenExpiredOrExpiring(currentToken)) {
+          void refreshToken();
+          return;
+        }
 
         if (reconnectCountRef.current >= MAX_RECONNECTS) {
           toast.error("Reconnexion temps réel impossible, rechargez la page");

@@ -7,7 +7,9 @@ import { logger } from '../config/logger.js';
 /**
  * Endpoint SSE (Server-Sent Events) pour les notifications temps réel.
  *
- * - Headers SSE : text/event-stream, no-cache, keep-alive.
+ * - Headers SSE : text/event-stream, no-cache/no-transform, X-Accel-Buffering.
+ *   NB : pas de `Connection: keep-alive` manuel — header hop-by-hop interdit en
+ *   HTTP/2 (RFC 9113 §8.2.2), Node gère déjà le keep-alive en HTTP/1.1.
  * - Heartbeat toutes les 30s pour maintenir la connexion.
  * - Souscrit aux événements de l'utilisateur authentifié.
  * - Cleanup sur déconnexion du client (req.on('close')).
@@ -18,8 +20,7 @@ export const eventsController = {
   sseStream: asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     // Headers SSE.
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 

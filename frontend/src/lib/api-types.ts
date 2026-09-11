@@ -410,7 +410,11 @@ export interface RealtimeEvent {
 // --- Erreurs API ---
 
 export interface ApiErrorBody {
-  message: string;
+  error?: {
+    message: string;
+    details?: Record<string, string[]>;
+  };
+  message?: string;
   fieldErrors?: Record<string, string[]>;
 }
 

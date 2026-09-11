@@ -184,6 +184,26 @@ export async function sendEmail(
       rejected: info.rejected as string[],
     };
   } catch (error) {
+    // Loggue le détail nodemailer (code, responseCode, response, command) pour
+    // permettre le diagnostic en production — le client ne reçoit que message.
+    const smtpError = error as NodeJS.ErrnoException & {
+      code?: string;
+      responseCode?: number;
+      response?: string;
+      command?: string;
+    };
+    logger.error(
+      {
+        accountId,
+        smtpHost: account.imapConfig.smtpHost,
+        smtpCode: smtpError?.code,
+        smtpResponseCode: smtpError?.responseCode,
+        smtpResponse: smtpError?.response,
+        smtpCommand: smtpError?.command,
+        error: error instanceof Error ? error.message : 'erreur inconnue',
+      },
+      'Envoi SMTP échoué',
+    );
     throw AppError.unprocessable(
       `Envoi SMTP échoué : ${error instanceof Error ? error.message : 'erreur inconnue'}`,
     );

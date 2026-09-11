@@ -11,10 +11,11 @@ export const RATE_LIMIT_AUTH_MAX = env.NODE_ENV === 'production' ? 10 : 100;
 // --- Rate limit global (Phase 5) ---
 
 /** Fenêtre du rate limit global (ms). */
-export const RATE_LIMIT_GLOBAL_WINDOW_MS = 15 * 60 * 1000;
+export const RATE_LIMIT_GLOBAL_WINDOW_MS = env.RATE_LIMIT_GLOBAL_WINDOW_MS ?? 60_000;
 
 /** Nombre max de requêtes par fenêtre par IP (global). */
-export const RATE_LIMIT_GLOBAL_MAX = env.NODE_ENV === 'production' ? 100 : 1000;
+export const RATE_LIMIT_GLOBAL_MAX =
+  env.RATE_LIMIT_GLOBAL_MAX ?? (env.NODE_ENV === 'production' ? 300 : 1000);
 
 // --- Sync worker (Phase 2) ---
 

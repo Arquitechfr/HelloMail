@@ -17,6 +17,20 @@ import {
 /** Bypass commun pour tous les limiters en mode test. */
 const skipInTest = (): boolean => env.NODE_ENV === 'test';
 
+/**
+ * Routes exemptées du rate limit global : sondes techniques et connexion SSE
+ * longue durée (les reconnexions EventSource ne doivent pas consommer le quota).
+ * `path` est relatif au point de montage `/api`.
+ */
+const GLOBAL_LIMIT_EXEMPT_PATHS = new Set(['/health', '/metrics', '/events']);
+
+/** Prédicat pur : true si le path (relatif à /api) est exempté du rate limit global. */
+export const isGlobalExemptPath = (path: string): boolean =>
+  GLOBAL_LIMIT_EXEMPT_PATHS.has(path);
+
+const skipGlobalExempt = (req: Request): boolean =>
+  skipInTest() || isGlobalExemptPath(req.path);
+
 let redisRateLimitClient: Redis | null = null;
 
 /**
@@ -51,16 +65,18 @@ function getRedisStore(prefix: string) {
 }
 
 /** Handler commun : lève une AppError tooManyRequests au lieu de la réponse par défaut. */
-function createHandler(message?: string) {
+export function createHandler(windowMs: number, message?: string) {
   return (req: Request, res: Response, next: NextFunction, _options: unknown): void => {
-    const retryAfter = Math.ceil(RATE_LIMIT_AUTH_WINDOW_MS / 1000);
+    const retryAfter = Math.ceil(windowMs / 1000);
     res.set('Retry-After', String(retryAfter));
     next(message ? AppError.tooManyRequests(message) : AppError.tooManyRequests());
   };
 }
 
 /**
- * Rate limit global sur toute l'API — 100 req/15 min/IP.
+ * Rate limit global sur toute l'API — 300 req/min/IP par défaut en production
+ * (surchargeable via RATE_LIMIT_GLOBAL_MAX / RATE_LIMIT_GLOBAL_WINDOW_MS).
+ * Exempte /api/health, /api/metrics et /api/events (sondes + SSE).
  * Utilise RedisStore pour supporter le clustering multi-instances.
  */
 export const globalRateLimit = rateLimit({
@@ -68,9 +84,9 @@ export const globalRateLimit = rateLimit({
   max: RATE_LIMIT_GLOBAL_MAX,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: skipInTest,
+  skip: skipGlobalExempt,
   store: getRedisStore('global'),
-  handler: createHandler() as never,
+  handler: createHandler(RATE_LIMIT_GLOBAL_WINDOW_MS) as never,
 });
 
 /**
@@ -83,7 +99,7 @@ export const authRateLimit = rateLimit({
   legacyHeaders: false,
   skip: skipInTest,
   store: getRedisStore('auth'),
-  handler: createHandler() as never,
+  handler: createHandler(RATE_LIMIT_AUTH_WINDOW_MS) as never,
 });
 
 /**
@@ -96,5 +112,5 @@ export const sendRateLimit = rateLimit({
   legacyHeaders: false,
   skip: skipInTest,
   store: getRedisStore('send'),
-  handler: createHandler('Trop d\'envois, réessayez dans quelques minutes') as never,
+  handler: createHandler(SEND_RATE_LIMIT_WINDOW_MS, 'Trop d\'envois, réessayez dans quelques minutes') as never,
 });

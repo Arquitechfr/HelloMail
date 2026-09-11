@@ -54,7 +54,8 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 
-  // Rate limit global sur l'API (100 req/15 min/IP). Bypass en mode test.
+  // Rate limit global sur l'API (300 req/min/IP par défaut, configurable via
+  // RATE_LIMIT_GLOBAL_*). Exempte /api/health, /api/metrics et /api/events.
   app.use('/api', globalRateLimit);
   app.use(metricsMiddleware);
 

@@ -28,6 +28,9 @@ const envSchema = z.object({
         .min(1, 'FRONTEND_URL doit contenir au moins une URL'),
     ),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // --- Rate limit global — optionnel, override possible sans rebuild ---
+  RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().optional(),
+  RATE_LIMIT_GLOBAL_WINDOW_MS: z.coerce.number().int().positive().optional(),
   REDIS_HOST: z.string().min(1, 'REDIS_HOST est requis'),
   REDIS_PORT: z.coerce.number().int().min(1).max(65535).default(6379),
   REDIS_PASSWORD: z.string().optional(),
