@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useContacts, useCreateContact, useDeleteContact } from "@/lib/queries/contacts";
+import { useContacts, useCreateContact, useDeleteContact, downloadContactsExport } from "@/lib/queries/contacts";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2, Users, Mail, Phone, Send } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ContactImportDialog } from "./ContactImportDialog";
+import { Loader2, Plus, Trash2, Users, Mail, Phone, Send, Download, Upload, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+
 
 export function ContactsManager() {
   const router = useRouter();
@@ -27,9 +35,23 @@ export function ContactsManager() {
   const deleteContact = useDeleteContact();
 
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  const handleExport = async (format: "vcf" | "csv") => {
+    try {
+      setIsExporting(true);
+      await downloadContactsExport(format);
+      toast.success(`Export ${format.toUpperCase()} téléchargé`);
+    } catch {
+      toast.error("Erreur lors de l'export des contacts");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,11 +93,43 @@ export function ContactsManager() {
             {contacts?.length ?? 0} contact(s)
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus className="size-4" />
-          Ajouter
-        </Button>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={isExporting || contacts.length === 0}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md text-xs font-medium border border-border bg-background px-3 py-1.5 shadow-xs hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:pointer-events-none cursor-pointer transition-colors"
+            >
+              {isExporting ? (
+                <Loader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <Download className="size-3.5 mr-1" />
+              )}
+              Exporter
+              <ChevronDown className="size-3.5 ml-0.5 opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport("vcf")}>
+                Format vCard (.vcf)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("csv")}>
+                Format CSV (.csv)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+
+          <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
+            <Upload className="size-3.5 mr-1.5" />
+            Importer
+          </Button>
+
+          <Button size="sm" onClick={() => setShowAdd(true)}>
+            <Plus className="size-4 mr-1.5" />
+            Ajouter
+          </Button>
+        </div>
       </div>
+
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -184,6 +238,9 @@ export function ContactsManager() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ContactImportDialog open={showImport} onOpenChange={setShowImport} />
     </div>
   );
 }
+

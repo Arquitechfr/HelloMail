@@ -22,6 +22,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { key: "C", description: "Rédiger un nouvel email" },
       { key: "R", description: "Répondre à l'email affiché" },
+      { key: "Shift + R", description: "Répondre à tous les destinataires" },
       { key: "F", description: "Transférer l'email affiché" },
       { key: "Z", description: "Annuler l'envoi en cours (Undo Send)" },
       { key: "P", description: "Imprimer l'email affiché" },
@@ -29,12 +30,13 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
-    title: "Tri & Organisation",
+    title: "Tri & Actions rapides sur les emails",
     items: [
+      { key: "U", description: "Bascule lu / non lu" },
       { key: "S", description: "Marquer comme important (étoile)" },
       { key: "E", description: "Archiver le message" },
       { key: "!", description: "Signaler comme spam / indésirable" },
-      { key: "#", description: "Supprimer définitivement / corbeille" },
+      { key: "Suppr / #", description: "Supprimer le message" },
     ],
   },
   {
@@ -45,7 +47,16 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "?", description: "Afficher cette aide des raccourcis" },
     ],
   },
+  {
+    title: "Gestion des dossiers",
+    items: [
+      { key: "Shift + N", description: "Créer un sous-dossier dans le dossier actif" },
+      { key: "F2", description: "Renommer le dossier actif" },
+      { key: "Suppr", description: "Supprimer le dossier actif (si personnalisable)" },
+    ],
+  },
 ];
+
 
 export function KeyboardShortcutsDialog() {
   const {

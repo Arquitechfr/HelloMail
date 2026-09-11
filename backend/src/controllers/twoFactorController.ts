@@ -15,6 +15,8 @@ import {
   generateWebAuthnLogin,
   verifyWebAuthnLogin,
 } from '../services/auth/webauthnService.js';
+import { AuthService } from '../services/auth/authService.js';
+import { setRefreshCookie } from '../utils/cookieHelpers.js';
 
 /**
  * GET /api/auth/2fa/status — retourne l'état 2FA de l'utilisateur.
@@ -133,6 +135,10 @@ export const webauthnLoginFinish = asyncHandler(async (req: Request, res: Respon
     throw AppError.badRequest('2FA non activée pour cet utilisateur');
   }
   await verifyWebAuthnLogin(user, response);
-  // TODO: générer les tokens complets après login WebAuthn
-  res.status(200).json({ verified: true });
+  const tokenPair = await AuthService.completeWebAuthnLogin(user);
+  setRefreshCookie(res, tokenPair.refreshToken);
+  res.status(200).json({
+    accessToken: tokenPair.accessToken,
+    user: tokenPair.user,
+  });
 });

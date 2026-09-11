@@ -3,23 +3,41 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useLogin, useVerify2FA } from "@/lib/queries/auth";
+import { useLogin, useVerify2FA, useWebAuthnLogin } from "@/lib/queries/auth";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlassPanel } from "@/components/mail/GlassPanel";
-import { Mail, Loader2, ShieldCheck } from "lucide-react";
+import { Mail, Loader2, ShieldCheck, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 export function LoginForm() {
   const router = useRouter();
   const login = useLogin();
   const verify2FA = useVerify2FA();
+  const webauthnLogin = useWebAuthnLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [twoFactorTempToken, setTwoFactorTempToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
+
+  const handleWebAuthnLogin = async () => {
+    if (!email.trim()) {
+      toast.error("Veuillez renseigner votre email pour utiliser une Passkey");
+      return;
+    }
+    webauthnLogin.mutate(email.trim(), {
+      onSuccess: () => {
+        toast.success("Connexion par clé de sécurité réussie");
+        router.replace("/mail");
+      },
+      onError: (err) => {
+        if (err instanceof ApiError) toast.error(err.message);
+        else toast.error("Échec de la connexion par clé de sécurité");
+      },
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,8 +166,32 @@ export function LoginForm() {
           />
         </div>
 
-        <Button type="submit" disabled={login.isPending} className="mt-2 h-10">
+        <Button type="submit" disabled={login.isPending || webauthnLogin.isPending} className="mt-2 h-10">
           {login.isPending ? <Loader2 className="size-4 animate-spin" /> : "Se connecter"}
+        </Button>
+
+        <div className="relative my-1">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">Ou</span>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleWebAuthnLogin}
+          disabled={webauthnLogin.isPending || login.isPending}
+          className="h-10"
+        >
+          {webauthnLogin.isPending ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <KeyRound className="mr-2 size-4" />
+          )}
+          Se connecter avec une Passkey
         </Button>
       </form>
 

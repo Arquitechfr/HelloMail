@@ -105,7 +105,13 @@ export function ComposePanel() {
         <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-2.5 bg-muted/30 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <h2 className="text-sm font-bold tracking-tight font-display text-foreground truncate">
-              {composeMode === "reply" ? "Répondre" : composeMode === "forward" ? "Transférer" : "Nouveau message"}
+              {draftUid
+                ? "Modifier le brouillon"
+                : composeMode === "reply"
+                  ? "Répondre"
+                  : composeMode === "forward"
+                    ? "Transférer"
+                    : "Nouveau message"}
             </h2>
 
             {/* Statut de sauvegarde du brouillon */}

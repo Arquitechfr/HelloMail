@@ -83,6 +83,14 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
+  /**
+   * Finalise la connexion WebAuthn en semant les presets par défaut et en générant les tokens complets.
+   */
+  static async completeWebAuthnLogin(user: IUserDocument): Promise<TokenPair> {
+    await seedUserDefaults(user._id);
+    return this.generateTokens(user);
+  }
+
   static async refreshTokens(rawRefreshToken: string): Promise<TokenPair> {
     let decoded: { sub: string; tokenId: string };
 

@@ -6,6 +6,7 @@ import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { logger } from '../../config/logger.js';
+import { parseICalendar, type CalendarEventInfo } from './calendarService.js';
 
 /** Taille max cumulée (texte + html) stockée en cache — ~2 Mo. */
 const MAX_CACHED_BODY_BYTES = 2 * 1024 * 1024;
@@ -34,13 +35,16 @@ export interface MessageDetail {
   size: number;
   attachments: AttachmentInfo[];
   readReceiptRequestedTo?: string;
+  calendarEvent?: CalendarEventInfo;
 }
 
 interface ParsedParts {
   text?: string;
   html?: string;
+  calendar?: string;
   attachments: AttachmentInfo[];
 }
+
 
 /**
  * Parcourt récursivement le bodyStructure pour :
@@ -66,15 +70,22 @@ function parseBodyStructure(
       parts.text = part;
     } else if (type === 'text/html' && parts.html === undefined) {
       parts.html = part;
+    } else if (type === 'text/calendar' && parts.calendar === undefined) {
+      parts.calendar = part;
     } else if (node.part && node.disposition === 'attachment') {
+      const filename = node.dispositionParameters?.filename ?? node.parameters?.name ?? 'sans-nom';
+      if (parts.calendar === undefined && (type === 'text/calendar' || filename.toLowerCase().endsWith('.ics'))) {
+        parts.calendar = node.part;
+      }
       parts.attachments.push({
-        filename: node.dispositionParameters?.filename ?? node.parameters?.name ?? 'sans-nom',
+        filename,
         contentType: node.type,
         size: node.size ?? 0,
         part: node.part,
         disposition: 'attachment',
       });
     } else if (node.part && node.disposition === 'inline' && node.id) {
+
       parts.attachments.push({
         filename: node.dispositionParameters?.filename ?? node.parameters?.name ?? 'inline',
         contentType: node.type,
@@ -174,6 +185,16 @@ export async function fetchMessageDetail(
       writeBodyCache(accountId, folder, uid, textContent, sanitizedHtml).catch(() => {});
     }
 
+    let calendarEvent: CalendarEventInfo | undefined;
+    if (parts.calendar !== undefined) {
+      try {
+        const rawCal = await downloadPart(client, uid, parts.calendar);
+        calendarEvent = parseICalendar(rawCal) ?? undefined;
+      } catch {
+        // parsing calendar optionnel
+      }
+    }
+
     // Parse les headers bruts (msg.headers est un Buffer contenant les headers RFC 822).
     const headers: Record<string, string> = {};
     if (msg.headers && Buffer.isBuffer(msg.headers)) {
@@ -225,10 +246,12 @@ export async function fetchMessageDetail(
       size: msg.size ?? 0,
       attachments: parts.attachments,
       readReceiptRequestedTo: headers['disposition-notification-to'],
+      calendarEvent,
     };
   } finally {
     imapPool.release(accountId);
   }
+
 }
 
 /** MongoDB connectée ? Le cache corps est ignoré si la base n'est pas dispo. */

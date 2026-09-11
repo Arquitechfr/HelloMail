@@ -6,6 +6,7 @@ import {
   useSetupTOTP,
   useEnableTOTP,
   useDisable2FA,
+  useWebAuthnRegister,
 } from "@/lib/queries/auth";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,18 @@ export function TwoFactorSettings() {
   const setupTOTP = useSetupTOTP();
   const enableTOTP = useEnableTOTP();
   const disable2FA = useDisable2FA();
+  const webauthnRegister = useWebAuthnRegister();
+
+  const handleRegisterPasskey = () => {
+    webauthnRegister.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Clé de sécurité (Passkey) enregistrée avec succès");
+      },
+      onError: (err) => {
+        toast.error(err instanceof ApiError ? err.message : "Échec de l'enregistrement de la Passkey");
+      },
+    });
+  };
 
   const [step, setStep] = useState<"idle" | "qr" | "verify">("idle");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
@@ -196,19 +209,47 @@ export function TwoFactorSettings() {
 
       {/* Boutons d'action */}
       {step === "idle" && !backupCodes && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {enabled ? (
-            <Button
-              variant="outline"
-              onClick={() => setShowDisableDialog(true)}
-              className="text-destructive"
-            >
-              Désactiver la 2FA
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={handleRegisterPasskey}
+                disabled={webauthnRegister.isPending}
+              >
+                {webauthnRegister.isPending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <KeyRound className="mr-2 size-4" />
+                )}
+                Ajouter une Passkey
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowDisableDialog(true)}
+                className="text-destructive"
+              >
+                Désactiver la 2FA
+              </Button>
+            </>
           ) : (
-            <Button onClick={handleSetup} disabled={setupTOTP.isPending}>
-              {setupTOTP.isPending ? <Loader2 className="size-4 animate-spin" /> : "Activer la 2FA"}
-            </Button>
+            <>
+              <Button onClick={handleSetup} disabled={setupTOTP.isPending}>
+                {setupTOTP.isPending ? <Loader2 className="size-4 animate-spin" /> : "Activer via TOTP"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRegisterPasskey}
+                disabled={webauthnRegister.isPending}
+              >
+                {webauthnRegister.isPending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <KeyRound className="mr-2 size-4" />
+                )}
+                Activer avec une Passkey
+              </Button>
+            </>
           )}
         </div>
       )}

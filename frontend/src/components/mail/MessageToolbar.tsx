@@ -11,6 +11,7 @@ import {
   Trash2,
   Printer,
   Download,
+  Pencil,
 } from "lucide-react";
 import { SnoozeDropdown } from "@/components/mail/SnoozeDropdown";
 
@@ -20,6 +21,8 @@ interface MessageToolbarProps {
   uid: number;
   isFlagged: boolean;
   isSnoozed?: boolean;
+  isDraft?: boolean;
+  onEditDraft?: () => void;
   onBack: () => void;
   onReply: () => void;
   onForward: () => void;
@@ -39,6 +42,8 @@ export function MessageToolbar({
   uid,
   isFlagged,
   isSnoozed = false,
+  isDraft = false,
+  onEditDraft,
   onBack,
   onReply,
   onForward,
@@ -64,34 +69,67 @@ export function MessageToolbar({
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={onReply} title="Répondre (R)">
-          <Reply className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon-sm" onClick={onForward} title="Transférer (F)">
-          <Forward className="size-4" />
-        </Button>
-        <div className="mx-1 h-4 w-px bg-border" />
+
+        {isDraft ? (
+          onEditDraft && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onEditDraft}
+              title="Modifier le brouillon (E)"
+              className="gap-1.5 h-7 px-2.5 text-xs font-medium cursor-pointer mr-1 shadow-xs"
+            >
+              <Pencil className="size-3.5" />
+              <span>Modifier le brouillon</span>
+            </Button>
+          )
+        ) : (
+          <>
+            <Button variant="ghost" size="icon-sm" onClick={onReply} title="Répondre (R)">
+              <Reply className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={onForward} title="Transférer (F)">
+              <Forward className="size-4" />
+            </Button>
+            <div className="mx-1 h-4 w-px bg-border" />
+          </>
+        )}
+
         <Button variant="ghost" size="icon-sm" onClick={onToggleFlag} title="Marquer comme important (S)">
           <Star
             className={isFlagged ? "size-4 fill-amber-400 text-amber-400" : "size-4"}
           />
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={onArchive} title="Archiver (E)">
-          <Archive className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon-sm" onClick={onMarkJunk} title="Marquer comme spam (!)">
-          <Ban className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon-sm" onClick={onDelete} title="Supprimer (Suppr)">
+
+        {!isDraft && (
+          <>
+            <Button variant="ghost" size="icon-sm" onClick={onArchive} title="Archiver (E)">
+              <Archive className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={onMarkJunk} title="Marquer comme spam (!)">
+              <Ban className="size-4" />
+            </Button>
+          </>
+        )}
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onDelete}
+          title={isDraft ? "Supprimer le brouillon (Suppr)" : "Supprimer (Suppr)"}
+        >
           <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
         </Button>
-        <SnoozeDropdown
-          accountId={accountId}
-          folder={folder}
-          uid={uid}
-          isSnoozed={isSnoozed}
-          onSnoozed={onSnoozed}
-        />
+
+        {!isDraft && (
+          <SnoozeDropdown
+            accountId={accountId}
+            folder={folder}
+            uid={uid}
+            isSnoozed={isSnoozed}
+            onSnoozed={onSnoozed}
+          />
+        )}
 
         {children}
 

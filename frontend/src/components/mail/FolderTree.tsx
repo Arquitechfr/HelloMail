@@ -1,64 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFolders } from "@/lib/queries/folders";
 import { cn } from "@/lib/utils";
+import { isProtectedFolder } from "@/lib/folder-utils";
 import type { FolderInfo } from "@/lib/api-types";
-import {
-  Inbox,
-  Send,
-  FileText,
-  Trash2,
-  Star,
-  Archive,
-  Folder as FolderIconBase,
-  ChevronRight,
-  ChevronDown,
-} from "lucide-react";
+import { FolderNodeItem, type FolderNode } from "./folders/FolderNodeItem";
+import { FolderFormDialog, type FolderFormDialogProps } from "./folders/FolderFormDialog";
+import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
+import { FolderPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface FolderTreeProps {
   accountId: string;
   selectedFolder: string;
   onSelectFolder: (path: string) => void;
-}
-
-/** Icône selon le specialUse du dossier. */
-function folderIconType(specialUse?: string) {
-  switch (specialUse) {
-    case "\\Inbox":
-      return "inbox" as const;
-    case "\\Sent":
-      return "sent" as const;
-    case "\\Drafts":
-      return "drafts" as const;
-    case "\\Trash":
-      return "trash" as const;
-    case "\\Junk":
-      return "junk" as const;
-    case "\\Flagged":
-      return "flagged" as const;
-    case "\\Archive":
-      return "archive" as const;
-    default:
-      return "folder" as const;
-  }
-}
-
-const iconMap = {
-  inbox: Inbox,
-  sent: Send,
-  drafts: FileText,
-  trash: Trash2,
-  junk: Star,
-  flagged: Star,
-  archive: Archive,
-  folder: FolderIconBase,
-} as const;
-
-function FolderIcon({ specialUse }: { specialUse?: string }) {
-  const Icon = iconMap[folderIconType(specialUse)];
-  return <Icon className="size-4 shrink-0 text-muted-foreground" />;
 }
 
 /** Construit une arborescence à partir de la liste plate des dossiers. */
@@ -87,82 +43,81 @@ function buildTree(folders: FolderInfo[]): FolderNode[] {
   return roots;
 }
 
-interface FolderNode extends FolderInfo {
-  children: FolderNode[];
-}
-
-function FolderNodeItem({
-  node,
-  depth,
-  selectedFolder,
-  onSelectFolder,
-}: {
-  node: FolderNode;
-  depth: number;
-  selectedFolder: string;
-  onSelectFolder: (path: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(depth === 0);
-  const isSelected = node.path === selectedFolder;
-  const hasChildren = node.children.length > 0;
-  const unseen = node.status?.unseen ?? 0;
-
-  return (
-    <div>
-      <div
-        className={cn(
-          "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer",
-          isSelected ? "bg-primary/15 text-primary font-medium" : "hover:bg-muted/50",
-        )}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        onClick={() => onSelectFolder(node.path)}
-      >
-        {hasChildren ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="shrink-0"
-          >
-            {expanded ? (
-              <ChevronDown className="size-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="size-3.5 text-muted-foreground" />
-            )}
-          </button>
-        ) : (
-          <span className="w-3.5 shrink-0" />
-        )}
-        <FolderIcon specialUse={node.specialUse} />
-        <span className="flex-1 truncate">{node.name}</span>
-        {unseen > 0 && (
-          <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">
-            {unseen}
-          </span>
-        )}
-      </div>
-
-      {expanded && hasChildren && (
-        <div>
-          {node.children.map((child) => (
-            <FolderNodeItem
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-              selectedFolder={selectedFolder}
-              onSelectFolder={onSelectFolder}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function FolderTree({ accountId, selectedFolder, onSelectFolder }: FolderTreeProps) {
   const { data: folders, isLoading, error } = useFolders(accountId);
+
+  const [formDialog, setFormDialog] = useState<{
+    open: boolean;
+    mode: FolderFormDialogProps["mode"];
+    parentFolder?: FolderInfo | null;
+    currentFolder?: FolderInfo | null;
+  }>({
+    open: false,
+    mode: "create",
+  });
+
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    folder: FolderInfo | null;
+  }>({
+    open: false,
+    folder: null,
+  });
+
+  const activeFolderObj = folders?.find((f) => f.path === selectedFolder);
+  const delimiter = folders?.[0]?.delimiter || "/";
+
+  // Raccourcis clavier (Shift+N sous-dossier, F2 renommer, Delete supprimer)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isElement = e.target instanceof Element;
+      const isInput =
+        isElement &&
+        (e.target.tagName === "INPUT" ||
+          e.target.tagName === "TEXTAREA" ||
+          (e.target as HTMLElement).isContentEditable ||
+          Boolean(e.target.closest(".tiptap")) ||
+          Boolean(e.target.closest("[contenteditable='true']")));
+
+      if (isInput) return;
+
+      const hasModal = !!document.querySelector(
+        "[data-slot='dialog-content'], [role='dialog']",
+      );
+      if (hasModal) return;
+
+      if ((e.key === "N" || e.key === "n") && e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        if (activeFolderObj) {
+          e.preventDefault();
+          setFormDialog({
+            open: true,
+            mode: "create-subfolder",
+            parentFolder: activeFolderObj,
+          });
+        }
+      } else if (e.key === "F2" && !e.metaKey && !e.ctrlKey) {
+        if (activeFolderObj && !isProtectedFolder(activeFolderObj)) {
+          e.preventDefault();
+          setFormDialog({
+            open: true,
+            mode: "rename",
+            currentFolder: activeFolderObj,
+          });
+        }
+      } else if ((e.key === "Delete" || e.key === "Del") && !e.metaKey && !e.ctrlKey) {
+        if (activeFolderObj && !isProtectedFolder(activeFolderObj)) {
+          e.preventDefault();
+          setDeleteDialog({
+            open: true,
+            folder: activeFolderObj,
+          });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeFolderObj]);
 
   if (isLoading) {
     return (
@@ -176,29 +131,81 @@ export function FolderTree({ accountId, selectedFolder, onSelectFolder }: Folder
 
   if (error) {
     return (
-      <div className="p-3 text-sm text-muted-foreground">
+      <div className="p-3 text-xs text-muted-foreground">
         Impossible de charger les dossiers
       </div>
     );
   }
 
   if (!folders || folders.length === 0) {
-    return <div className="p-3 text-sm text-muted-foreground">Aucun dossier</div>;
+    return <div className="p-3 text-xs text-muted-foreground">Aucun dossier</div>;
   }
 
   const tree = buildTree(folders);
 
   return (
     <div className="flex flex-col gap-0.5">
+      {/* En-tête dossiers avec bouton création racine */}
+      <div className="flex items-center justify-between px-2 py-1 mb-0.5">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Dossiers
+        </span>
+        <button
+          type="button"
+          onClick={() => setFormDialog({ open: true, mode: "create" })}
+          title="Nouveau dossier racine"
+          className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+          aria-label="Nouveau dossier racine"
+        >
+          <FolderPlus className="size-3.5" />
+        </button>
+      </div>
+
       {tree.map((node) => (
         <FolderNodeItem
           key={node.path}
           node={node}
           depth={0}
           selectedFolder={selectedFolder}
+          accountId={accountId}
           onSelectFolder={onSelectFolder}
+          onCreateSubfolder={(parent) =>
+            setFormDialog({ open: true, mode: "create-subfolder", parentFolder: parent })
+          }
+          onRename={(folder) =>
+            setFormDialog({ open: true, mode: "rename", currentFolder: folder })
+          }
+          onDelete={(folder) => setDeleteDialog({ open: true, folder })}
         />
       ))}
+
+      {/* Modale de formulaire (création / sous-dossier / renommage) */}
+      <FolderFormDialog
+        open={formDialog.open}
+        onOpenChange={(open) => setFormDialog((s) => ({ ...s, open }))}
+        mode={formDialog.mode}
+        accountId={accountId}
+        delimiter={delimiter}
+        parentFolder={formDialog.parentFolder}
+        currentFolder={formDialog.currentFolder}
+        onSuccess={(newPath) => {
+          onSelectFolder(newPath);
+        }}
+      />
+
+      {/* Modale de confirmation de suppression */}
+      <FolderDeleteDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog((s) => ({ ...s, open }))}
+        accountId={accountId}
+        folder={deleteDialog.folder}
+        onSuccess={() => {
+          if (deleteDialog.folder && selectedFolder === deleteDialog.folder.path) {
+            onSelectFolder("INBOX");
+          }
+        }}
+      />
     </div>
   );
 }
+

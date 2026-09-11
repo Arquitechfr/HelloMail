@@ -1,4 +1,5 @@
 import { ImapFlow } from 'imapflow';
+import mongoose from 'mongoose';
 import { logger } from '../../config/logger.js';
 import { POLLING_INTERVAL_MS, SYNC_BACKOFF_BASE_MS, SYNC_BACKOFF_MAX_MS } from '../../config/constants.js';
 import { runInitialSyncForFolder } from './initialSync.js';
@@ -12,19 +13,20 @@ import {
   findJunkFolder,
   findArchiveFolder,
 } from '../email/specialFolders.js';
+import { FolderModel } from '../../models/Folder.js';
 import type { IAccountDocument } from '../../models/Account.js';
 
 /**
  * 2e connexion IMAP read-only dédiée au polling périodique des dossiers
- * spéciaux (Sent, Drafts, Trash, Junk, Archive). L'IDLE INBOX reste sur la
- * connexion principale du SyncManager — cette 2e connexion évite toute
- * interférence (mailboxOpen change le dossier sélectionné d'ImapFlow).
+ * (Sent, Drafts, Trash, Junk, Archive ainsi que tous les dossiers personnalisés).
+ * L'IDLE INBOX reste sur la connexion principale du SyncManager — cette 2e connexion
+ * évite toute interférence (mailboxOpen change le dossier sélectionné d'ImapFlow).
  *
- * Toutes les POLLING_INTERVAL_MS (60s), parcourt les dossiers spéciaux :
+ * Toutes les POLLING_INTERVAL_MS (60s), parcourt les dossiers découverts :
  *   1. runInitialSyncForFolder (idempotent — ne re-sync que si count IMAP ≠ count DB)
  *   2. reconcileFolder (nettoie les messages supprimés distamment)
  *
- * Publie des événements SSE (message:new / message:deleted) si changements.
+ * Publie des événements SSE (message:new / message:deleted) ciblés par dossier.
  * Reconnexion automatique avec backoff si la connexion se ferme.
  */
 export async function startPollingSync(
@@ -100,7 +102,85 @@ async function connectPollingClient(account: IAccountDocument): Promise<ImapFlow
 }
 
 /**
- * Boucle de polling : parcourt les dossiers spéciaux toutes les POLLING_INTERVAL_MS.
+ * Découvre la liste de tous les dossiers à poller :
+ * 1. Les dossiers spéciaux résolus via specialFolders.ts
+ * 2. Les dossiers personnalisés découverts via client.list() si disponible
+ * 3. Les dossiers en cache dans la collection Folder
+ * Exclut systématiquement INBOX (géré par IDLE) et les dossiers \Noselect.
+ */
+async function getFoldersToPoll(
+  client: ImapFlow,
+  account: IAccountDocument,
+): Promise<string[]> {
+  const folders = new Set<string>();
+
+  // 1. Dossiers spéciaux
+  const specialResolvers = [
+    findSentFolder,
+    findDraftsFolder,
+    findTrashFolder,
+    findJunkFolder,
+    findArchiveFolder,
+  ];
+
+  for (const resolver of specialResolvers) {
+    try {
+      const path = await resolver(account);
+      if (path && path.toUpperCase() !== 'INBOX') {
+        folders.add(path);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Découverte dynamique via client.list() si supporté
+  try {
+    if (typeof client.list === 'function') {
+      const list = await client.list();
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (!item.path || item.path.toUpperCase() === 'INBOX') continue;
+          const flags = item.flags;
+          const isNoSelect = flags && (
+            (flags instanceof Set && (flags.has('\\Noselect') || flags.has('\\NoSelect'))) ||
+            (Array.isArray(flags) && (flags.includes('\\Noselect') || flags.includes('\\NoSelect')))
+          );
+          if (!isNoSelect) {
+            folders.add(item.path);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logger.debug(
+      { accountId: String(account._id), error: error instanceof Error ? error.message : 'erreur inconnue' },
+      'client.list() non disponible ou en erreur dans pollingSync',
+    );
+  }
+
+  // 3. Complément depuis le cache Folder en base si MongoDB est connectée
+  try {
+    if (mongoose.connection.readyState === 1) {
+      const cached = await FolderModel.find({ accountId: account._id }).select('path flags').lean();
+      for (const f of cached) {
+        if (!f.path || f.path.toUpperCase() === 'INBOX') continue;
+        const flags = f.flags ?? [];
+        const isNoSelect = flags.includes('\\Noselect') || flags.includes('\\NoSelect');
+        if (!isNoSelect) {
+          folders.add(f.path);
+        }
+      }
+    }
+  } catch {
+    // Si la DB n'est pas dispo en mode test unitaire, on continue avec les dossiers spéciaux
+  }
+
+  return Array.from(folders);
+}
+
+/**
+ * Boucle de polling : parcourt les dossiers découverts toutes les POLLING_INTERVAL_MS.
  * Se termine quand stopSignal est aborté ou que la connexion se ferme/erre.
  */
 async function pollLoop(
@@ -111,56 +191,40 @@ async function pollLoop(
   stopSignal: AbortSignal,
 ): Promise<void> {
   while (!stopSignal.aborted) {
-    let syncedTotal = 0;
-    let deletedTotal = 0;
+    const folders = await getFoldersToPoll(client, account);
 
-    const specialFolders: Array<{ name: string; resolver: (a: IAccountDocument) => Promise<string | null> }> = [
-      { name: 'Sent', resolver: findSentFolder },
-      { name: 'Drafts', resolver: findDraftsFolder },
-      { name: 'Trash', resolver: findTrashFolder },
-      { name: 'Junk', resolver: findJunkFolder },
-      { name: 'Archive', resolver: findArchiveFolder },
-    ];
-
-    for (const { name, resolver } of specialFolders) {
+    for (const path of folders) {
       if (stopSignal.aborted) return;
 
       try {
-        const path = await resolver(account);
-        if (!path || path === 'INBOX') continue;
-
         // 1. Sync les nouveaux messages (idempotent).
         const synced = await runInitialSyncForFolder(client, accountId, path);
-        syncedTotal += synced;
+        if (synced > 0) {
+          publishEvent({
+            type: 'message:new',
+            accountId,
+            userId,
+            payload: { folder: path },
+          }).catch(() => {});
+        }
 
         // 2. Réconcilie les suppressions distantes (bornée aux UID connus).
         const deleted = await reconcileFolder(client, accountId, path);
-        deletedTotal += deleted;
+        if (deleted > 0) {
+          publishEvent({
+            type: 'message:deleted',
+            accountId,
+            userId,
+            payload: { folder: path },
+          }).catch(() => {});
+        }
       } catch (error) {
         // Une erreur sur un dossier ne stoppe pas le polling des autres.
         logger.warn(
-          { accountId, folder: name, error: error instanceof Error ? error.message : 'erreur inconnue' },
-          'Échec polling dossier spécial (non bloquant)',
+          { accountId, folder: path, error: error instanceof Error ? error.message : 'erreur inconnue' },
+          'Échec polling dossier (non bloquant)',
         );
       }
-    }
-
-    // Publie des événements SSE si des changements ont été détectés.
-    if (syncedTotal > 0) {
-      publishEvent({
-        type: 'message:new',
-        accountId,
-        userId,
-        payload: { folder: 'special' },
-      }).catch(() => {});
-    }
-    if (deletedTotal > 0) {
-      publishEvent({
-        type: 'message:deleted',
-        accountId,
-        userId,
-        payload: { folder: 'special' },
-      }).catch(() => {});
     }
 
     if (stopSignal.aborted) return;

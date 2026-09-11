@@ -5,6 +5,9 @@ import { FolderModel } from '../../models/Folder.js';
 import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { invalidateSpecialFolderCache } from './specialFolders.js';
+import { isProtectedFolder } from './folderProtection.js';
+
+export { isProtectedFolder };
 
 /** Durée de fraîcheur du cache Folder en base (5 min). */
 const FOLDER_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -190,6 +193,8 @@ export async function createFolder(account: IAccountDocument, path: string): Pro
   }
 }
 
+
+
 /**
  * Renomme un dossier IMAP.
  */
@@ -198,6 +203,13 @@ export async function renameFolder(
   path: string,
   newPath: string,
 ): Promise<void> {
+  if (isProtectedFolder(path)) {
+    throw AppError.forbidden(`Le dossier système « ${path} » est protégé et ne peut pas être renommé`);
+  }
+  if (isProtectedFolder(newPath)) {
+    throw AppError.forbidden(`Impossible de renommer vers un nom de dossier système protégé (« ${newPath} »)`);
+  }
+
   const accountId = String(account._id);
   const client = await imapPool.acquire(account);
 
@@ -206,7 +218,16 @@ export async function renameFolder(
     // Invalide les caches (le renommage peut affecter un dossier spécial).
     invalidateSpecialFolderCache(accountId);
     await invalidateFolderCache(accountId);
+
+    if (dbReady()) {
+      const { MessageModel } = await import('../../models/Message.js');
+      await MessageModel.updateMany(
+        { accountId: account._id, folder: path },
+        { $set: { folder: newPath } },
+      );
+    }
   } catch (error) {
+    if (error instanceof AppError) throw error;
     if (error instanceof Error && /not found|n'existe pas/i.test(error.message)) {
       throw AppError.notFound('Dossier introuvable');
     }
@@ -222,6 +243,10 @@ export async function renameFolder(
  * Supprime un dossier IMAP.
  */
 export async function deleteFolder(account: IAccountDocument, path: string): Promise<void> {
+  if (isProtectedFolder(path)) {
+    throw AppError.forbidden(`Le dossier système « ${path} » est protégé et ne peut pas être supprimé`);
+  }
+
   const accountId = String(account._id);
   const client = await imapPool.acquire(account);
 
@@ -230,7 +255,20 @@ export async function deleteFolder(account: IAccountDocument, path: string): Pro
     // Invalide les caches (la suppression peut affecter un dossier spécial).
     invalidateSpecialFolderCache(accountId);
     await invalidateFolderCache(accountId);
+
+    if (dbReady()) {
+      const { MessageModel } = await import('../../models/Message.js');
+      const { MessageBodyModel } = await import('../../models/MessageBody.js');
+      const { FolderSyncStateModel } = await import('../../models/FolderSyncState.js');
+
+      await Promise.all([
+        MessageModel.deleteMany({ accountId: account._id, folder: path }),
+        MessageBodyModel.deleteMany({ accountId, folder: path }),
+        FolderSyncStateModel.deleteOne({ accountId, folder: path }),
+      ]);
+    }
   } catch (error) {
+    if (error instanceof AppError) throw error;
     if (error instanceof Error && /not found|n'existe pas/i.test(error.message)) {
       throw AppError.notFound('Dossier introuvable');
     }
@@ -241,6 +279,7 @@ export async function deleteFolder(account: IAccountDocument, path: string): Pro
     imapPool.release(accountId);
   }
 }
+
 
 /**
  * Récupère les compteurs d'un dossier (messages, non lus, prochain UID).

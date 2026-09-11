@@ -80,12 +80,14 @@ vi.mock('../email/specialFolders.js', () => ({
 // Mock de ImapFlow (constructable — doit utiliser `function`, pas arrow).
 const mockConnect = vi.fn().mockResolvedValue(undefined);
 const mockLogout = vi.fn().mockResolvedValue(undefined);
+const mockList = vi.fn().mockResolvedValue([]);
 
 vi.mock('imapflow', () => ({
   ImapFlow: vi.fn().mockImplementation(function () {
     return {
       connect: mockConnect,
       logout: mockLogout,
+      list: mockList,
     };
   }),
 }));
@@ -268,5 +270,28 @@ describe('pollingSync', () => {
 
     // Vérifie que connect a été appelé deux fois (1er échec + 2e succès).
     expect(mockConnect).toHaveBeenCalledTimes(2);
+  });
+
+  it('polle également les dossiers personnalisés découverts via list()', async () => {
+    [mockFindSentFolder, mockFindDraftsFolder, mockFindTrashFolder, mockFindJunkFolder, mockFindArchiveFolder].forEach((f) => f.mockResolvedValue(null));
+
+    mockList.mockResolvedValueOnce([
+      { path: 'INBOX', flags: new Set([]) },
+      { path: 'Projets', flags: new Set([]) },
+      { path: 'NonSelectable', flags: new Set(['\\Noselect']) },
+    ]);
+
+    mockRunInitialSyncForFolder.mockResolvedValueOnce(1);
+
+    const controller = new AbortController();
+    const promise = startPollingSync(makeAccount(), controller.signal);
+
+    await flush();
+    controller.abort();
+    await flush();
+    await promise;
+
+    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Projets');
+    expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'NonSelectable');
   });
 });

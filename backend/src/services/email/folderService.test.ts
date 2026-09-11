@@ -137,6 +137,21 @@ describe('folderService', () => {
       expect(mockClient.mailboxRename).toHaveBeenCalledWith('OldName', 'NewName');
     });
 
+    it('lance 403 si le dossier source est un dossier système protégé', async () => {
+      await expect(renameFolder(makeAccount(), 'INBOX', 'NewInbox')).rejects.toThrow(
+        'Le dossier système « INBOX » est protégé et ne peut pas être renommé',
+      );
+      await expect(renameFolder(makeAccount(), 'Sent', 'NewSent')).rejects.toThrow(
+        'Le dossier système « Sent » est protégé et ne peut pas être renommé',
+      );
+    });
+
+    it('lance 403 si le nouveau nom est un nom de dossier système protégé', async () => {
+      await expect(renameFolder(makeAccount(), 'MyFolder', 'INBOX')).rejects.toThrow(
+        'Impossible de renommer vers un nom de dossier système protégé',
+      );
+    });
+
     it('lance 404 si le dossier est introuvable', async () => {
       mockClient.mailboxRename.mockRejectedValueOnce(new Error('Mailbox not found'));
 
@@ -145,12 +160,24 @@ describe('folderService', () => {
   });
 
   describe('deleteFolder', () => {
-    it('supprime un dossier avec succès', async () => {
-      mockClient.mailboxDelete.mockResolvedValueOnce({ path: 'Trash' });
+    it('supprime un dossier personnalisé avec succès', async () => {
+      mockClient.mailboxDelete.mockResolvedValueOnce({ path: 'CustomFolder' });
 
-      await deleteFolder(makeAccount(), 'Trash');
+      await deleteFolder(makeAccount(), 'CustomFolder');
 
-      expect(mockClient.mailboxDelete).toHaveBeenCalledWith('Trash');
+      expect(mockClient.mailboxDelete).toHaveBeenCalledWith('CustomFolder');
+    });
+
+    it('lance 403 si le dossier à supprimer est un dossier système protégé', async () => {
+      await expect(deleteFolder(makeAccount(), 'INBOX')).rejects.toThrow(
+        'Le dossier système « INBOX » est protégé et ne peut pas être supprimé',
+      );
+      await expect(deleteFolder(makeAccount(), 'Trash')).rejects.toThrow(
+        'Le dossier système « Trash » est protégé et ne peut pas être supprimé',
+      );
+      await expect(deleteFolder(makeAccount(), 'Corbeille')).rejects.toThrow(
+        'Le dossier système « Corbeille » est protégé et ne peut pas être supprimé',
+      );
     });
 
     it('lance 404 si le dossier est introuvable', async () => {
@@ -159,6 +186,7 @@ describe('folderService', () => {
       await expect(deleteFolder(makeAccount(), 'X')).rejects.toThrow('Dossier introuvable');
     });
   });
+
 
   describe('getFolderStatus', () => {
     it('retourne les compteurs d\'un dossier', async () => {

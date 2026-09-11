@@ -143,3 +143,12 @@ export const FolderOpen = makeIcon();
 export const FolderX = makeIcon();
 export const FilePlus = makeIcon();
 export const PaperclipIcon = makeIcon();
+export const MapPin = makeIcon();
+export const Phone = makeIcon();
+export const MoreVertical = makeIcon();
+export const FolderInput = makeIcon();
+export const RotateCcw = makeIcon();
+export const ChevronRightIcon = makeIcon();
+export const CheckIcon = makeIcon();
+
+

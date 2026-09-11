@@ -145,13 +145,30 @@ describe('Folders routes (intégration)', () => {
     mockDeleteFolder.mockResolvedValueOnce(undefined);
 
     const res = await request(app)
-      .delete(`/api/accounts/${accountId}/folders/Trash`)
+      .delete(`/api/accounts/${accountId}/folders/CustomFolder`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(204);
   });
 
+  it('DELETE /:accountId/folders/:path protégé → 403', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+
+    const { AppError } = await import('../utils/AppError.js');
+    mockDeleteFolder.mockRejectedValueOnce(
+      AppError.forbidden('Le dossier système « INBOX » est protégé et ne peut pas être supprimé'),
+    );
+
+    const res = await request(app)
+      .delete(`/api/accounts/${accountId}/folders/INBOX`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.message).toContain('protégé');
+  });
+
   it('GET sans auth → 401', async () => {
+
     const res = await request(app).get('/api/accounts/507f1f77bcf86cd799439011/folders');
 
     expect(res.status).toBe(401);

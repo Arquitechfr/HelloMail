@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as twoFactorController from '../controllers/twoFactorController.js';
 import { requireAuth } from '../middleware/auth.js';
+import { authRateLimit } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import {
   enableTOTPSchema,
@@ -28,7 +29,7 @@ const webauthnLoginFinishSchema = z.object({
   response: z.record(z.string(), z.unknown()),
 });
 
-router.post('/2fa/webauthn/login/start', validate({ body: webauthnLoginStartSchema }), twoFactorController.webauthnLoginStart);
-router.post('/2fa/webauthn/login/finish', validate({ body: webauthnLoginFinishSchema }), twoFactorController.webauthnLoginFinish);
+router.post('/2fa/webauthn/login/start', authRateLimit, validate({ body: webauthnLoginStartSchema }), twoFactorController.webauthnLoginStart);
+router.post('/2fa/webauthn/login/finish', authRateLimit, validate({ body: webauthnLoginFinishSchema }), twoFactorController.webauthnLoginFinish);
 
 export const twoFactorRoutes = router;

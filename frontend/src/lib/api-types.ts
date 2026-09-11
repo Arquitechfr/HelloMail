@@ -56,6 +56,13 @@ export interface Contact {
   updatedAt: string;
 }
 
+export interface ContactImportResult {
+  imported: number;
+  skipped: number;
+  total: number;
+}
+
+
 // --- Comptes ---
 
 export type AccountProvider = "imap" | "google_oauth" | "microsoft_oauth";
@@ -160,6 +167,28 @@ export interface AttachmentInfo {
   contentId?: string;
 }
 
+export interface CalendarAttendee {
+  name?: string;
+  email: string;
+  role?: string;
+  status?: string;
+}
+
+export interface CalendarEventInfo {
+  uid?: string;
+  method?: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  dtStart?: string;
+  dtEnd?: string;
+  organizer?: { name?: string; email: string };
+  status?: string;
+  attendees?: CalendarAttendee[];
+  sequence?: number;
+  rawIcs?: string;
+}
+
 export interface MessageDetail {
   subject: string;
   from: MessageAddress;
@@ -177,7 +206,9 @@ export interface MessageDetail {
   readReceiptRequestedTo?: string;
   tags?: string[];
   snoozedUntil?: string | null;
+  calendarEvent?: CalendarEventInfo;
 }
+
 
 export interface ThreadItem {
   uid: number;

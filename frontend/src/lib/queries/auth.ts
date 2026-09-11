@@ -138,3 +138,51 @@ export function useUpdatePreferences() {
   });
 }
 
+/** WebAuthn passkey registration */
+export function useWebAuthnRegister() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { startRegistration } = await import("@simplewebauthn/browser");
+      type OptionsType = Parameters<typeof startRegistration>[0]["optionsJSON"];
+      // 1. Récupère les options d'enregistrement
+      const options = await apiFetch<OptionsType>("/api/auth/2fa/webauthn/register/start", {
+        method: "POST",
+      });
+      // 2. Invocation de l'API Passkey dans le navigateur
+      const response = await startRegistration({ optionsJSON: options });
+      // 3. Finalisation auprès du backend
+      return apiFetch<{ verified: boolean }>("/api/auth/2fa/webauthn/register/finish", {
+        method: "POST",
+        body: JSON.stringify({ response }),
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.twoFAStatus }),
+  });
+}
+
+/** WebAuthn passkey login */
+export function useWebAuthnLogin() {
+  const setAuth = useAuthStore((s) => s.setAuth);
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const { startAuthentication } = await import("@simplewebauthn/browser");
+      type OptionsType = Parameters<typeof startAuthentication>[0]["optionsJSON"];
+      // 1. Récupère les options de login pour cet email
+      const options = await apiFetch<OptionsType>("/api/auth/2fa/webauthn/login/start", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      // 2. Invocation de l'authentification Passkey dans le navigateur
+      const response = await startAuthentication({ optionsJSON: options });
+      // 3. Finalisation auprès du backend et obtention des tokens
+      return apiFetch<AuthResponse>("/api/auth/2fa/webauthn/login/finish", {
+        method: "POST",
+        body: JSON.stringify({ email, response }),
+      });
+    },
+    onSuccess: (data) => setAuth(data.accessToken, data.user),
+  });
+}
+
+

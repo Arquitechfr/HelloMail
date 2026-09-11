@@ -63,3 +63,31 @@ export function useDeleteContact() {
     onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
   });
 }
+
+/** POST /api/contacts/import — importe des contacts depuis vCard ou CSV. */
+export function useImportContacts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { format: "vcf" | "csv"; content: string }) =>
+      apiFetch<import("@/lib/api-types").ContactImportResult>("/api/contacts/import", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: contactKeys.all }),
+  });
+}
+
+/** Télécharge l'export des contacts au format vCard (.vcf) ou CSV (.csv). */
+export async function downloadContactsExport(format: "vcf" | "csv"): Promise<void> {
+  const { apiFetchBlob } = await import("@/lib/api");
+  const blob = await apiFetchBlob(`/api/contacts/export?format=${format}`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = format === "vcf" ? "contacts.vcf" : "contacts.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+

@@ -9,15 +9,21 @@ import {
   useMoveMessage,
   useMarkAsJunk,
 } from "@/lib/queries/messages";
+import { useFolders } from "@/lib/queries/folders";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { isDraftFolder } from "@/lib/folder-utils";
+import { openDraftCompose } from "@/lib/draft-utils";
+import { Button } from "@/components/ui/button";
 import { EmailIframe } from "@/components/mail/EmailIframe";
 import { AttachmentList } from "@/components/mail/AttachmentList";
 import { MessageThreadView } from "@/components/mail/MessageThreadView";
 import { QuickReplyBar } from "@/components/mail/QuickReplyBar";
 import { MessageMetadataHeader } from "@/components/mail/MessageMetadataHeader";
 import { ReadReceiptBanner } from "@/components/mail/ReadReceiptBanner";
+import { CalendarInviteBanner } from "@/components/mail/CalendarInviteBanner";
 import { MessageToolbar } from "@/components/mail/MessageToolbar";
-import { Mail, Loader2 } from "lucide-react";
+import { useEmailShortcuts } from "@/lib/hooks/useEmailShortcuts";
+import { Mail, Loader2, FileEdit, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,9 +42,16 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const moveMessage = useMoveMessage(accountId, folder);
   const markAsJunk = useMarkAsJunk(accountId, folder);
   const { data: thread } = useMessageThread(accountId, folder, uid);
+  const { data: folders } = useFolders(accountId);
+  const isDraft = isDraftFolder(folder, folders);
   const openCompose = useUIStore((s) => s.openCompose);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
   const setSelectedFolder = useUIStore((s) => s.setSelectedFolder);
+
+  const handleEditDraft = async () => {
+    if (uid === null || !message) return;
+    await openDraftCompose(accountId, folder, uid, message);
+  };
 
   const handleSelectThreadMessage = (itemFolder: string, itemUid: number) => {
     if (itemFolder !== folder) {
@@ -68,6 +81,97 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       markAsSeen({ uid, flags: { seen: true } });
     }
   }, [message, uid, markAsSeen]);
+
+  const handleDelete = () => {
+    if (uid === null) return;
+    deleteMessage.mutate(
+      { uid },
+      {
+        onSuccess: () => {
+          toast.success("Message supprimé");
+          setSelectedUid(null);
+        },
+        onError: () => toast.error("Erreur lors de la suppression"),
+      },
+    );
+  };
+
+  const handleToggleFlag = () => {
+    if (uid === null || !message) return;
+    updateFlags.mutate({ uid, flags: { flagged: !message.flags.flagged } });
+  };
+
+  const handleMarkJunk = () => {
+    if (uid === null) return;
+    markAsJunk.mutate(uid, {
+      onSuccess: () => {
+        toast.success("Marqué comme spam");
+        setSelectedUid(null);
+      },
+      onError: () => toast.error("Erreur"),
+    });
+  };
+
+  const handleArchive = () => {
+    if (uid === null) return;
+    moveMessage.mutate(
+      { uid, destination: "Archive" },
+      {
+        onSuccess: () => {
+          toast.success("Message archivé");
+          setSelectedUid(null);
+        },
+        onError: () => toast.error("Erreur lors du déplacement"),
+      },
+    );
+  };
+
+  const handleReply = () => {
+    if (!message) return;
+    openCompose("reply", {
+      messageId: message.messageId,
+      subject: message.subject,
+      from: message.from.address,
+      to: [message.from.address],
+    });
+  };
+
+  const handleReplyAll = () => {
+    if (!message) return;
+    openCompose("reply", {
+      messageId: message.messageId,
+      subject: message.subject,
+      from: message.from.address,
+      to: [
+        message.from.address,
+        ...message.to.map((t) => t.address),
+        ...(message.cc?.map((c) => c.address) ?? []),
+      ],
+    });
+  };
+
+  const handleForward = () => {
+    if (!message) return;
+    openCompose("forward", { subject: message.subject });
+  };
+
+  const handleToggleSeen = () => {
+    if (uid === null || !message) return;
+    updateFlags.mutate({ uid, flags: { seen: !message.flags.seen } });
+  };
+
+  useEmailShortcuts({
+    enabled: uid !== null && !!message,
+    onReply: isDraft ? handleEditDraft : handleReply,
+    onReplyAll: isDraft ? undefined : handleReplyAll,
+    onForward: isDraft ? undefined : handleForward,
+    onToggleSeen: handleToggleSeen,
+    onToggleFlagged: handleToggleFlag,
+    onArchive: isDraft ? undefined : handleArchive,
+    onDelete: handleDelete,
+    onMarkJunk: isDraft ? undefined : handleMarkJunk,
+    onPrint: handlePrint,
+  });
 
   if (uid === null) {
     return (
@@ -112,46 +216,6 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
     );
   }
 
-  const handleDelete = () => {
-    deleteMessage.mutate(
-      { uid },
-      {
-        onSuccess: () => {
-          toast.success("Message supprimé");
-          setSelectedUid(null);
-        },
-        onError: () => toast.error("Erreur lors de la suppression"),
-      },
-    );
-  };
-
-  const handleToggleFlag = () => {
-    updateFlags.mutate({ uid, flags: { flagged: !message.flags.flagged } });
-  };
-
-  const handleMarkJunk = () => {
-    markAsJunk.mutate(uid, {
-      onSuccess: () => {
-        toast.success("Marqué comme spam");
-        setSelectedUid(null);
-      },
-      onError: () => toast.error("Erreur"),
-    });
-  };
-
-  const handleArchive = () => {
-    moveMessage.mutate(
-      { uid, destination: "Archive" },
-      {
-        onSuccess: () => {
-          toast.success("Message archivé");
-          setSelectedUid(null);
-        },
-        onError: () => toast.error("Erreur lors du déplacement"),
-      },
-    );
-  };
-
   return (
     <div
       className={cn(
@@ -166,17 +230,12 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         uid={uid!}
         isFlagged={message.flags.flagged}
         isSnoozed={!!message.snoozedUntil}
+        isDraft={isDraft}
+        onEditDraft={handleEditDraft}
         onSnoozed={() => setSelectedUid(null)}
         onBack={() => setSelectedUid(null)}
-        onReply={() =>
-          openCompose("reply", {
-            messageId: message.messageId,
-            subject: message.subject,
-            from: message.from.address,
-            to: [message.from.address],
-          })
-        }
-        onForward={() => openCompose("forward", { subject: message.subject })}
+        onReply={handleReply}
+        onForward={handleForward}
         onToggleFlag={handleToggleFlag}
         onArchive={handleArchive}
         onMarkJunk={handleMarkJunk}
@@ -206,6 +265,34 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         />
       )}
 
+      {/* Bannière d'invitation d'agenda (iCalendar RFC 5545) */}
+      {message.calendarEvent && (
+        <CalendarInviteBanner calendarEvent={message.calendarEvent} />
+      )}
+
+      {/* Bannière d'avertissement de brouillon non envoyé */}
+      {isDraft && (
+        <div className="mx-6 mt-3 mb-1 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-amber-950 dark:text-amber-200 no-print">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <FileEdit className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold">Ceci est un brouillon non envoyé</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                Vous pouvez reprendre la rédaction et l&apos;envoyer à tout moment.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleEditDraft}
+            className="gap-1.5 h-7 px-2.5 text-xs font-medium shrink-0 cursor-pointer"
+          >
+            <Pencil className="size-3.5" />
+            <span>Reprendre la rédaction</span>
+          </Button>
+        </div>
+      )}
+
       {/* Corps scrollable + pièces jointes */}
       <div className="flex-1 overflow-y-auto px-6 py-4 printable-area">
         {message.attachments.length > 0 && (
@@ -216,37 +303,25 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         <EmailIframe html={message.html} text={message.text} />
       </div>
 
-      {/* Barre de réponse rapide */}
-      <QuickReplyBar
-        senderLabel={message.from.name || message.from.address}
-        hasMultipleRecipients={message.to.length + (message.cc?.length ?? 0) > 1}
-        accountId={accountId}
-        onSelectTemplate={(template) =>
-          openCompose("reply", {
-            messageId: message.messageId,
-            subject: message.subject,
-            from: message.from.address,
-            to: [message.from.address],
-            html: template.bodyHtml,
-          })
-        }
-        onReply={() =>
-          openCompose("reply", {
-            messageId: message.messageId,
-            subject: message.subject,
-            from: message.from.address,
-            to: [message.from.address],
-          })
-        }
-        onReplyAll={() =>
-          openCompose("reply", {
-            messageId: message.messageId,
-            subject: message.subject,
-            from: message.from.address,
-            to: [message.from.address, ...message.to.map((t) => t.address), ...(message.cc?.map((c) => c.address) ?? [])],
-          })
-        }
-      />
+      {/* Barre de réponse rapide (masquée pour les brouillons) */}
+      {!isDraft && (
+        <QuickReplyBar
+          senderLabel={message.from.name || message.from.address}
+          hasMultipleRecipients={message.to.length + (message.cc?.length ?? 0) > 1}
+          accountId={accountId}
+          onSelectTemplate={(template) =>
+            openCompose("reply", {
+              messageId: message.messageId,
+              subject: message.subject,
+              from: message.from.address,
+              to: [message.from.address],
+              html: template.bodyHtml,
+            })
+          }
+          onReply={handleReply}
+          onReplyAll={handleReplyAll}
+        />
+      )}
     </div>
   );
 }

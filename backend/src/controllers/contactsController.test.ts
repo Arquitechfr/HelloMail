@@ -236,4 +236,62 @@ describe('Contacts routes (intégration)', () => {
     expect(res.status).toBe(200);
     expect(res.body.contacts).toEqual([]);
   });
+
+  it('GET /api/contacts/export (vCard et CSV)', async () => {
+    await request(app)
+      .post('/api/contacts')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Alice Dupont', email: 'alice@example.com', phone: '0601020304' });
+
+    const resVcf = await request(app)
+      .get('/api/contacts/export?format=vcf')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(resVcf.status).toBe(200);
+    expect(resVcf.headers['content-type']).toContain('text/vcard');
+    expect(resVcf.text).toContain('FN:Alice Dupont');
+
+    const resCsv = await request(app)
+      .get('/api/contacts/export?format=csv')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(resCsv.status).toBe(200);
+    expect(resCsv.headers['content-type']).toContain('text/csv');
+    expect(resCsv.text).toContain('Nom,Email,Téléphone');
+    expect(resCsv.text).toContain('Alice Dupont');
+  });
+
+  it('POST /api/contacts/import importe et déduplique', async () => {
+    // Import vCard
+    const vcfData = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Bob\r\nEMAIL:bob@test.com\r\nEND:VCARD\r\n';
+    const resVcf = await request(app)
+      .post('/api/contacts/import')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ format: 'vcf', content: vcfData });
+
+    expect(resVcf.status).toBe(200);
+    expect(resVcf.body.imported).toBe(1);
+    expect(resVcf.body.skipped).toBe(0);
+
+    // Ré-import même contact (déduplication)
+    const resDedup = await request(app)
+      .post('/api/contacts/import')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ format: 'vcf', content: vcfData });
+
+    expect(resDedup.status).toBe(200);
+    expect(resDedup.body.imported).toBe(0);
+    expect(resDedup.body.skipped).toBe(1);
+
+    // Import CSV
+    const csvData = 'Nom,Email,Téléphone\nCharlie,charlie@test.com,0102030405';
+    const resCsv = await request(app)
+      .post('/api/contacts/import')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ format: 'csv', content: csvData });
+
+    expect(resCsv.status).toBe(200);
+    expect(resCsv.body.imported).toBe(1);
+  });
 });
+

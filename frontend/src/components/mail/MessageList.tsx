@@ -196,6 +196,8 @@ export function MessageList({ accountId, folder }: MessageListProps) {
               }}
             >
               <MessageListItem
+                accountId={accountId}
+                folder={folder}
                 message={messages[item.index]}
                 isSelected={selectedUid === messages[item.index].uid}
                 onSelect={() => setSelectedUid(messages[item.index].uid)}
