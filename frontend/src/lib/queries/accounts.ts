@@ -70,3 +70,22 @@ export function useUpdateSignature() {
     onSuccess: () => qc.invalidateQueries({ queryKey: accountKeys.all }),
   });
 }
+
+export interface UpdateAccountInput {
+  id: string;
+  color?: string;
+  displayName?: string;
+}
+
+/** PATCH /api/accounts/:id — met à jour les métadonnées d'un compte (couleur, nom). */
+export function useUpdateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: UpdateAccountInput) =>
+      apiFetch<Account>(`/api/accounts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: accountKeys.all }),
+  });
+}

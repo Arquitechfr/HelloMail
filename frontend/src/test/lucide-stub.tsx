@@ -150,5 +150,11 @@ export const FolderInput = makeIcon();
 export const RotateCcw = makeIcon();
 export const ChevronRightIcon = makeIcon();
 export const CheckIcon = makeIcon();
+export const CornerDownLeft = makeIcon();
+export const Pin = makeIcon();
+export const PinOff = makeIcon();
+export const ShieldAlert = makeIcon();
+export const Layers = makeIcon();
+export const SlidersHorizontal = makeIcon();
 
 

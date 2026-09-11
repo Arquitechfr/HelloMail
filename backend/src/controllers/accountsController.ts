@@ -48,3 +48,14 @@ export const updateSignature = asyncHandler(
     res.status(200).json(account);
   },
 );
+
+export const update = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+    const account = await AccountService.updateAccount(
+      req.user.id,
+      req.params.id,
+      req.body,
+    );
+    res.status(200).json(account);
+  },
+);

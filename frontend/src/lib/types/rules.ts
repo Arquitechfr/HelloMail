@@ -18,7 +18,8 @@ export type RuleActionType =
   | "markAsFlagged"
   | "markAsJunk"
   | "delete"
-  | "applyTag";
+  | "applyTag"
+  | "pinMessage";
 
 export interface RuleAction {
   type: RuleActionType;

@@ -20,6 +20,7 @@ import {
   batchAction,
 } from '../services/email/messageActionService.js';
 import { snoozeMessage } from '../services/email/snoozeService.js';
+import { pinMessage } from '../services/email/pinService.js';
 import { folderExists } from '../services/email/folderService.js';
 import { logger } from '../config/logger.js';
 
@@ -46,7 +47,8 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
   }
 
   const filter: Record<string, unknown> = { accountId };
-  const sortOption: Record<string, 1 | -1> = folder === 'Snoozed' ? { snoozedUntil: 1 } : { date: -1 };
+  const sortOption: Record<string, 1 | -1> =
+    folder === 'Snoozed' ? { isPinned: -1, snoozedUntil: 1 } : { isPinned: -1, date: -1 };
 
   if (folder === 'Snoozed') {
     filter.snoozedUntil = { $gt: new Date() };
@@ -296,6 +298,17 @@ export const snooze = asyncHandler(async (req: AuthenticatedRequest, res: Respon
   const snoozedUntilDate = req.body.snoozedUntil ? new Date(req.body.snoozedUntil) : null;
   const message = await snoozeMessage(account, folder, Number(uid), snoozedUntilDate);
   res.status(200).json({ ok: true, data: message });
+});
+
+export const pin = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, folder, uid } = req.params;
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const message = await pinMessage(account, folder, Number(uid), Boolean(req.body.isPinned));
+  res.status(200).json(message);
 });
 
 

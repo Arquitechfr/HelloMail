@@ -268,6 +268,7 @@ export function RuleForm({ ruleToEdit, onClose }: RuleFormProps) {
               >
                 <option value="markAsRead">Marquer comme lu</option>
                 <option value="markAsFlagged">Marquer d&apos;une étoile (favori)</option>
+                <option value="pinMessage">Mettre en avant (épingler)</option>
                 <option value="applyTag">Appliquer une étiquette</option>
                 <option value="moveToFolder">Déplacer vers un dossier</option>
                 <option value="markAsJunk">Marquer comme spam</option>

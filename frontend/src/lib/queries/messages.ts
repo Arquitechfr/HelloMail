@@ -262,4 +262,23 @@ export function useSnoozeMessage(accountId: string, folder: string) {
   });
 }
 
+/** PATCH /api/accounts/:accountId/messages/:folder/:uid/pin — met en avant ou retire la mise en avant d'un message. */
+export function usePinMessage(accountId: string, folder: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uid, isPinned }: { uid: number; isPinned: boolean }) =>
+      apiFetch<Message>(
+        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/pin`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ isPinned }),
+        },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["messages"] });
+      qc.invalidateQueries({ queryKey: ["unified"] });
+    },
+  });
+}
+
 

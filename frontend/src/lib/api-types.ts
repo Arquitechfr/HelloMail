@@ -5,9 +5,34 @@
 
 // --- Auth ---
 
+export type UnifiedFolderType =
+  | "inbox"
+  | "starred"
+  | "pinned"
+  | "drafts"
+  | "sent"
+  | "snoozed"
+  | "archive"
+  | "junk"
+  | "trash";
+
+export interface UnifiedFolderConfig {
+  id: UnifiedFolderType;
+  label?: string;
+  enabled: boolean;
+  order: number;
+}
+
+export type UnifiedStatusResponse = Record<
+  UnifiedFolderType,
+  { unseen: number; total: number }
+>;
+
 export interface UserPreferences {
   undoSendDelay?: number; // 0 (immédiat), 5, 10, 15, 30 secondes
   autoAddContacts?: boolean; // ajout auto des expéditeurs au carnet d'adresses
+  unifiedFoldersEnabled?: boolean;
+  unifiedFolders?: UnifiedFolderConfig[];
 }
 
 export interface User {
@@ -77,6 +102,7 @@ export interface Account {
     text: string;
     html?: string;
   };
+  color?: string;
   isActive: boolean;
   lastSyncedAt?: string;
   lastSyncError?: string;
@@ -147,6 +173,8 @@ export interface Message {
   size: number;
   tags?: string[];
   snoozedUntil?: string | null;
+  isPinned?: boolean;
+  pinnedAt?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -206,6 +234,8 @@ export interface MessageDetail {
   readReceiptRequestedTo?: string;
   tags?: string[];
   snoozedUntil?: string | null;
+  isPinned?: boolean;
+  pinnedAt?: string | null;
   calendarEvent?: CalendarEventInfo;
 }
 
@@ -273,7 +303,9 @@ export type BatchActionType =
   | "markUnread"
   | "flag"
   | "unflag"
-  | "markAsJunk";
+  | "markAsJunk"
+  | "pin"
+  | "unpin";
 
 export interface BatchActionInput {
   uids: number[];

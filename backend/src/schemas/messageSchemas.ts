@@ -105,13 +105,18 @@ export const deleteMessageQuerySchema = z.object({
 export const batchActionSchema = z
   .object({
     uids: z.array(z.coerce.number().int().positive()).min(1, 'Au moins un UID requis').max(100, 'Maximum 100 UIDs'),
-    action: z.enum(['delete', 'move', 'markRead', 'markUnread', 'flag', 'unflag', 'markAsJunk']),
+    action: z.enum(['delete', 'move', 'markRead', 'markUnread', 'flag', 'unflag', 'markAsJunk', 'pin', 'unpin']),
     destination: z.string().min(1).max(255).optional(),
+    folder: z.string().min(1).max(255).optional(),
   })
   .refine((data) => data.action !== 'move' || data.destination !== undefined, {
     message: 'destination est requis pour l\'action move',
     path: ['destination'],
   });
+
+export const pinMessageSchema = z.object({
+  isPinned: z.boolean(),
+});
 
 /**
  * Params pour les routes avec folder + uid (flags, delete, move).

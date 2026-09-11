@@ -88,6 +88,8 @@ export const updatePreferences = asyncHandler(async (req: AuthenticatedRequest, 
   const update: Record<string, unknown> = {};
   if (req.body.undoSendDelay !== undefined) update['preferences.undoSendDelay'] = req.body.undoSendDelay;
   if (req.body.autoAddContacts !== undefined) update['preferences.autoAddContacts'] = req.body.autoAddContacts;
+  if (req.body.unifiedFoldersEnabled !== undefined) update['preferences.unifiedFoldersEnabled'] = req.body.unifiedFoldersEnabled;
+  if (req.body.unifiedFolders !== undefined) update['preferences.unifiedFolders'] = req.body.unifiedFolders;
 
   const user = await UserModel.findByIdAndUpdate(
     req.user.id,

@@ -304,18 +304,17 @@ export function ComposeForm({
       <div className="flex min-h-[35vh] flex-1 flex-col gap-2">
         <div className="flex items-center justify-between">
           <Label>Message</Label>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={handleInsertSignature}
-            className="text-[11px] text-muted-foreground hover:text-primary h-auto py-0.5 px-1.5"
-            title="Insérer la signature de courtoisie"
-          >
+          <Button type="button" variant="ghost" size="xs" onClick={handleInsertSignature} className="text-[11px] text-muted-foreground hover:text-primary h-auto py-0.5 px-1.5" title="Insérer la signature de courtoisie">
             Insérer ma signature
           </Button>
         </div>
-        <RichTextEditor value={body} onChange={handleBodyChange} placeholder="Écrivez votre message..." />
+        <RichTextEditor
+          value={body}
+          onChange={handleBodyChange}
+          placeholder="Écrivez votre message..."
+          accountId={accountId}
+          onTemplateInserted={(t) => { if (!subject.trim() && t.subject) setSubject(t.subject); }}
+        />
       </div>
 
       {/* Zone de pièces jointes */}

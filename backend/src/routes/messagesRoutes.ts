@@ -20,6 +20,7 @@ import {
   searchQuerySchema,
   fetchMoreSchema,
   snoozeMessageSchema,
+  pinMessageSchema,
 } from '../schemas/messageSchemas.js';
 
 const router = Router();
@@ -65,6 +66,14 @@ router.patch(
   requireAuth,
   validate({ params: messageActionParamsSchema, body: snoozeMessageSchema }),
   messagesController.snooze,
+);
+
+// Mise en avant / Épinglage d'un message ("Pin").
+router.patch(
+  '/:accountId/messages/:folder/:uid/pin',
+  requireAuth,
+  validate({ params: messageActionParamsSchema, body: pinMessageSchema }),
+  messagesController.pin,
 );
 
 // Déplacement d'un message.

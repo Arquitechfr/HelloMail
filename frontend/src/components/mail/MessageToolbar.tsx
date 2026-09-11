@@ -12,6 +12,7 @@ import {
   Printer,
   Download,
   Pencil,
+  Pin,
 } from "lucide-react";
 import { SnoozeDropdown } from "@/components/mail/SnoozeDropdown";
 
@@ -20,6 +21,7 @@ interface MessageToolbarProps {
   folder: string;
   uid: number;
   isFlagged: boolean;
+  isPinned?: boolean;
   isSnoozed?: boolean;
   isDraft?: boolean;
   onEditDraft?: () => void;
@@ -27,6 +29,7 @@ interface MessageToolbarProps {
   onReply: () => void;
   onForward: () => void;
   onToggleFlag: () => void;
+  onTogglePin?: () => void;
   onArchive: () => void;
   onMarkJunk: () => void;
   onDelete: () => void;
@@ -41,6 +44,7 @@ export function MessageToolbar({
   folder,
   uid,
   isFlagged,
+  isPinned = false,
   isSnoozed = false,
   isDraft = false,
   onEditDraft,
@@ -48,6 +52,7 @@ export function MessageToolbar({
   onReply,
   onForward,
   onToggleFlag,
+  onTogglePin,
   onArchive,
   onMarkJunk,
   onDelete,
@@ -100,6 +105,20 @@ export function MessageToolbar({
             className={isFlagged ? "size-4 fill-amber-400 text-amber-400" : "size-4"}
           />
         </Button>
+
+        {onTogglePin && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onTogglePin}
+            title={isPinned ? "Retirer la mise en avant (H)" : "Mettre en avant (H)"}
+            aria-label={isPinned ? "Retirer la mise en avant" : "Mettre en avant"}
+          >
+            <Pin
+              className={isPinned ? "size-4 fill-primary text-primary" : "size-4"}
+            />
+          </Button>
+        )}
 
         {!isDraft && (
           <>

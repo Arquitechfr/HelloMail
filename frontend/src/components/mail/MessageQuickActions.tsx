@@ -38,6 +38,7 @@ import {
   Download,
   RotateCcw,
   Pencil,
+  Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -193,6 +194,18 @@ export function MessageQuickActions({
           )}
 
           <DropdownMenuSeparator />
+
+          <DropdownMenuItem onClick={actions.togglePin}>
+            <Pin
+              className={
+                actions.isPinned
+                  ? "size-4 mr-2 fill-primary text-primary"
+                  : "size-4 mr-2"
+              }
+            />
+            <span>{actions.isPinned ? "Retirer la mise en avant" : "Mettre en avant"}</span>
+            <DropdownMenuShortcut>H</DropdownMenuShortcut>
+          </DropdownMenuItem>
 
           {/* Mettre en sommeil (uniquement hors brouillons) */}
           {!isDraft && (

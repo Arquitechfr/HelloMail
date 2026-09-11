@@ -9,6 +9,7 @@ import {
   useMoveMessage,
   useMarkAsJunk,
   useSnoozeMessage,
+  usePinMessage,
 } from "@/lib/queries/messages";
 import { useSetMessageTags } from "@/lib/queries/tags";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -30,6 +31,7 @@ export function useMessageActions({
   const moveMessage = useMoveMessage(accountId, folder);
   const markAsJunk = useMarkAsJunk(accountId, folder);
   const snoozeMutation = useSnoozeMessage(accountId, folder);
+  const pinMutation = usePinMessage(accountId, folder);
   const setMessageTags = useSetMessageTags();
 
   const openCompose = useUIStore((s) => s.openCompose);
@@ -38,6 +40,7 @@ export function useMessageActions({
 
   const uid = message.uid;
   const isSelected = selectedUid === uid;
+  const isPinned = Boolean(message.isPinned);
 
   const toggleSeen = useCallback(() => {
     const nextSeen = !message.flags.seen;
@@ -54,6 +57,23 @@ export function useMessageActions({
         : "Retiré des messages importants",
     );
   }, [message.flags.flagged, uid, updateFlags]);
+
+  const togglePin = useCallback(() => {
+    const nextPinned = !isPinned;
+    pinMutation.mutate(
+      { uid, isPinned: nextPinned },
+      {
+        onSuccess: () => {
+          toast.success(
+            nextPinned
+              ? "Message mis en avant (épinglé)"
+              : "Message retiré de la mise en avant",
+          );
+        },
+        onError: () => toast.error("Erreur lors de la mise en avant"),
+      },
+    );
+  }, [isPinned, pinMutation, uid]);
 
   const archiveMessage = useCallback(() => {
     moveMessage.mutate(
@@ -234,6 +254,8 @@ export function useMessageActions({
   return {
     toggleSeen,
     toggleFlagged,
+    togglePin,
+    isPinned,
     archiveMessage,
     deleteMsg,
     markJunkMsg,

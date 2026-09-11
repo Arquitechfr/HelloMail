@@ -34,7 +34,13 @@ export const webauthnResponseSchema = z.object({
   response: z.record(z.string(), z.unknown()),
 });
 
-/** Schéma pour la mise à jour des préférences utilisateur (Phase 9). */
+export const unifiedFolderConfigSchema = z.object({
+  id: z.string().min(1),
+  enabled: z.boolean(),
+  order: z.number().int().min(0),
+});
+
+/** Schéma pour la mise à jour des préférences utilisateur (Phase 9 & 12). */
 export const updatePreferencesSchema = z.object({
   undoSendDelay: z
     .number({ error: 'Le délai doit être un nombre' })
@@ -43,6 +49,8 @@ export const updatePreferencesSchema = z.object({
     .max(30, 'Le délai maximum est 30 secondes')
     .optional(),
   autoAddContacts: z.boolean().optional(),
+  unifiedFoldersEnabled: z.boolean().optional(),
+  unifiedFolders: z.array(unifiedFolderConfigSchema).optional(),
 });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 

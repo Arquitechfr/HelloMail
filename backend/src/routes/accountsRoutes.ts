@@ -8,6 +8,7 @@ import {
   toggleAccountActiveSchema,
   autoconfigQuerySchema,
   updateSignatureSchema,
+  updateAccountSchema,
 } from '../schemas/accountSchemas.js';
 
 const router = Router();
@@ -15,6 +16,12 @@ const router = Router();
 router.get('/autoconfig', requireAuth, validate({ query: autoconfigQuerySchema }), accountsController.autoconfig);
 router.post('/', requireAuth, validate({ body: createImapAccountSchema }), accountsController.create);
 router.get('/', requireAuth, accountsController.list);
+router.patch(
+  '/:id',
+  requireAuth,
+  validate({ params: accountIdParamSchema, body: updateAccountSchema }),
+  accountsController.update,
+);
 router.delete('/:id', requireAuth, validate({ params: accountIdParamSchema }), accountsController.remove);
 router.patch(
   '/:id/active',

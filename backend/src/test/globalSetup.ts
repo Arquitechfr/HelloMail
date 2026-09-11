@@ -22,7 +22,14 @@ export async function teardown(): Promise<void> {
     await mongoose.disconnect();
   }
   if (mongoServer) {
-    await mongoServer.stop({ force: true });
+    try {
+      await Promise.race([
+        mongoServer.stop({ force: true }),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+    } catch {
+      // Ignorer si déjà arrêté ou zombie
+    }
     mongoServer = null;
   }
   delete process.env.MONGO_URI;

@@ -9,9 +9,17 @@ export interface WebAuthnCredential {
   createdAt: Date;
 }
 
+export interface IUnifiedFolderConfig {
+  id: string;
+  enabled: boolean;
+  order: number;
+}
+
 export interface IUserPreferences {
   undoSendDelay?: number; // 0, 5, 10, 15, 30 secondes (défaut: 5)
   autoAddContacts?: boolean; // ajout auto des expéditeurs au carnet (défaut: false)
+  unifiedFoldersEnabled?: boolean; // activation globale des dossiers unifiés (défaut: true)
+  unifiedFolders?: IUnifiedFolderConfig[]; // liste ordonnée et filtrée des boîtes unifiées
 }
 
 export interface IUserDocument extends Document {
@@ -87,6 +95,20 @@ const userSchema = new Schema<IUserDocument>(
       autoAddContacts: {
         type: Boolean,
         default: false,
+      },
+      unifiedFoldersEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      unifiedFolders: {
+        type: [
+          {
+            id: { type: String, required: true },
+            enabled: { type: Boolean, default: true },
+            order: { type: Number, default: 0 },
+          },
+        ],
+        default: undefined,
       },
     },
     defaultsSeededAt: {

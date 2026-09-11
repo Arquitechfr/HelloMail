@@ -12,7 +12,7 @@ export const ruleConditionSchema = z.object({
 
 export const ruleActionSchema = z
   .object({
-    type: z.enum(['moveToFolder', 'markAsRead', 'markAsFlagged', 'markAsJunk', 'delete', 'applyTag'], {
+    type: z.enum(['moveToFolder', 'markAsRead', 'markAsFlagged', 'markAsJunk', 'delete', 'applyTag', 'pinMessage'], {
       error: 'Type d\'action invalide',
     }),
     folderName: z.string().optional(),

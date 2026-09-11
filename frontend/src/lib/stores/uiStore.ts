@@ -22,12 +22,16 @@ interface UIState {
   shortcutsDialogOpen: boolean;
   searchDialogOpen: boolean;
   selectedTag: string | null;
+  selectedUids: number[];
   desktopNotificationsEnabled: boolean;
   notificationSoundEnabled: boolean;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedFolder: (folder: string) => void;
   setSelectedTag: (tag: string | null) => void;
   setSelectedUid: (uid: number | null) => void;
+  toggleSelectUid: (uid: number) => void;
+  selectAllUids: (uids: number[]) => void;
+  clearSelectedUids: () => void;
   openCompose: (
     mode?: ComposeMode,
     replyTo?: UIState["composeReplyTo"],
@@ -52,6 +56,7 @@ export const useUIStore = create<UIState>()(
       selectedFolder: "INBOX",
       selectedTag: null,
       selectedUid: null,
+      selectedUids: [],
       composeOpen: false,
       composeMode: "new",
       composeReplyTo: null,
@@ -61,10 +66,21 @@ export const useUIStore = create<UIState>()(
       searchDialogOpen: false,
       desktopNotificationsEnabled: true,
       notificationSoundEnabled: true,
-      setSelectedAccount: (accountId) => set({ selectedAccountId: accountId }),
-      setSelectedFolder: (folder) => set({ selectedFolder: folder, selectedTag: null }),
-      setSelectedTag: (tag) => set({ selectedTag: tag, selectedUid: null }),
+      setSelectedAccount: (accountId) =>
+        set({ selectedAccountId: accountId, selectedUids: [] }),
+      setSelectedFolder: (folder) =>
+        set({ selectedFolder: folder, selectedTag: null, selectedUids: [] }),
+      setSelectedTag: (tag) =>
+        set({ selectedTag: tag, selectedUid: null, selectedUids: [] }),
       setSelectedUid: (uid) => set({ selectedUid: uid }),
+      toggleSelectUid: (uid) =>
+        set((state) => ({
+          selectedUids: state.selectedUids.includes(uid)
+            ? state.selectedUids.filter((id) => id !== uid)
+            : [...state.selectedUids, uid],
+        })),
+      selectAllUids: (uids) => set({ selectedUids: uids }),
+      clearSelectedUids: () => set({ selectedUids: [] }),
       openCompose: (mode = "new", replyTo = null, restoredData = null) =>
         set({
           composeOpen: true,

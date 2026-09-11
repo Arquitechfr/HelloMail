@@ -21,6 +21,7 @@ import rulesRoutes from './routes/rulesRoutes.js';
 import tagsRoutes from './routes/tagsRoutes.js';
 import templatesRoutes from './routes/templatesRoutes.js';
 import logoRoutes from './routes/logoRoutes.js';
+import { unifiedRoutes } from './routes/unifiedRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
@@ -70,6 +71,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/tags', tagsRoutes);
   app.use('/api/templates', templatesRoutes);
   app.use('/api/logos', logoRoutes);
+  app.use('/api/unified', unifiedRoutes);
   app.use('/api', eventsRoutes);
 
   app.use(notFound);

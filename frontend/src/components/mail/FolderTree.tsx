@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface FolderTreeProps {
   accountId: string;
+  accountColor?: string;
   selectedFolder: string;
   onSelectFolder: (path: string) => void;
 }
@@ -43,7 +44,7 @@ function buildTree(folders: FolderInfo[]): FolderNode[] {
   return roots;
 }
 
-export function FolderTree({ accountId, selectedFolder, onSelectFolder }: FolderTreeProps) {
+export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFolder }: FolderTreeProps) {
   const { data: folders, isLoading, error } = useFolders(accountId);
 
   const [formDialog, setFormDialog] = useState<{
@@ -168,6 +169,7 @@ export function FolderTree({ accountId, selectedFolder, onSelectFolder }: Folder
           depth={0}
           selectedFolder={selectedFolder}
           accountId={accountId}
+          accountColor={accountColor}
           onSelectFolder={onSelectFolder}
           onCreateSubfolder={(parent) =>
             setFormDialog({ open: true, mode: "create-subfolder", parentFolder: parent })

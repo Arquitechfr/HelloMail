@@ -3,10 +3,12 @@ import { AppError } from '../../utils/AppError.js';
 import { ACCOUNT_SAFE_PROJECTION } from '../../utils/projections.js';
 import { encrypt } from '../security/encryptionService.js';
 import { testImapConnection, testSmtpConnection } from '../email/connectionTest.js';
+import { getNextAccountColor } from '../../config/accountColors.js';
 
 export interface CreateImapAccountInput {
   emailAddress: string;
   displayName?: string;
+  color?: string;
   imap: {
     host: string;
     port: number;
@@ -50,6 +52,7 @@ export class AccountService {
     });
 
     const encryptedPassword = encrypt(input.imap.password);
+    const color = input.color || (await getNextAccountColor(userId));
 
     // Utilise new Model() + save() pour que le hook pre('validate') s'exécute
     const account = new AccountModel({
@@ -57,6 +60,7 @@ export class AccountService {
       provider: 'imap',
       emailAddress: input.emailAddress,
       displayName: input.displayName,
+      color,
       imapConfig: {
         host: input.imap.host,
         port: input.imap.port,
@@ -127,6 +131,32 @@ export class AccountService {
     const account = await AccountModel.findOneAndUpdate(
       { _id: accountId, userId },
       { signature },
+      { new: true },
+    ).select(ACCOUNT_SAFE_PROJECTION);
+
+    if (!account) {
+      throw AppError.notFound('Compte introuvable');
+    }
+
+    return account;
+  }
+
+  /**
+   * Met à jour les propriétés éditables d'un compte (couleur, nom affiché).
+   * AppError 404 si introuvable.
+   */
+  static async updateAccount(
+    userId: string,
+    accountId: string,
+    updates: { color?: string; displayName?: string },
+  ): Promise<IAccountDocument> {
+    const $set: Record<string, unknown> = {};
+    if (updates.color !== undefined) $set.color = updates.color;
+    if (updates.displayName !== undefined) $set.displayName = updates.displayName;
+
+    const account = await AccountModel.findOneAndUpdate(
+      { _id: accountId, userId },
+      { $set },
       { new: true },
     ).select(ACCOUNT_SAFE_PROJECTION);
 

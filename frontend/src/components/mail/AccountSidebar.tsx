@@ -8,6 +8,7 @@ import { useUIStore } from "@/lib/stores/uiStore";
 import { AccountItem } from "@/components/accounts/AccountItem";
 import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { FolderTree } from "@/components/mail/FolderTree";
+import { UnifiedFolderList } from "@/components/mail/unified/UnifiedFolderList";
 import { Button } from "@/components/ui/button";
 import { Plus, Mail, Loader2, X, FolderKanban, Tag as TagIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,9 @@ export function AccountSidebar() {
 
       {/* Liste des comptes et arborescence des dossiers */}
       <div className="flex-1 overflow-y-auto px-2 py-2">
+        {/* Section Boîtes et Dossiers unifiés */}
+        <UnifiedFolderList />
+
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -114,6 +118,7 @@ export function AccountSidebar() {
                   <div className="mt-1 mb-1.5 ml-2 border-l border-border/60 pl-1">
                     <FolderTree
                       accountId={account._id}
+                      accountColor={account.color}
                       selectedFolder={selectedFolder}
                       onSelectFolder={handleSelectFolder}
                     />

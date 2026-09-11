@@ -1,19 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useDeleteAccount, useToggleAccount } from "@/lib/queries/accounts";
+import { useDeleteAccount, useToggleAccount, useUpdateAccount, useAccounts } from "@/lib/queries/accounts";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/api-types";
 import { EmailAvatar } from "@/components/mail/EmailAvatar";
-import { MoreVertical, Trash2, AlertCircle } from "lucide-react";
+import { AccountColorPicker } from "./AccountColorPicker";
+import { MoreVertical, Trash2, AlertCircle, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 interface AccountItemProps {
@@ -25,7 +27,12 @@ interface AccountItemProps {
 export function AccountItem({ account, isSelected, onSelect }: AccountItemProps) {
   const toggleAccount = useToggleAccount();
   const deleteAccount = useDeleteAccount();
+  const updateAccount = useUpdateAccount();
+  const { data: allAccounts } = useAccounts();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+
+  const accountColor = account.color || "#3b82f6";
 
   const handleToggle = () => {
     toggleAccount.mutate(
@@ -58,17 +65,26 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
       )}
       onClick={onSelect}
     >
-      <EmailAvatar
-        email={account.emailAddress}
-        name={account.displayName}
-        className="size-8 shrink-0"
-        fallbackClassName="text-xs font-medium"
-      />
+      <div className="relative">
+        <EmailAvatar
+          email={account.emailAddress}
+          name={account.displayName}
+          className="size-8 shrink-0"
+          fallbackClassName="text-xs font-medium"
+        />
+        <span
+          className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-background shrink-0"
+          style={{ backgroundColor: accountColor }}
+          title={`Couleur du compte : ${accountColor}`}
+        />
+      </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium">
-          {account.displayName ?? account.emailAddress}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="truncate text-sm font-medium">
+            {account.displayName ?? account.emailAddress}
+          </span>
+        </div>
         <span className="truncate text-xs text-muted-foreground">{account.emailAddress}</span>
       </div>
 
@@ -84,6 +100,16 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
           <MoreVertical className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setColorPickerOpen(true);
+            }}
+          >
+            <Palette className="size-4 mr-1.5" />
+            Couleur du compte...
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -135,6 +161,50 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
               </Button>
               <Button variant="destructive" onClick={handleDelete} disabled={deleteAccount.isPending}>
                 Supprimer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {colorPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            setColorPickerOpen(false);
+          }}
+        >
+          <div
+            className="rounded-xl border border-border bg-card p-5 max-w-xs shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="size-3.5 rounded-full" style={{ backgroundColor: accountColor }} />
+              <h3 className="font-semibold text-sm">Couleur du compte</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Choisissez une couleur unique pour distinguer ce compte et ses dossiers.
+            </p>
+            <AccountColorPicker
+              currentColor={accountColor}
+              usedColors={allAccounts?.map((a) => a.color || "").filter(Boolean)}
+              onSelectColor={(newColor) => {
+                updateAccount.mutate(
+                  { id: account._id, color: newColor },
+                  {
+                    onSuccess: () => {
+                      toast.success("Couleur du compte mise à jour");
+                      setColorPickerOpen(false);
+                    },
+                    onError: () => toast.error("Erreur lors de la mise à jour de la couleur"),
+                  },
+                );
+              }}
+            />
+            <div className="flex justify-end mt-4">
+              <Button size="sm" variant="outline" onClick={() => setColorPickerOpen(false)}>
+                Fermer
               </Button>
             </div>
           </div>

@@ -33,6 +33,7 @@ export interface IAccountDocument extends Document {
     text: string;
     html?: string;
   };
+  color?: string;
   isActive: boolean;
   lastSyncedAt?: Date;
   lastSyncError?: string;
@@ -91,6 +92,10 @@ const accountSchema = new Schema<IAccountDocument>(
       enabled: { type: Boolean, default: false },
       text: { type: String, default: '' },
       html: { type: String, required: false },
+    },
+    color: {
+      type: String,
+      default: '#3b82f6',
     },
     isActive: {
       type: Boolean,

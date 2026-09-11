@@ -232,6 +232,11 @@ export async function applyRulesToIncomingMessage(
           await MessageModel.deleteOne({ _id: message._id });
         } else if (action.type === 'applyTag' && action.tagName) {
           await MessageModel.updateOne({ _id: message._id }, { $addToSet: { tags: action.tagName } });
+        } else if (action.type === 'pinMessage') {
+          await MessageModel.updateOne(
+            { _id: message._id },
+            { $set: { isPinned: true, pinnedAt: new Date() } },
+          );
         }
       } catch (actErr) {
         logger.error({ action: action.type, error: actErr instanceof Error ? actErr.message : 'inconnu' }, 'Erreur action de règle');

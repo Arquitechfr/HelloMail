@@ -36,6 +36,7 @@ import {
   Download,
   RotateCcw,
   Pencil,
+  Pin,
 } from "lucide-react";
 
 interface MessageContextMenuProps {
@@ -130,6 +131,20 @@ export function MessageContextMenu({
             {isFlagged ? "Retirer l'étoile" : "Marquer comme important"}
           </span>
           <ContextMenuShortcut>S</ContextMenuShortcut>
+        </ContextMenuItem>
+
+        <ContextMenuItem onClick={actions.togglePin}>
+          <Pin
+            className={
+              actions.isPinned
+                ? "size-4 mr-2 fill-primary text-primary"
+                : "size-4 mr-2 text-muted-foreground"
+            }
+          />
+          <span>
+            {actions.isPinned ? "Retirer la mise en avant" : "Mettre en avant"}
+          </span>
+          <ContextMenuShortcut>H</ContextMenuShortcut>
         </ContextMenuItem>
 
         {/* Actions réservées aux messages reçus/archivés */}

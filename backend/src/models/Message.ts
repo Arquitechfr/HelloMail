@@ -26,6 +26,8 @@ export interface IMessageDocument extends Document {
   size: number;
   tags?: string[];
   snoozedUntil?: Date | null;
+  isPinned?: boolean;
+  pinnedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -108,6 +110,14 @@ const messageSchema = new Schema<IMessageDocument>(
       type: Date,
       default: null,
     },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+    pinnedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -122,6 +132,9 @@ messageSchema.index({ accountId: 1, tags: 1 });
 
 // Index pour la mise en sommeil (snooze)
 messageSchema.index({ accountId: 1, snoozedUntil: 1 });
+
+// Index pour le tri prioritaire des messages épinglés puis par date
+messageSchema.index({ accountId: 1, isPinned: -1, date: -1 });
 
 // Index pour le tri de la liste par date décroissante.
 messageSchema.index({ accountId: 1, date: -1 });

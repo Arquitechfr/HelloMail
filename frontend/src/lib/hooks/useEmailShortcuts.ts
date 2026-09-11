@@ -9,6 +9,7 @@ interface EmailShortcutsOptions {
   onForward?: () => void;
   onToggleSeen?: () => void;
   onToggleFlagged?: () => void;
+  onTogglePin?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
   onMarkJunk?: () => void;
@@ -26,6 +27,7 @@ export function useEmailShortcuts({
   onForward,
   onToggleSeen,
   onToggleFlagged,
+  onTogglePin,
   onArchive,
   onDelete,
   onMarkJunk,
@@ -103,6 +105,14 @@ export function useEmailShortcuts({
           }
           break;
 
+        case "h":
+        case "H":
+          if (onTogglePin) {
+            e.preventDefault();
+            onTogglePin();
+          }
+          break;
+
         case "e":
         case "E":
           if (onArchive) {
@@ -146,6 +156,7 @@ export function useEmailShortcuts({
     onForward,
     onToggleSeen,
     onToggleFlagged,
+    onTogglePin,
     onArchive,
     onDelete,
     onMarkJunk,

@@ -4,6 +4,7 @@ import { emailSchema, objectIdParamSchema } from './commonSchemas.js';
 export const createImapAccountSchema = z.object({
   emailAddress: emailSchema,
   displayName: z.string().max(120, 'Le nom d\'affichage ne peut pas dépasser 120 caractères').optional(),
+  color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Format hexadécimal invalide').optional(),
   imap: z.object({
     host: z.string().min(1, 'Hôte IMAP requis'),
     port: z.coerce.number().min(1).max(65535),
@@ -32,4 +33,9 @@ export const updateSignatureSchema = z.object({
   enabled: z.boolean(),
   text: z.string().max(4000, 'La signature texte ne peut pas dépasser 4000 caractères'),
   html: z.string().max(10000, 'La signature HTML ne peut pas dépasser 10000 caractères').optional(),
+});
+
+export const updateAccountSchema = z.object({
+  displayName: z.string().max(120, 'Le nom d\'affichage ne peut pas dépasser 120 caractères').optional(),
+  color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Format de couleur hexadécimal invalide').optional(),
 });

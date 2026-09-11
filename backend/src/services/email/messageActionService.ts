@@ -11,7 +11,7 @@ export interface FlagsUpdate {
   answered?: boolean;
 }
 
-export type BatchAction = 'delete' | 'move' | 'markRead' | 'markUnread' | 'flag' | 'unflag' | 'markAsJunk';
+export type BatchAction = 'delete' | 'move' | 'markRead' | 'markUnread' | 'flag' | 'unflag' | 'markAsJunk' | 'pin' | 'unpin';
 
 /** Supprime le corps mis en cache (best-effort — le TTL MongoDB nettoie le reste). */
 async function deleteCachedBody(accountId: string, folder: string, uid: number): Promise<void> {
@@ -247,6 +247,22 @@ export async function batchAction(
         await MessageModel.deleteMany({ accountId, folder, uid: { $in: uids } });
         break;
       }
+
+      case 'pin':
+        affected = uids.length;
+        await MessageModel.updateMany(
+          { accountId, folder, uid: { $in: uids } },
+          { $set: { isPinned: true, pinnedAt: new Date() } },
+        );
+        break;
+
+      case 'unpin':
+        affected = uids.length;
+        await MessageModel.updateMany(
+          { accountId, folder, uid: { $in: uids } },
+          { $set: { isPinned: false, pinnedAt: null } },
+        );
+        break;
     }
 
     return { affected };

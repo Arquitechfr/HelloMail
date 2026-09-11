@@ -8,6 +8,7 @@ import {
   useDeleteMessage,
   useMoveMessage,
   useMarkAsJunk,
+  usePinMessage,
 } from "@/lib/queries/messages";
 import { useFolders } from "@/lib/queries/folders";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -41,6 +42,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const deleteMessage = useDeleteMessage(accountId, folder);
   const moveMessage = useMoveMessage(accountId, folder);
   const markAsJunk = useMarkAsJunk(accountId, folder);
+  const pinMutation = usePinMessage(accountId, folder);
   const { data: thread } = useMessageThread(accountId, folder, uid);
   const { data: folders } = useFolders(accountId);
   const isDraft = isDraftFolder(folder, folders);
@@ -99,6 +101,18 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const handleToggleFlag = () => {
     if (uid === null || !message) return;
     updateFlags.mutate({ uid, flags: { flagged: !message.flags.flagged } });
+  };
+
+  const handleTogglePin = () => {
+    if (uid === null || !message) return;
+    const nextPinned = !message.isPinned;
+    pinMutation.mutate(
+      { uid, isPinned: nextPinned },
+      {
+        onSuccess: () => toast.success(nextPinned ? "Message mis en avant" : "Mise en avant retirée"),
+        onError: () => toast.error("Erreur lors de la mise en avant"),
+      },
+    );
   };
 
   const handleMarkJunk = () => {
@@ -167,6 +181,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
     onForward: isDraft ? undefined : handleForward,
     onToggleSeen: handleToggleSeen,
     onToggleFlagged: handleToggleFlag,
+    onTogglePin: handleTogglePin,
     onArchive: isDraft ? undefined : handleArchive,
     onDelete: handleDelete,
     onMarkJunk: isDraft ? undefined : handleMarkJunk,
@@ -229,6 +244,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         folder={folder}
         uid={uid!}
         isFlagged={message.flags.flagged}
+        isPinned={Boolean(message.isPinned)}
         isSnoozed={!!message.snoozedUntil}
         isDraft={isDraft}
         onEditDraft={handleEditDraft}
@@ -237,6 +253,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         onReply={handleReply}
         onForward={handleForward}
         onToggleFlag={handleToggleFlag}
+        onTogglePin={handleTogglePin}
         onArchive={handleArchive}
         onMarkJunk={handleMarkJunk}
         onDelete={handleDelete}

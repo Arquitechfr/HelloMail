@@ -16,6 +16,7 @@ import {
   exchangeMicrosoftCode,
   OUTLOOK_IMAP_DEFAULTS,
 } from '../services/auth/microsoftOAuthService.js';
+import { getNextAccountColor } from '../config/accountColors.js';
 import { logger } from '../config/logger.js';
 
 /**
@@ -82,10 +83,12 @@ export const googleCallback = asyncHandler(
       logger.info({ userId, emailAddress: userInfo.email }, 'Compte Google OAuth mis à jour');
     } else {
       // Crée un nouveau compte OAuth.
+      const color = await getNextAccountColor(userId);
       const account = new AccountModel({
         userId,
         provider: 'google_oauth',
         emailAddress: userInfo.email,
+        color,
         imapConfig: {
           host: GMAIL_IMAP_DEFAULTS.host,
           port: GMAIL_IMAP_DEFAULTS.port,
@@ -172,10 +175,12 @@ export const microsoftCallback = asyncHandler(
       await existing.save();
       logger.info({ userId, emailAddress: email }, 'Compte Microsoft OAuth mis à jour');
     } else {
+      const color = await getNextAccountColor(userId);
       const account = new AccountModel({
         userId,
         provider: 'microsoft_oauth',
         emailAddress: email.toLowerCase(),
+        color,
         imapConfig: {
           host: OUTLOOK_IMAP_DEFAULTS.host,
           port: OUTLOOK_IMAP_DEFAULTS.port,

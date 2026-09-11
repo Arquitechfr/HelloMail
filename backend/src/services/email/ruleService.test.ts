@@ -221,5 +221,50 @@ describe('ruleService', () => {
       expect(updated?.flags.seen).toBe(true);
       expect(updated?.flags.flagged).toBe(true);
     });
+
+    it('applique l\'action pinMessage en mettant isPinned à true', async () => {
+      await clearDb();
+
+      await RuleModel.create({
+        userId,
+        name: 'Auto-pin VIP',
+        order: 0,
+        isActive: true,
+        conditionMatch: 'all',
+        conditions: [{ field: 'from', operator: 'contains', value: 'vip@corp.com' }],
+        actions: [{ type: 'pinMessage' }],
+        stopProcessing: true,
+      });
+
+      const messageDoc = await MessageModel.create({
+        accountId,
+        folder: 'INBOX',
+        uid: 1000,
+        subject: 'Demande urgente',
+        from: { name: 'VIP', address: 'vip@corp.com' },
+        to: [{ name: 'Moi', address: 'moi@site.com' }],
+        date: new Date(),
+        flags: { seen: false, flagged: false, answered: false },
+        size: 512,
+        hasAttachments: false,
+        isPinned: false,
+      });
+
+      const mockImapClient = {
+        messageMove: vi.fn().mockResolvedValue(true),
+        messageFlagsAdd: vi.fn().mockResolvedValue(true),
+        messageDelete: vi.fn().mockResolvedValue(true),
+      } as unknown as ImapFlow;
+
+      await applyRulesToIncomingMessage(
+        { _id: accountId, userId },
+        messageDoc,
+        mockImapClient,
+      );
+
+      const updated = await MessageModel.findById(messageDoc._id);
+      expect(updated?.isPinned).toBe(true);
+      expect(updated?.pinnedAt).toBeDefined();
+    });
   });
 });

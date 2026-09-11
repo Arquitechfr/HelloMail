@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import type { AuthResponse, User, LoginResponse, TwoFAStatus, TOTPSetupResponse, EnableTOTPResponse } from "@/lib/api-types";
+import type { AuthResponse, User, LoginResponse, TwoFAStatus, TOTPSetupResponse, EnableTOTPResponse, UserPreferences } from "@/lib/api-types";
 import { useAuthStore } from "@/lib/stores/authStore";
 
 export const authKeys = {
@@ -118,13 +118,13 @@ export function useDisable2FA() {
   });
 }
 
-/** PATCH /api/auth/preferences — met à jour les préférences de l'utilisateur (Phase 9). */
+/** PATCH /api/auth/preferences — met à jour les préférences de l'utilisateur (Phase 9 & 10 & Dossiers unifiés). */
 export function useUpdatePreferences() {
   const qc = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
   const { accessToken } = useAuthStore();
   return useMutation({
-    mutationFn: (body: { undoSendDelay?: number; autoAddContacts?: boolean }) =>
+    mutationFn: (body: Partial<UserPreferences>) =>
       apiFetch<{ user: User }>("/api/auth/preferences", {
         method: "PATCH",
         body: JSON.stringify(body),

@@ -8,6 +8,7 @@ describe("useEmailShortcuts", () => {
   const onForward = vi.fn();
   const onToggleSeen = vi.fn();
   const onToggleFlagged = vi.fn();
+  const onTogglePin = vi.fn();
   const onArchive = vi.fn();
   const onDelete = vi.fn();
   const onMarkJunk = vi.fn();
@@ -78,6 +79,18 @@ describe("useEmailShortcuts", () => {
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
     expect(onToggleFlagged).toHaveBeenCalledTimes(1);
+  });
+
+  it("déclenche onTogglePin sur appui de 'H'", () => {
+    renderHook(() =>
+      useEmailShortcuts({
+        enabled: true,
+        onTogglePin,
+      }),
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "h" }));
+    expect(onTogglePin).toHaveBeenCalledTimes(1);
   });
 
   it("déclenche onArchive sur 'E' et onDelete sur 'Delete'", () => {

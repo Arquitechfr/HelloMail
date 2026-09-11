@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import type { FolderInfo } from "@/lib/api-types";
 import { FolderActionsMenu } from "./FolderActionsMenu";
 import { FolderContextMenu } from "./FolderContextMenu";
+import { useMoveMessage } from "@/lib/queries/messages";
+import { toast } from "sonner";
 import { ChevronRight, ChevronDown, Folder, Inbox, Send, Trash2, FileText, Ban, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,29 +18,31 @@ interface FolderNodeItemProps {
   depth: number;
   selectedFolder: string;
   accountId: string;
+  accountColor?: string;
   onSelectFolder: (path: string) => void;
   onCreateSubfolder: (parent: FolderInfo) => void;
   onRename: (folder: FolderInfo) => void;
   onDelete: (folder: FolderInfo) => void;
 }
 
-function FolderIcon({ specialUse }: { specialUse?: string }) {
-  const iconClass = "size-4 shrink-0 text-muted-foreground";
+function FolderIcon({ specialUse, accountColor }: { specialUse?: string; accountColor?: string }) {
+  const iconClass = "size-4 shrink-0";
+  const style = accountColor ? { color: accountColor } : undefined;
   switch (specialUse) {
     case "\\Inbox":
-      return <Inbox className={iconClass} />;
+      return <Inbox className={iconClass} style={style} />;
     case "\\Sent":
-      return <Send className={iconClass} />;
+      return <Send className={iconClass} style={style} />;
     case "\\Trash":
-      return <Trash2 className={iconClass} />;
+      return <Trash2 className={iconClass} style={style} />;
     case "\\Drafts":
-      return <FileText className={iconClass} />;
+      return <FileText className={iconClass} style={style} />;
     case "\\Junk":
-      return <Ban className={iconClass} />;
+      return <Ban className={iconClass} style={style} />;
     case "\\Archive":
-      return <Archive className={iconClass} />;
+      return <Archive className={iconClass} style={style} />;
     default:
-      return <Folder className={iconClass} />;
+      return <Folder className={iconClass} style={style} />;
   }
 }
 
@@ -47,15 +51,43 @@ export function FolderNodeItem({
   depth,
   selectedFolder,
   accountId,
+  accountColor,
   onSelectFolder,
   onCreateSubfolder,
   onRename,
   onDelete,
 }: FolderNodeItemProps) {
   const [expanded, setExpanded] = useState(depth === 0);
+  const [isDragOver, setIsDragOver] = useState(false);
   const isSelected = node.path === selectedFolder;
   const hasChildren = node.children.length > 0;
   const unseen = node.status?.unseen ?? 0;
+  const isNoSelect = node.flags?.includes("\\Noselect");
+
+  const moveMessage = useMoveMessage(accountId, selectedFolder);
+
+  const handleDrop = (e: React.DragEvent) => {
+    try {
+      const raw = e.dataTransfer.getData("application/json");
+      if (!raw) return;
+      const payload = JSON.parse(raw) as { accountId: string; folder: string; uid: number };
+      if (payload.accountId === accountId && payload.folder !== node.path) {
+        moveMessage.mutate(
+          { uid: payload.uid, destination: node.path },
+          {
+            onSuccess: () => {
+              toast.success(`Message déplacé vers « ${node.name || node.path} »`);
+            },
+            onError: () => {
+              toast.error("Erreur lors du déplacement du message");
+            },
+          },
+        );
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <div>
@@ -67,11 +99,25 @@ export function FolderNodeItem({
       >
         <div
           className={cn(
-            "group flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm transition-colors cursor-pointer select-none",
+            "group flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm transition-all cursor-pointer select-none",
             isSelected ? "bg-primary/15 text-primary font-medium" : "hover:bg-muted/50 text-foreground/80",
+            isDragOver && "ring-2 ring-primary/80 bg-primary/20 scale-[1.01] shadow-xs text-primary font-medium",
           )}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           onClick={() => onSelectFolder(node.path)}
+          onDragOver={(e) => {
+            if (isNoSelect) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={(e) => {
+            if (isNoSelect) return;
+            e.preventDefault();
+            setIsDragOver(false);
+            handleDrop(e);
+          }}
         >
           {hasChildren ? (
             <button
@@ -91,7 +137,7 @@ export function FolderNodeItem({
           ) : (
             <span className="w-4 shrink-0" />
           )}
-          <FolderIcon specialUse={node.specialUse} />
+          <FolderIcon specialUse={node.specialUse} accountColor={accountColor} />
           <span className="flex-1 truncate text-xs">{node.name}</span>
 
           {unseen > 0 && (
@@ -120,6 +166,7 @@ export function FolderNodeItem({
               depth={depth + 1}
               selectedFolder={selectedFolder}
               accountId={accountId}
+              accountColor={accountColor}
               onSelectFolder={onSelectFolder}
               onCreateSubfolder={onCreateSubfolder}
               onRename={onRename}

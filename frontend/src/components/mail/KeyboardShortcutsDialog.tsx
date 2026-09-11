@@ -34,6 +34,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { key: "U", description: "Bascule lu / non lu" },
       { key: "S", description: "Marquer comme important (étoile)" },
+      { key: "H", description: "Mettre en avant / épingler le message" },
       { key: "E", description: "Archiver le message" },
       { key: "!", description: "Signaler comme spam / indésirable" },
       { key: "Suppr / #", description: "Supprimer le message" },
