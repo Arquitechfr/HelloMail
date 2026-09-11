@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { ContactModel, type IContactDocument } from '../../models/Contact.js';
 import { UserModel } from '../../models/User.js';
 import { AppError } from '../../utils/AppError.js';
@@ -125,16 +126,29 @@ export async function addSenderContactIfEnabled(
     return false;
   }
 
-  const email = from.address?.toLowerCase().trim();
-  // Adresse minimalement valide + exclusion des noreply évidents.
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || /^(no-?reply|noreply|donotreply)@/i.test(email)) {
+  const email = (from.address || '').replace(/[<>]/g, '').toLowerCase().trim();
+  // Adresse minimalement valide + exclusion des adresses automatiques et noreply évidents.
+  if (
+    !email ||
+    !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ||
+    /^(no-?reply|noreply|donotreply|bounce|mailer-daemon|postmaster|notifications?)@/i.test(email)
+  ) {
     return false;
   }
 
+  const contactName = from.name?.trim() || email;
+
   try {
+    const userObjectId = new Types.ObjectId(userId);
     const result = await ContactModel.updateOne(
-      { userId, email },
-      { $setOnInsert: { name: from.name?.trim() || email, email } },
+      { userId: userObjectId, email },
+      {
+        $setOnInsert: {
+          userId: userObjectId,
+          name: contactName,
+          email,
+        },
+      },
       { upsert: true },
     );
     return (result.upsertedCount ?? 0) > 0;

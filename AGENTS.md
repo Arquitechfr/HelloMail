@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (404 tests, 43 fichiers). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (671 tests, 97 fichiers — 543 backend + 128 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 HelloMail/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-3, 5, 6, 7, 8 & 9 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 4, 6, 7, 8, Refonte Pro & 9 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-16 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-16 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -101,3 +101,22 @@ HelloMail/
   - **Expédition avec alias conforme RFC 5322 & Anti-spoofing** : méthode `verifySenderIdentity` rejetant toute identité non configurée pour le compte (400), entête SMTP `Sender: account.emailAddress` quand un alias est employé avec en-tête `From: alias.name <alias.email>`, intégration directe dans `sendEmail`, `scheduleEmail` et les brouillons.
   - **Interface utilisateur de gestion et sélection d'alias** : dialogue de gestion `AccountAliasesDialog` accessible depuis `AccountItem` (ajout, modification, suppression, désignation comme expéditeur par défaut), sélecteur d'identité réactif "De :" dans `ComposeRecipients`, et persistance de l'expéditeur lors de l'annulation d'envoi ("Undo Send") dans `undoSendStore`.
   - Couverture : **511 tests Vitest backend (60 fichiers), 103 tests Vitest frontend (25 fichiers) — 614 tests au total, 0 `as any`**.
+- **Phase 15 : Sécurité Avancée & Chiffrement de bout en bout OpenPGP (E2EE) (Intégralité livrée)** ✅ :
+  - **Moteur cryptographique client OpenPGP** : bibliothèque `openpgp` (RFC 4880 / RFC 9580), support des clés Curve25519 (Ed25519/Cv25519) et RSA 4096-bit, fonctions de génération de paires avec passphrase optionnelle, inspection de blocs ASCII-armor, signature claire (`cleartextStream`), chiffrement asymétrique multi-destinataires, déchiffrement et vérification d'authenticité (`pgpCrypto.ts`).
+  - **Gestion backend des clés OpenPGP** : modèle `PgpKey` avec index composés `{ userId: 1, isOwnKey: 1 }` et `{ userId: 1, email: 1 }`, validation Zod stricte `pgpSchemas.ts`, service transactionnel `pgpKeyService.ts` assurant le stockage des clés personnelles de l'utilisateur (avec clé privée chiffrée par passphrase ou publique seule) et l'annuaire des clés publiques de correspondants, routes REST sécurisées `/api/pgp`.
+  - **Interface utilisateur de gestion des clés dans les Réglages** : section Dédiée OpenPGP dans `/mail/settings` (onglet Sécurité), dialogue assisté de génération de clé locale Web Crypto (`PgpGenerateKeyDialog`), dialogue d'import ASCII-armor (`PgpImportKeyDialog`), copie d'empreinte formatée et téléchargement `.asc`, gestion et suppression des clés de correspondants.
+  - **Déchiffrement et vérification de signature dans le lecteur de message** : composant `PgpMessageBanner` détectant instantanément les messages chiffrés (`-----BEGIN PGP MESSAGE-----`) et signés en clair (`-----BEGIN PGP SIGNED MESSAGE-----`), invite de déchiffrement avec déverrouillage de passphrase locale si requise, affichage immédiat du texte déchiffré sécurisé et badge d'intégrité de la signature dans `MessageReader`.
+  - **Chiffrement et signature à l'expédition** : hook `useComposePgp`, boutons basculables "Chiffrer" et "Signer" dans `ComposeActions`, recherche automatique de la clé publique du destinataire ou avertissement proactif, chiffrement/signature à la volée avant transmission SMTP ou mise en file d'attente dans `ComposeForm`.
+  - Couverture : **520 tests Vitest backend (61 fichiers), 114 tests Vitest frontend (28 fichiers) — 634 tests au total, 0 `as any`**.
+- **Stabilisation & Correctifs critiques (Accusés de réception MDN & Auto-enregistrement Contacts)** ✅ :
+  - **Résolution de la boucle infinie d'accusé de réception (MDN)** : Ajout du champ `readReceiptSentAt` dans `MessageModel`, persistance à l'envoi de l'accusé via `receiptService`, injection dans `MessageDetail`, et bascule immédiate en état confirmé (coche verte) dans `ReadReceiptBanner`.
+  - **Délivrance universelle des demandes d'accusé** : Formatage standardisé RFC 2822 / 3798 `formattedFrom` / `<email>`, émission des en-têtes universels `Disposition-Notification-To`, `Return-Receipt-To` et `X-Confirm-Reading-To` dans `sendService`, et parsing multi-plateforme avec repli regex `\r?\n` et dépliage des en-têtes multilignes (folded headers) dans `messageFetchService`.
+  - **Auto-enregistrement robuste des contacts expéditeurs** : Cast de l'identifiant utilisateur `new Types.ObjectId(userId)` pour l'upsert MongoDB dans `contactService`, extraction propre des adresses sans chevrons, filtrage des expéditeurs automatiques et robots (`noreply`, `mailer-daemon`, `bounce`, `notification`), et branchement systématique dans tous les flux de synchronisation (`runInitialSyncForFolder`, `syncFolderDelta`, `pollingSync` et consultation de message).
+  - Couverture globale : **517 tests Vitest backend (61 fichiers), 118 tests Vitest frontend (29 fichiers) — 635 tests au total, 0 `as any`**.
+- **Phase 16 : Productivité & Interopérabilité avancée (Intégralité livrée)** ✅ :
+  - **Lot 16.1 : Désabonnement en 1 clic (List-Unsubscribe RFC 2369 / RFC 8058)** : Service `unsubscribeService.ts` avec parsing exhaustif des en-têtes `List-Unsubscribe` et `List-Unsubscribe-Post`, exécution sécurisée One-Click POST via proxy backend pour contourner les restrictions CORS, déclenchement client `mailto:` automatique avec sujet et corps par défaut, extraction intégrée dans `messageFetchService.fetchMessageDetail`, composant bouton discret `UnsubscribeButton` dans l'en-tête de message avec dialogue modal de confirmation `UnsubscribeDialog` et badge de confirmation "Désabonné", route dédiée `POST /api/accounts/:accountId/messages/:folder/:uid/unsubscribe`.
+  - **Lot 16.2 : Blocage d'expéditeur en 1 clic ("Block Sender")** : Service `blockSenderService.ts` avec extraction canonique de l'adresse de l'expéditeur, création transactionnelle et idempotente d'une règle de tri prioritaire dans `RuleModel` (critère `from` = expéditeur, action `markAsJunk`), déplacement instantané du message courant vers les spams via `markMessageAsJunk`, notification temps réel SSE `message:deleted`, dialogue d'avertissement et confirmation `BlockSenderDialog`, entrée contextuelle `Bloquer l'expéditeur` dans `MessageContextMenu` et action directe dans le header `MessageMetadataHeader`, route `POST /api/accounts/:accountId/messages/:folder/:uid/block-sender`.
+  - **Lot 16.3 : Import d'emails bruts RFC 822 (.eml) dans un dossier IMAP** : Schéma de validation `importEmailSchema` (limite 25 Mo, décodage buffer/base64), service `importEmailService.ts` assurant l'append direct sur le serveur IMAP distant avec flag `\Seen`, réconciliation immédiate en base MongoDB via `mirrorImportedMessageToMongo` et diffusion SSE `message:new`, endpoint REST `POST /api/accounts/:accountId/messages/:folder/import`, dialogue complet avec drag & drop, prévisualisation de taille et barre de progression `ImportEmlDialog` accessible par le menu 3 points `FolderActionsMenu` et le clic droit `FolderContextMenu`.
+  - Couverture globale : **543 tests Vitest backend (65 fichiers), 128 tests Vitest frontend (32 fichiers) — 671 tests au total, 0 `as any`**.
+
+

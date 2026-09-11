@@ -18,6 +18,7 @@ import { ScheduleSendDialog } from "@/components/mail/ScheduleSendDialog";
 import { ScheduledMessagesDialog } from "@/components/mail/ScheduledMessagesDialog";
 import { useScheduleSend } from "@/lib/hooks/useScheduleSend";
 import { useComposeSignature } from "@/lib/hooks/useComposeSignature";
+import { useComposePgp } from "@/lib/hooks/useComposePgp";
 import { toast } from "sonner";
 import type { SendEmailInput } from "@/lib/api-types";
 import type { EmailTemplate } from "@/lib/types/templates";
@@ -62,22 +63,14 @@ export function ComposeForm({
     return "";
   };
 
-  const [from, setFrom] = useState<{ name?: string; address: string } | undefined>(
-    restoredData?.from,
-  );
-  const [to, setTo] = useState(
-    restoredData?.to ?? (replyTo && mode === "reply" ? replyTo.from ?? "" : ""),
-  );
+  const [from, setFrom] = useState<{ name?: string; address: string } | undefined>(restoredData?.from);
+  const [to, setTo] = useState(restoredData?.to ?? (replyTo && mode === "reply" ? replyTo.from ?? "" : ""));
   const [cc, setCc] = useState(restoredData?.cc ?? "");
   const [bcc, setBcc] = useState(restoredData?.bcc ?? "");
   const [subject, setSubject] = useState(initialSubject());
   const [body, setBody] = useState<string>(restoredData?.body ?? replyTo?.html ?? "");
-  const [attachments, setAttachments] = useState<AttachmentItem[]>(
-    restoredData?.attachments ?? [],
-  );
-  const [requestReadReceipt, setRequestReadReceipt] = useState(
-    restoredData?.requestReadReceipt ?? false,
-  );
+  const [attachments, setAttachments] = useState<AttachmentItem[]>(restoredData?.attachments ?? []);
+  const [requestReadReceipt, setRequestReadReceipt] = useState(restoredData?.requestReadReceipt ?? false);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(!!(restoredData?.cc || restoredData?.bcc));
@@ -103,6 +96,14 @@ export function ComposeForm({
     scheduleSend,
   } = useScheduleSend({ accountId, draftUid, onClose });
 
+  const {
+    pgpEncrypt,
+    setPgpEncrypt,
+    pgpSign,
+    setPgpSign,
+    processPgpPayload,
+  } = useComposePgp({ fromAddress: from?.address || currentAccount?.emailAddress });
+
   const buildPayload = useCallback((): SendEmailInput => {
     return {
       from: from ? { name: from.name, address: from.address } : undefined,
@@ -112,14 +113,9 @@ export function ComposeForm({
       subject,
       text: htmlToText(body),
       html: DOMPurify.sanitize(body),
-      attachments:
-        attachments.length > 0
-          ? attachments.map((a) => ({
-              filename: a.filename,
-              content: a.content,
-              contentType: a.contentType,
-            }))
-          : undefined,
+      attachments: attachments.length > 0
+        ? attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType }))
+        : undefined,
       inReplyTo: mode === "reply" ? replyTo?.messageId : undefined,
       references: mode === "reply" && replyTo?.messageId ? [replyTo.messageId] : undefined,
       requestReadReceipt: requestReadReceipt ? true : undefined,
@@ -167,11 +163,7 @@ export function ComposeForm({
     setter(e.target.value);
     scheduleAutosave();
   };
-
-  const handleBodyChange = (html: string) => {
-    setBody(html);
-    scheduleAutosave();
-  };
+  const handleBodyChange = (html: string) => { setBody(html); scheduleAutosave(); };
 
   // Sauvegarde manuelle immédiate (force la sauvegarde même si snapshot identique).
   const handleSaveDraft = async () => {
@@ -207,7 +199,21 @@ export function ComposeForm({
     // Anti-double-submit.
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
-    const payload = buildPayload();
+    let payload = buildPayload();
+
+    if (pgpEncrypt || pgpSign) {
+      const processed = await processPgpPayload({
+        recipients: payload.to,
+        plainText: payload.text || htmlToText(body),
+      });
+      if (processed === "") {
+        setSubmitting(false);
+        return;
+      }
+      if (processed) {
+        payload = { ...payload, text: processed, html: `<pre>${processed}</pre>` };
+      }
+    }
 
     if (undoSendDelay > 0) {
       setSubmitting(false);
@@ -320,6 +326,10 @@ export function ComposeForm({
         onSelectTemplate={handleSelectTemplate}
         onOpenSchedule={() => setScheduleDialogOpen(true)}
         onOpenScheduledList={() => setScheduledListDialogOpen(true)}
+        pgpEncrypt={pgpEncrypt}
+        onPgpEncryptChange={setPgpEncrypt}
+        pgpSign={pgpSign}
+        onPgpSignChange={setPgpSign}
       />
 
       {/* Dialogues de planification Send Later */}
@@ -328,7 +338,6 @@ export function ComposeForm({
         onOpenChange={setScheduleDialogOpen}
         onSchedule={(date) => scheduleSend(date, buildPayload())}
       />
-
       <ScheduledMessagesDialog
         open={scheduledListDialogOpen}
         onOpenChange={setScheduledListDialogOpen}

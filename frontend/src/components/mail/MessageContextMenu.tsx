@@ -37,7 +37,9 @@ import {
   RotateCcw,
   Pencil,
   Pin,
+  ShieldAlert,
 } from "lucide-react";
+import { BlockSenderDialog } from "./BlockSenderDialog";
 
 interface MessageContextMenuProps {
   accountId: string;
@@ -52,6 +54,7 @@ export function MessageContextMenu({
   message,
   children,
 }: MessageContextMenuProps) {
+  const [blockSenderOpen, setBlockSenderOpen] = React.useState(false);
   const actions = useMessageActions({ accountId, folder, message });
   const { data: folders } = useFolders(accountId);
   const { data: tagsData } = useTags();
@@ -193,6 +196,14 @@ export function MessageContextMenu({
               <span>Signaler comme indésirable</span>
               <ContextMenuShortcut>!</ContextMenuShortcut>
             </ContextMenuItem>
+
+            <ContextMenuItem
+              variant="destructive"
+              onClick={() => setBlockSenderOpen(true)}
+            >
+              <ShieldAlert className="size-4 mr-2" />
+              <span>Bloquer l'expéditeur</span>
+            </ContextMenuItem>
           </>
         )}
 
@@ -269,6 +280,15 @@ export function MessageContextMenu({
           <span>Télécharger (.eml)</span>
         </ContextMenuItem>
       </ContextMenuContent>
+
+      <BlockSenderDialog
+        open={blockSenderOpen}
+        onOpenChange={setBlockSenderOpen}
+        accountId={accountId}
+        folder={folder}
+        uid={message.uid}
+        senderEmail={message.from.address}
+      />
     </ContextMenu>
   );
 }

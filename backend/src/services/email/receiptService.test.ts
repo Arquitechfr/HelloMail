@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sendReadReceipt } from './receiptService.js';
 import * as messageFetchService from './messageFetchService.js';
 import * as sendService from './sendService.js';
 import * as messageActionService from './messageActionService.js';
+import { MessageModel } from '../../models/Message.js';
 import { AppError } from '../../utils/AppError.js';
+import { sendReadReceipt } from './receiptService.js';
 
 import type { IAccountDocument } from '../../models/Account.js';
+
+vi.mock('../../models/Message.js', () => ({
+  MessageModel: {
+    updateOne: vi.fn().mockResolvedValue({}),
+  },
+}));
 
 describe('receiptService', () => {
   const mockAccount = {
@@ -51,6 +58,30 @@ describe('receiptService', () => {
     }));
 
     expect(updateFlagsSpy).toHaveBeenCalledWith(mockAccount, 'INBOX', 42, { answered: true });
+  });
+
+  it('ne renvoie pas d\'email si readReceiptSentAt est déjà renseigné (idempotence)', async () => {
+    vi.spyOn(messageFetchService, 'fetchMessageDetail').mockResolvedValue({
+      subject: 'Message déjà confirmé',
+      messageId: '<msg-already@sender.com>',
+      readReceiptRequestedTo: 'sender@sender.com',
+      readReceiptSentAt: '2026-09-11T10:00:00.000Z',
+      from: { address: 'sender@sender.com' },
+      to: [{ address: 'user@hellomail.com' }],
+      date: new Date(),
+      headers: {},
+      flags: { seen: true, answered: true, flagged: false },
+      size: 1000,
+      attachments: [],
+    });
+
+    const sendEmailSpy = vi.spyOn(sendService, 'sendEmail');
+
+    const result = await sendReadReceipt(mockAccount, 'INBOX', 42);
+
+    expect(result.ok).toBe(true);
+    expect(result.sentTo).toBe('sender@sender.com');
+    expect(sendEmailSpy).not.toHaveBeenCalled();
   });
 
   it('échoue si aucun accusé n\'a été demandé', async () => {

@@ -186,3 +186,15 @@ export const snoozeMessageSchema = z.object({
 
 export type SnoozeMessageInput = z.infer<typeof snoozeMessageSchema>;
 
+export const folderParamsSchema = z.object({
+  accountId: accountIdSchema,
+  folder: folderSchema,
+});
+
+export const importEmailSchema = z.object({
+  emlContent: z.string().min(1, 'Le contenu EML est requis'),
+  isBase64: z.boolean().default(false),
+});
+
+export type ImportEmailInput = z.infer<typeof importEmailSchema>;
+

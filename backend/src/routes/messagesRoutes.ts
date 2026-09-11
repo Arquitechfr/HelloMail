@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import * as messagesController from '../controllers/messagesController.js';
 import * as tagsController from '../controllers/tagsController.js';
+import * as unsubscribeController from '../controllers/unsubscribeController.js';
+import * as blockSenderController from '../controllers/blockSenderController.js';
+import * as importEmailController from '../controllers/importEmailController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { sendRateLimit } from '../middleware/rateLimit.js';
@@ -9,6 +12,8 @@ import {
   listMessagesParamsSchema,
   listMessagesQuerySchema,
   getOneParamsSchema,
+  folderParamsSchema,
+  importEmailSchema,
   attachmentParamsSchema,
   sendEmailSchema,
   flagsUpdateSchema,
@@ -42,6 +47,14 @@ router.post(
   requireAuth,
   validate({ body: batchActionSchema }),
   messagesController.batch,
+);
+
+// Import d'un message brut RFC 822 (.eml) dans un dossier IMAP.
+router.post(
+  '/:accountId/messages/:folder/import',
+  requireAuth,
+  validate({ params: folderParamsSchema, body: importEmailSchema }),
+  importEmailController.importEmail,
 );
 
 // Pagination arrière : fetch les messages plus anciens depuis IMAP.
@@ -130,6 +143,22 @@ router.post(
   requireAuth,
   validate({ params: getOneParamsSchema }),
   messagesController.sendReceipt,
+);
+
+// Désabonnement en un clic (List-Unsubscribe RFC 2369 / RFC 8058).
+router.post(
+  '/:accountId/messages/:folder/:uid/unsubscribe',
+  requireAuth,
+  validate({ params: getOneParamsSchema }),
+  unsubscribeController.unsubscribe,
+);
+
+// Blocage d'un expéditeur (création règle spam + déplacement).
+router.post(
+  '/:accountId/messages/:folder/:uid/block-sender',
+  requireAuth,
+  validate({ params: getOneParamsSchema }),
+  blockSenderController.blockSenderAction,
 );
 
 // Modification des étiquettes (tags) d'un message.

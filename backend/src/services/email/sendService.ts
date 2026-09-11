@@ -36,6 +36,15 @@ export interface SendResult {
   rejected: string[];
 }
 
+function getReadReceiptHeaders(address: string, name?: string): Record<string, string> {
+  const formatted = name ? `"${name}" <${address}>` : `<${address}>`;
+  return {
+    'Disposition-Notification-To': formatted,
+    'Return-Receipt-To': formatted,
+    'X-Confirm-Reading-To': formatted,
+  };
+}
+
 /**
  * Construit le raw MIME d'un message via MailComposer (bundled avec nodemailer).
  */
@@ -43,6 +52,7 @@ function buildRawMime(
   input: SendEmailInput,
   fromHeader: string,
   receiptAddress: string,
+  receiptName?: string,
   senderHeader?: string,
 ): Promise<Buffer> {
   const mailOptions: Record<string, unknown> = {
@@ -62,7 +72,7 @@ function buildRawMime(
   if (input.inReplyTo) mailOptions.inReplyTo = input.inReplyTo;
   if (input.references?.length) mailOptions.references = input.references.join(' ');
   if (input.requestReadReceipt) {
-    mailOptions.headers = { 'Disposition-Notification-To': receiptAddress };
+    mailOptions.headers = getReadReceiptHeaders(receiptAddress, receiptName);
   }
 
   if (input.attachments?.length) {
@@ -126,6 +136,7 @@ export async function sendEmail(
     input,
     formattedFrom,
     senderIdentity.address,
+    senderIdentity.name,
     senderHeader,
   );
 
@@ -159,7 +170,9 @@ export async function sendEmail(
       })),
       inReplyTo: input.inReplyTo,
       references: input.references?.join(' '),
-      headers: input.requestReadReceipt ? { 'Disposition-Notification-To': senderIdentity.address } : undefined,
+      headers: input.requestReadReceipt
+        ? getReadReceiptHeaders(senderIdentity.address, senderIdentity.name)
+        : undefined,
     });
 
     // Sauvegarde dans Sent via IMAP append.

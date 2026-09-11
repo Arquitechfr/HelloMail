@@ -241,11 +241,26 @@ export interface MessageDetail {
   size: number;
   attachments: AttachmentInfo[];
   readReceiptRequestedTo?: string;
+  readReceiptSentAt?: string | null;
   tags?: string[];
   snoozedUntil?: string | null;
   isPinned?: boolean;
   pinnedAt?: string | null;
   calendarEvent?: CalendarEventInfo;
+  unsubscribeInfo?: UnsubscribeInfo;
+}
+
+export interface UnsubscribeInfo {
+  httpUrl?: string;
+  mailto?: string;
+  isOneClick: boolean;
+}
+
+export interface UnsubscribeResult {
+  success: boolean;
+  action: 'one_click' | 'mailto' | 'open_url';
+  url?: string;
+  details: string;
 }
 
 
@@ -405,3 +420,25 @@ export * from "./types/rules";
 // --- Libellés / Étiquettes (Tags) ---
 export * from "./types/tags";
 
+// --- Chiffrement OpenPGP ---
+export interface PgpKeyInfo {
+  _id?: string;
+  email: string;
+  name?: string;
+  armoredPublicKey: string;
+  armoredPrivateKey?: string;
+  fingerprint: string;
+  keyId: string;
+  algorithm: string;
+  isOwnKey: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ContactPublicKeyInfo {
+  email: string;
+  name?: string;
+  armoredPublicKey: string;
+  fingerprint: string;
+  keyId: string;
+}

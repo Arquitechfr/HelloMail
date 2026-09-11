@@ -13,6 +13,7 @@ import {
 } from '../email/specialFolders.js';
 import type { IAccountDocument } from '../../models/Account.js';
 import { syncFolderCacheFromClient } from '../email/folderService.js';
+import { addSenderContactIfEnabled } from '../contacts/contactService.js';
 
 const FETCH_QUERY = {
   uid: true,
@@ -40,6 +41,7 @@ export async function runInitialSyncForFolder(
   client: ImapFlow,
   accountId: string,
   folder: string,
+  userId?: string,
 ): Promise<number> {
   // Ouvre le dossier en read-write (voir AGENTS.md — EXPUNGE nécessite read-write).
   const mailbox = await client.mailboxOpen(folder, { readOnly: false });
@@ -61,7 +63,7 @@ export async function runInitialSyncForFolder(
   // re-fetcher les N derniers messages.
   if (prevState?.highestModseq && prevState.uidValidity === uidValidity) {
     try {
-      const delta = await syncFolderDelta(client, accountId, folder, prevState.highestModseq);
+      const delta = await syncFolderDelta(client, accountId, folder, prevState.highestModseq, userId);
       // Sans highestModseq : ne pas écraser le max modseq observé par la delta
       // (qui peut dépasser le modseq d'ouverture de mailbox).
       await saveFolderSyncState(accountId, folder, uidValidity);
@@ -116,6 +118,9 @@ export async function runInitialSyncForFolder(
         { $set: messageInput },
         { upsert: true },
       );
+      if (userId && folder.toUpperCase() === 'INBOX' && messageInput.from.address) {
+        addSenderContactIfEnabled(userId, messageInput.from).catch(() => {});
+      }
       synced++;
     } catch (error) {
       // Une erreur de fetch/upsert individuel ne doit pas interrompre la boucle.
@@ -146,6 +151,7 @@ async function syncFolderDelta(
   accountId: string,
   folder: string,
   lastModseq: string,
+  userId?: string,
 ): Promise<number> {
   let delta = 0;
   let maxModseq = BigInt(lastModseq);
@@ -161,6 +167,9 @@ async function syncFolderDelta(
         { $set: messageInput },
         { upsert: true },
       );
+      if (userId && folder.toUpperCase() === 'INBOX' && messageInput.from.address) {
+        addSenderContactIfEnabled(userId, messageInput.from).catch(() => {});
+      }
       if (msg.modseq && msg.modseq > maxModseq) {
         maxModseq = msg.modseq;
       }
@@ -219,9 +228,10 @@ export async function runInitialSyncAll(
   account: IAccountDocument,
 ): Promise<number> {
   let total = 0;
+  const userId = String(account.userId);
 
   // 1. INBOX (comportement historique).
-  total += await runInitialSyncForFolder(client, accountId, 'INBOX');
+  total += await runInitialSyncForFolder(client, accountId, 'INBOX', userId);
 
   // 2. Dossiers spéciaux — résolution via specialFolders (cache 5 min, un seul
   //    listFolders sous-jacent). Skip si null (dossier non trouvé sur le serveur).
@@ -244,7 +254,7 @@ export async function runInitialSyncAll(
       // Évite de re-sync INBOX si un fallback specialFolders retourne "INBOX".
       if (path === 'INBOX') continue;
 
-      total += await runInitialSyncForFolder(client, accountId, path);
+      total += await runInitialSyncForFolder(client, accountId, path, userId);
     } catch (error) {
       // Un dossier spécial non syncable ne doit pas bloquer les autres.
       logger.warn(

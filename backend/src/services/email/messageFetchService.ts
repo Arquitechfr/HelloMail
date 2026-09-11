@@ -1,12 +1,15 @@
 import type { ImapFlow, MessageStructureObject } from 'imapflow';
 import mongoose from 'mongoose';
 import type { IAccountDocument } from '../../models/Account.js';
+import { MessageModel } from '../../models/Message.js';
 import { MessageBodyModel } from '../../models/MessageBody.js';
 import { AppError } from '../../utils/AppError.js';
 import { imapPool } from './imapPool.js';
 import { sanitizeEmailHtml } from './sanitize.js';
 import { logger } from '../../config/logger.js';
 import { parseICalendar, type CalendarEventInfo } from './calendarService.js';
+import { addSenderContactIfEnabled } from '../contacts/contactService.js';
+import { parseUnsubscribeHeaders, type UnsubscribeInfo } from './unsubscribeService.js';
 
 /** Taille max cumulée (texte + html) stockée en cache — ~2 Mo. */
 const MAX_CACHED_BODY_BYTES = 2 * 1024 * 1024;
@@ -35,7 +38,9 @@ export interface MessageDetail {
   size: number;
   attachments: AttachmentInfo[];
   readReceiptRequestedTo?: string;
+  readReceiptSentAt?: string;
   calendarEvent?: CalendarEventInfo;
+  unsubscribeInfo?: UnsubscribeInfo;
 }
 
 interface ParsedParts {
@@ -199,13 +204,17 @@ export async function fetchMessageDetail(
     const headers: Record<string, string> = {};
     if (msg.headers && Buffer.isBuffer(msg.headers)) {
       const headerStr = msg.headers.toString('utf8');
-      for (const line of headerStr.split('\r\n')) {
-        const colonIdx = line.indexOf(':');
-        if (colonIdx > 0) {
-          const key = line.substring(0, colonIdx).trim().toLowerCase();
-          const value = line.substring(colonIdx + 1).trim();
-          if (key && value) {
-            headers[key] = value;
+      let currentKey = '';
+      for (const line of headerStr.split(/\r?\n/)) {
+        if (/^[ \t]/.test(line) && currentKey) {
+          headers[currentKey] = `${headers[currentKey]} ${line.trim()}`.trim();
+        } else {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx > 0) {
+            currentKey = line.substring(0, colonIdx).trim().toLowerCase();
+            headers[currentKey] = line.substring(colonIdx + 1).trim();
+          } else {
+            currentKey = '';
           }
         }
       }
@@ -214,12 +223,38 @@ export async function fetchMessageDetail(
     const envelope = msg.envelope;
     const flagsSet = msg.flags ?? new Set<string>();
 
+    const fromAddress = {
+      address: envelope?.from?.[0]?.address ?? '',
+      ...(envelope?.from?.[0]?.name !== undefined && { name: envelope.from[0].name }),
+    };
+
+    // Auto-enregistrement du contact expéditeur si activé (non-bloquant)
+    if (dbReady() && folder.toUpperCase() === 'INBOX' && fromAddress.address) {
+      addSenderContactIfEnabled(String(account.userId), fromAddress).catch(() => {});
+    }
+
+    // Détection de l'accusé de réception (RFC 3798 ou équivalents)
+    const rawReceiptTo =
+      headers['disposition-notification-to'] ||
+      headers['return-receipt-to'] ||
+      headers['x-confirm-reading-to'];
+    let readReceiptRequestedTo: string | undefined;
+    if (rawReceiptTo) {
+      const match = /<([^>]+)>/.exec(rawReceiptTo);
+      readReceiptRequestedTo = match ? match[1].trim() : rawReceiptTo.trim();
+    }
+
+    // Récupération de l'état persistant d'envoi d'accusé
+    const dbMsg = dbReady()
+      ? await MessageModel.findOne(
+          { accountId, folder, uid },
+          'readReceiptSentAt',
+        ).lean().catch(() => null)
+      : null;
+
     return {
       subject: envelope?.subject ?? '',
-      from: {
-        address: envelope?.from?.[0]?.address ?? '',
-        ...(envelope?.from?.[0]?.name !== undefined && { name: envelope.from[0].name }),
-      },
+      from: fromAddress,
       to: (envelope?.to ?? [])
         .filter((a) => a.address !== undefined)
         .map((a) => ({
@@ -245,8 +280,10 @@ export async function fetchMessageDetail(
       },
       size: msg.size ?? 0,
       attachments: parts.attachments,
-      readReceiptRequestedTo: headers['disposition-notification-to'],
+      readReceiptRequestedTo,
+      readReceiptSentAt: dbMsg?.readReceiptSentAt ? dbMsg.readReceiptSentAt.toISOString() : undefined,
       calendarEvent,
+      unsubscribeInfo: parseUnsubscribeHeaders(headers),
     };
   } finally {
     imapPool.release(accountId);

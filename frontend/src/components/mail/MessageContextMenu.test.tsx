@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MessageQuickActions } from "./MessageQuickActions";
 import { MessageContextMenu } from "./MessageContextMenu";
 import type { Message } from "@/lib/api-types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockToggleSeen = vi.fn();
 const mockToggleFlagged = vi.fn();
@@ -119,14 +120,20 @@ describe("MessageContextMenu", () => {
   };
 
   it("rend les enfants et gère l'événement contextmenu sans planter", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
     render(
-      <MessageContextMenu
-        accountId="acc-1"
-        folder="INBOX"
-        message={dummyMessage}
-      >
-        <div data-testid="email-row">Ligne email</div>
-      </MessageContextMenu>,
+      <QueryClientProvider client={queryClient}>
+        <MessageContextMenu
+          accountId="acc-1"
+          folder="INBOX"
+          message={dummyMessage}
+        >
+          <div data-testid="email-row">Ligne email</div>
+        </MessageContextMenu>
+      </QueryClientProvider>,
     );
 
     const row = screen.getByTestId("email-row");

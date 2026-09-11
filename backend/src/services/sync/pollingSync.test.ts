@@ -150,9 +150,9 @@ describe('pollingSync', () => {
     await promise;
 
     // Vérifie que les dossiers spéciaux trouvés ont été pollés.
-    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Sent');
-    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Drafts');
-    expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Trash');
+    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Sent', expect.any(String));
+    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Drafts', expect.any(String));
+    expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Trash', expect.anything());
 
     // Vérifie la publication d'événements (syncedTotal > 0 → message:new).
     expect(mockPublishEvent).toHaveBeenCalledWith(
@@ -291,7 +291,7 @@ describe('pollingSync', () => {
     await flush();
     await promise;
 
-    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Projets');
-    expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'NonSelectable');
+    expect(mockRunInitialSyncForFolder).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Projets', expect.any(String));
+    expect(mockRunInitialSyncForFolder).not.toHaveBeenCalledWith(expect.anything(), expect.any(String), 'NonSelectable', expect.anything());
   });
 });

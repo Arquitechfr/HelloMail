@@ -167,3 +167,6 @@ export const Loader2Icon = makeIcon();
 export const Command = makeIcon();
 export const AtSign = makeIcon();
 export const Edit2 = makeIcon();
+export const KeyRound = makeIcon();
+export const MailCheck = makeIcon();
+export const CheckCircle2 = makeIcon();

@@ -23,6 +23,7 @@ interface FolderNodeItemProps {
   onCreateSubfolder: (parent: FolderInfo) => void;
   onRename: (folder: FolderInfo) => void;
   onDelete: (folder: FolderInfo) => void;
+  onImportEml: (folder: FolderInfo) => void;
 }
 
 function FolderIcon({ specialUse, accountColor }: { specialUse?: string; accountColor?: string }) {
@@ -56,6 +57,7 @@ export function FolderNodeItem({
   onCreateSubfolder,
   onRename,
   onDelete,
+  onImportEml,
 }: FolderNodeItemProps) {
   const [expanded, setExpanded] = useState(depth === 0);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -96,6 +98,7 @@ export function FolderNodeItem({
         onCreateSubfolder={onCreateSubfolder}
         onRename={onRename}
         onDelete={onDelete}
+        onImportEml={onImportEml}
       >
         <div
           className={cn(
@@ -153,6 +156,7 @@ export function FolderNodeItem({
             onCreateSubfolder={onCreateSubfolder}
             onRename={onRename}
             onDelete={onDelete}
+            onImportEml={onImportEml}
           />
         </div>
       </FolderContextMenu>
@@ -171,6 +175,7 @@ export function FolderNodeItem({
               onCreateSubfolder={onCreateSubfolder}
               onRename={onRename}
               onDelete={onDelete}
+              onImportEml={onImportEml}
             />
           ))}
         </div>

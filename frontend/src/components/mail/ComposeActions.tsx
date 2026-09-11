@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Save, X, ChevronDown, Clock } from "lucide-react";
+import { Loader2, Send, Save, X, ChevronDown, Clock, Lock, ShieldCheck } from "lucide-react";
 import { TemplateInsertDropdown } from "@/components/mail/TemplateInsertDropdown";
 import type { EmailTemplate } from "@/lib/types/templates";
 
@@ -16,6 +16,10 @@ interface ComposeActionsProps {
   onSelectTemplate?: (template: EmailTemplate) => void;
   onOpenSchedule?: () => void;
   onOpenScheduledList?: () => void;
+  pgpEncrypt?: boolean;
+  onPgpEncryptChange?: (checked: boolean) => void;
+  pgpSign?: boolean;
+  onPgpSignChange?: (checked: boolean) => void;
 }
 
 export function ComposeActions({
@@ -29,6 +33,10 @@ export function ComposeActions({
   onSelectTemplate,
   onOpenSchedule,
   onOpenScheduledList,
+  pgpEncrypt,
+  onPgpEncryptChange,
+  pgpSign,
+  onPgpSignChange,
 }: ComposeActionsProps) {
   return (
     <div className="flex items-center justify-between">
@@ -87,7 +95,33 @@ export function ComposeActions({
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        {onPgpEncryptChange && (
+          <Button
+            type="button"
+            variant={pgpEncrypt ? "default" : "outline"}
+            size="xs"
+            onClick={() => onPgpEncryptChange(!pgpEncrypt)}
+            className="text-[11px] gap-1 h-7 px-2"
+            title="Chiffrer le message avec OpenPGP (E2EE)"
+          >
+            <Lock className="size-3" />
+            <span className="hidden sm:inline">Chiffrer</span>
+          </Button>
+        )}
+        {onPgpSignChange && (
+          <Button
+            type="button"
+            variant={pgpSign ? "default" : "outline"}
+            size="xs"
+            onClick={() => onPgpSignChange(!pgpSign)}
+            className="text-[11px] gap-1 h-7 px-2"
+            title="Signer numériquement le message avec OpenPGP"
+          >
+            <ShieldCheck className="size-3" />
+            <span className="hidden sm:inline">Signer</span>
+          </Button>
+        )}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
           <input
             type="checkbox"

@@ -8,6 +8,7 @@ import type { FolderInfo } from "@/lib/api-types";
 import { FolderNodeItem, type FolderNode } from "./folders/FolderNodeItem";
 import { FolderFormDialog, type FolderFormDialogProps } from "./folders/FolderFormDialog";
 import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
+import { ImportEmlDialog } from "./folders/ImportEmlDialog";
 import { FolderPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -58,6 +59,14 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
   });
 
   const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    folder: FolderInfo | null;
+  }>({
+    open: false,
+    folder: null,
+  });
+
+  const [importDialog, setImportDialog] = useState<{
     open: boolean;
     folder: FolderInfo | null;
   }>({
@@ -178,6 +187,7 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
             setFormDialog({ open: true, mode: "rename", currentFolder: folder })
           }
           onDelete={(folder) => setDeleteDialog({ open: true, folder })}
+          onImportEml={(folder) => setImportDialog({ open: true, folder })}
         />
       ))}
 
@@ -206,6 +216,14 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
             onSelectFolder("INBOX");
           }
         }}
+      />
+
+      {/* Modale d'importation d'emails (.eml) */}
+      <ImportEmlDialog
+        open={importDialog.open}
+        onOpenChange={(open) => setImportDialog((s) => ({ ...s, open }))}
+        accountId={accountId}
+        folder={importDialog.folder}
       />
     </div>
   );

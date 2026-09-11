@@ -22,29 +22,50 @@ describe("FolderActionsMenu", () => {
 
   it("affiche l'indication protégé pour INBOX et permet de créer un sous-dossier", async () => {
     const handleCreateSubfolder = vi.fn();
-    const handleRename = vi.fn();
-    const handleDelete = vi.fn();
 
     render(
       <FolderActionsMenu
         folder={inboxFolder}
         accountId="acc-1"
         onCreateSubfolder={handleCreateSubfolder}
-        onRename={handleRename}
-        onDelete={handleDelete}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onImportEml={vi.fn()}
       />
     );
 
     const trigger = screen.getByRole("button", { name: /Actions pour le dossier INBOX/i });
     await userEvent.click(trigger);
 
-    expect(screen.getByText("Dossier système protégé")).toBeInTheDocument();
+    expect(await screen.findByText("Dossier système protégé")).toBeInTheDocument();
     expect(screen.queryByText("Renommer")).not.toBeInTheDocument();
     expect(screen.queryByText("Supprimer")).not.toBeInTheDocument();
 
     const createSubBtn = screen.getByText("Nouveau sous-dossier");
     await userEvent.click(createSubBtn);
     expect(handleCreateSubfolder).toHaveBeenCalledWith(inboxFolder);
+  });
+
+  it("permet de déclencher l'importation de messages (.eml)", async () => {
+    const handleImportEml = vi.fn();
+
+    render(
+      <FolderActionsMenu
+        folder={inboxFolder}
+        accountId="acc-1"
+        onCreateSubfolder={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onImportEml={handleImportEml}
+      />
+    );
+
+    const trigger = screen.getByRole("button", { name: /Actions pour le dossier INBOX/i });
+    await userEvent.click(trigger);
+
+    const importBtn = await screen.findByText("Importer des messages (.eml)");
+    await userEvent.click(importBtn);
+    expect(handleImportEml).toHaveBeenCalledWith(inboxFolder);
   });
 
   it("permet de renommer un dossier personnalisé", async () => {
@@ -57,6 +78,7 @@ describe("FolderActionsMenu", () => {
         onCreateSubfolder={vi.fn()}
         onRename={handleRename}
         onDelete={vi.fn()}
+        onImportEml={vi.fn()}
       />
     );
 
@@ -79,6 +101,7 @@ describe("FolderActionsMenu", () => {
         onCreateSubfolder={vi.fn()}
         onRename={vi.fn()}
         onDelete={handleDelete}
+        onImportEml={vi.fn()}
       />
     );
 

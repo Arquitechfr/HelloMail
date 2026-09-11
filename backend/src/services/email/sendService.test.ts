@@ -313,7 +313,7 @@ describe('sendEmail', () => {
       expect(mockMessageUpdateOne).not.toHaveBeenCalled();
     });
 
-    it('ajoute l\'en-tête Disposition-Notification-To si requestReadReceipt est true', async () => {
+    it('ajoute les en-têtes d\'accusé de réception si requestReadReceipt est true', async () => {
       mockClient.append.mockResolvedValueOnce({ uid: 42 });
       mockClient.fetchOne.mockResolvedValueOnce({ uid: 42, envelope: {}, flags: new Set(), bodyStructure: {}, size: 0 });
 
@@ -321,7 +321,11 @@ describe('sendEmail', () => {
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          headers: { 'Disposition-Notification-To': 'user@test.com' },
+          headers: {
+            'Disposition-Notification-To': '<user@test.com>',
+            'Return-Receipt-To': '<user@test.com>',
+            'X-Confirm-Reading-To': '<user@test.com>',
+          },
         }),
       );
     });

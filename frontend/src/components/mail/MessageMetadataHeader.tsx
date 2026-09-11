@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatDate } from "@/lib/utils";
 import type { MessageDetail } from "@/lib/api-types";
 import { useTags, useSetMessageTags } from "@/lib/queries/tags";
 import { TagBadge } from "./TagBadge";
 import { TagSelectPopover } from "./TagSelectPopover";
 import { EmailAvatar } from "./EmailAvatar";
+import { UnsubscribeButton } from "./UnsubscribeButton";
+import { BlockSenderDialog } from "./BlockSenderDialog";
+import { Button } from "@/components/ui/button";
+import { ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 interface MessageMetadataHeaderProps {
@@ -22,6 +26,7 @@ export function MessageMetadataHeader({
   folder,
   uid,
 }: MessageMetadataHeaderProps) {
+  const [blockSenderOpen, setBlockSenderOpen] = useState(false);
   const { data: tagsData } = useTags();
   const setTagsMutation = useSetMessageTags();
 
@@ -84,11 +89,34 @@ export function MessageMetadataHeader({
           fallbackClassName="text-xs font-semibold"
         />
         <div className="flex flex-col gap-1 text-xs flex-1 min-w-0">
-          <div className="flex gap-2">
-            <span className="w-12 shrink-0 font-medium text-muted-foreground">De :</span>
-            <span className="text-foreground font-medium truncate">
-              {message.from.name ? `${message.from.name} <${message.from.address}>` : message.from.address}
-            </span>
+          <div className="flex gap-2 items-center justify-between">
+            <div className="flex gap-2 min-w-0">
+              <span className="w-12 shrink-0 font-medium text-muted-foreground">De :</span>
+              <span className="text-foreground font-medium truncate">
+                {message.from.name ? `${message.from.name} <${message.from.address}>` : message.from.address}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {message.unsubscribeInfo && (
+                <UnsubscribeButton
+                  accountId={accountId}
+                  folder={folder}
+                  uid={uid}
+                  info={message.unsubscribeInfo}
+                />
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setBlockSenderOpen(true)}
+                className="h-6 px-2 text-[11px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md gap-1"
+                title="Bloquer cet expéditeur et déplacer ses messages en spam"
+              >
+                <ShieldAlert className="size-3 text-muted-foreground hover:text-destructive" />
+                <span className="hidden sm:inline">Bloquer</span>
+              </Button>
+            </div>
           </div>
           <div className="flex gap-2">
             <span className="w-12 shrink-0 font-medium text-muted-foreground">À :</span>
@@ -110,6 +138,15 @@ export function MessageMetadataHeader({
           </div>
         </div>
       </div>
+
+      <BlockSenderDialog
+        open={blockSenderOpen}
+        onOpenChange={setBlockSenderOpen}
+        accountId={accountId}
+        folder={folder}
+        uid={uid}
+        senderEmail={message.from.address}
+      />
     </div>
   );
 }

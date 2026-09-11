@@ -24,6 +24,7 @@ describe("FolderContextMenu", () => {
     const handleCreateSubfolder = vi.fn();
     const handleRename = vi.fn();
     const handleDelete = vi.fn();
+    const handleImportEml = vi.fn();
 
     render(
       <FolderContextMenu
@@ -31,6 +32,7 @@ describe("FolderContextMenu", () => {
         onCreateSubfolder={handleCreateSubfolder}
         onRename={handleRename}
         onDelete={handleDelete}
+        onImportEml={handleImportEml}
       >
         <div data-testid="inbox-row">INBOX</div>
       </FolderContextMenu>,
@@ -43,6 +45,11 @@ describe("FolderContextMenu", () => {
     expect(screen.queryByText("Renommer")).not.toBeInTheDocument();
     expect(screen.queryByText("Supprimer")).not.toBeInTheDocument();
 
+    const importItem = screen.getByText("Importer (.eml)");
+    await userEvent.click(importItem);
+    expect(handleImportEml).toHaveBeenCalledWith(inboxFolder);
+
+    fireEvent.contextMenu(trigger);
     const createSubItem = screen.getByText("Nouveau sous-dossier");
     await userEvent.click(createSubItem);
     expect(handleCreateSubfolder).toHaveBeenCalledWith(inboxFolder);
@@ -59,6 +66,7 @@ describe("FolderContextMenu", () => {
         onCreateSubfolder={handleCreateSubfolder}
         onRename={handleRename}
         onDelete={handleDelete}
+        onImportEml={vi.fn()}
       >
         <div data-testid="folder-row">Projets</div>
       </FolderContextMenu>,
@@ -82,6 +90,7 @@ describe("FolderContextMenu", () => {
         onCreateSubfolder={vi.fn()}
         onRename={vi.fn()}
         onDelete={handleDelete}
+        onImportEml={vi.fn()}
       >
         <div data-testid="folder-row-delete">Projets</div>
       </FolderContextMenu>,

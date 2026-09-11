@@ -28,6 +28,7 @@ export interface IMessageDocument extends Document {
   snoozedUntil?: Date | null;
   isPinned?: boolean;
   pinnedAt?: Date | null;
+  readReceiptSentAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -115,6 +116,10 @@ const messageSchema = new Schema<IMessageDocument>(
       default: false,
     },
     pinnedAt: {
+      type: Date,
+      default: null,
+    },
+    readReceiptSentAt: {
       type: Date,
       default: null,
     },

@@ -23,6 +23,7 @@ import templatesRoutes from './routes/templatesRoutes.js';
 import logoRoutes from './routes/logoRoutes.js';
 import { unifiedRoutes } from './routes/unifiedRoutes.js';
 import { scheduledMessagesRoutes } from './routes/scheduledMessagesRoutes.js';
+import pgpRoutes from './routes/pgpRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
@@ -74,6 +75,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/templates', templatesRoutes);
   app.use('/api/logos', logoRoutes);
   app.use('/api/unified', unifiedRoutes);
+  app.use('/api/pgp', pgpRoutes);
   app.use('/api', eventsRoutes);
 
   app.use(notFound);

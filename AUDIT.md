@@ -40,8 +40,11 @@ HelloMail est un client webmail from-scratch (façon Thunderbird, mais web). Le 
 | **Phase 11** | Parachèvement Webmail & Interopérabilité : **WebAuthn / Passkeys login complet** (émission JWT access/refresh + cookie httpOnly + rate-limiting 2FA + bouton Passkey dans LoginForm), **Sync multi-dossiers dynamique** (découverte tous dossiers IMAP + polling périodique + événements SSE ciblés par dossier), **Carnet d'adresses Import / Export** (vCard RFC 6350 & CSV RFC 4180 + déduplication stricte par email + ContactImportDialog + actions UI), **Calendrier & Événements iCalendar RFC 5545** (parser unifié + gestion lignes pliées §3.1 + dates ISO + intégration lecture message + bannière interactive CalendarInviteBanner avec téléchargement .ics et lien Google Agenda), **CRUD dossiers sécurisé** (protection INBOX/système, dialogue création/renommage/suppression), **Menu contextuel & actions rapides** (MessageContextMenu, FolderContextMenu, MessageQuickActions, raccourcis universels R/F/U/S/E/P/Suppr) | — | ~5 200 |
 | **Phase 12** | **Dossiers Unifiés, Mise en avant (Pin) & Couleurs de Compte** : Dossiers unifiés configurables (`unifiedMessagesService`, `UnifiedFolderList`, vue `/mail/unified/[type]`), mise en avant / épinglage des emails (`isPinned`, `pinnedAt`, index composé `{ accountId: 1, isPinned: -1, date: -1 }`, actions et raccourci `H`), palette de 12 teintes harmonieuses avec attribution sans doublon à la création et héritage visuel dans l'arborescence des dossiers (`AccountColorPicker`, `FolderNodeItem`) | — | ~2 400 |
 | **Phase 13** | **Envoi Programmé (Send Later) & Pièces Jointes en Brouillon** : Persistance des pièces jointes dans les brouillons IMAP (schéma `draftAttachmentSchema`, composition MIME `multipart/mixed` via MailComposer dans `draftService`), envoi programmé d'emails de bout en bout (modèle `ScheduledMessage` avec index `{ scheduledAt: 1, status: 1 }`, schéma Zod, service `scheduledEmailService`, exécuteur périodique sécurisé `scheduledEmailRunner` dans le sync worker avec verrou atomique, retry exponentiel et publication SSE `scheduled:sent`, routes REST `/api/accounts/:accountId/scheduled`, Split Button "Envoyer / Programmer" `ComposeActions`, dialogue presets + date personnalisée `ScheduleSendDialog`, dialogue d'administration `ScheduledMessagesDialog`, hook `useScheduleSend`) + 18 nouveaux tests backend + tests frontend | — | ~2 600 |
+| **Phase 14** | **Multi-identités & Alias d'expédition ("Send As")** : Sous-document d'alias dans `Account`, CRUD REST sécurisé `/api/accounts/:id/aliases`, validation anti-spoofing conforme RFC 5322 avec émission de l'en-tête SMTP `Sender`, sélecteur d'identité réactif dans la rédaction et dialogue de gestion `AccountAliasesDialog` | — | ~1 800 |
+| **Phase 15** | **Sécurité Avancée & Chiffrement de bout en bout OpenPGP (E2EE)** : Bibliothèque client `openpgp` (RFC 4880 / RFC 9580), support Curve25519 & RSA 4096, modèle backend `PgpKey` et CRUD `/api/pgp`, gestionnaire de clés dans les réglages (`PgpKeyManager`, `PgpGenerateKeyDialog`, `PgpImportKeyDialog`), déchiffrement et vérification de signature dans le lecteur (`PgpMessageBanner`), options de chiffrement/signature à l'envoi (`useComposePgp`, `ComposeActions`, `ComposeForm`) | — | ~2 200 |
+| **Phase 16** | **Productivité & Interopérabilité avancée : Désabonnement 1-clic, Blocage & Import EML** : Désabonnement en 1 clic (RFC 2369 / RFC 8058, One-Click POST backend proxy sans CORS, mailto et dialogue `UnsubscribeDialog`), blocage d'expéditeur en 1 clic (`blockSenderService`, création de règle idempotente vers spam, déplacement immédiat, confirmation `BlockSenderDialog`, entrée contextuelle `MessageContextMenu` et header `MessageMetadataHeader`), importation d'emails bruts RFC 822 (`.eml`) dans n'importe quel dossier IMAP (`importEmailService`, décodage base64/buffer, `client.append()`, miroir MongoDB, diffusion SSE temps réel, dialogue avec drag & drop `ImportEmlDialog` accessible depuis les menus d'actions et contextuels de dossiers) | — | ~2 000 |
 
-**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis, lock de sync distribué, heartbeat worker et exécuteur d'envois programmés, et couvert par **496 tests Vitest backend** (58 fichiers). Le frontend dispose d'une couverture complète Vitest + Testing Library (**90 tests** sur 23 fichiers), soit **586 tests automatisés 100% verts**. Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration transparente et formulaire épuré, les dossiers unifiés personnalisables, l'envoi programmé ("Send Later") avec presets intelligents et gestionnaire d'annulations, la sauvegarde des brouillons avec pièces jointes, la connexion par Passkeys (WebAuthn), la synchronisation dynamique de tous les dossiers IMAP, le carnet d'adresses avec import/export vCard et CSV, la gestion des invitations d'agenda iCalendar RFC 5545, la recherche globale universelle Spotlight (Cmd+K) utilisable depuis toutes les pages, les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation complet, l'export de messages bruts RFC 822 (.eml), l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN, le système d'étiquettes / libellés colorés, l'annulation d'envoi ("Undo Send"), les modèles d'emails & réponses types réutilisables en 1 clic, la mise en sommeil d'emails ("Snooze"), ainsi qu'un Hub de Réglages Master-Detail adaptatif responsive et une Fenêtre de Rédaction Universelle flottante accessible depuis n'importe quelle vue de l'application sans interruption de contexte. Typecheck, ESLint et Next.js Build sont 100% verts.
+**Verdict :** HelloMail est un webmail ultra-complet, sécurisé, hautement disponible et ergonomique. Le backend (Node.js ESM + Express + MongoDB + JWT + AES-256-GCM) est protégé par rate limit distribué Redis, lock de sync distribué, heartbeat worker, exécuteur d'envois programmés, support des alias, clés OpenPGP, désabonnement RFC 8058, blocage d'expéditeur et import .eml, couvert par **543 tests Vitest backend** (65 fichiers). Le frontend dispose d'une couverture complète Vitest + Testing Library (**128 tests** sur 32 fichiers), soit **671 tests automatisés 100% verts**. Le frontend (Next.js 16 App Router + Tailwind v4 + shadcn/ui) intègre l'onboarding instantané par autoconfiguration transparente et formulaire épuré, le chiffrement asymétrique de bout en bout OpenPGP, la gestion des alias d'expédition, les dossiers unifiés personnalisables, l'envoi programmé ("Send Later") avec presets intelligents et gestionnaire d'annulations, la sauvegarde des brouillons avec pièces jointes, la connexion par Passkeys (WebAuthn), la synchronisation dynamique de tous les dossiers IMAP, le carnet d'adresses avec import/export vCard et CSV, la gestion des invitations d'agenda iCalendar RFC 5545, la recherche globale universelle Spotlight (Cmd+K), les signatures riches par compte, le glisser-déposer de pièces jointes, le threading de conversation, l'export et l'import .eml, l'impression dédiée, les notifications natives & carillon, le moteur de règles de tri automatique, les accusés de lecture MDN idempotents, les étiquettes colorées, l'annulation d'envoi ("Undo Send"), les modèles d'emails réutilisables, la mise en sommeil ("Snooze"), le désabonnement 1-clic et le blocage d'expéditeurs indésirables, ainsi qu'un Hub de Réglages Master-Detail adaptatif responsive et une Fenêtre de Rédaction Universelle flottante. Typecheck, ESLint et Next.js Build sont 100% verts.
 
 
 ---
@@ -908,7 +911,7 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 | 23. Export brut RFC 822 (.eml) & Impression dédiée | 🟡 SECONDaire | Faible | ✅ Livré (stream PEEK PassThrough, `@media print`, raccourci P) |
 | 24. Notifications bureau natives & Carillon Web Audio (Lot 8.3) | 🟠 IMPORTANTE | Faible | ✅ Livré (`Notification` API, synthèse Web Audio zéro asset, toggle réglages) |
 | 25. Moteur de Règles & Filtres automatiques (Lot 8.4) | 🔴 CRITIQUE | Élevé | ✅ Livré (Modèle `Rule`, service, IDLE loop, page `/mail/settings/rules`) |
-| 26. Accusés de lecture MDN RFC 3798 (Lot 8.5) | 🟡 SECONDaire | Moyen | ✅ Livré (`Disposition-Notification-To`, bannière interactive, rapport MIME) |
+| 26. Accusés de lecture MDN RFC 3798 (Lot 8.5) | 🟡 SECONDaire | Moyen | ✅ Livré (RFC 3798/2822, Return-Receipt-To, persistance idempotente `readReceiptSentAt`, bannière interactive, rapport MIME) |
 
 **Objectif :** Expérience utilisateur professionnelle de niveau Thunderbird/Fastmail. ✅ Atteint.
 
@@ -961,7 +964,28 @@ Discipline PEEK maintenue (envelope, flags, bodyStructure, size — jamais BODY[
 |---|---|---|---|
 | 48. Persistance des pièces jointes dans les brouillons (`saveDraft`) | 🟠 IMPORTANTE | Faible | ✅ Livré (Composition MIME RFC 822 `multipart/mixed` dans `draftService.ts`, validation Zod et auto-save frontend) |
 | 49. Envoi programmé ("Send Later" / Planification d'envoi) | 🔴 CRITIQUE | Moyen | ✅ Livré (Modèle `ScheduledMessage`, collection MongoDB, runner périodique 15s dans `worker.ts`, Split Button et dialogues UI) |
-| 50. Multi-identités & Alias d'expédition ("Send As") | 🟡 SECONDaire | Moyen | ⏳ Prévu (Configuration d'adresses d'expédition alternatives par compte, sélecteur d'expéditeur dans compose) |
+
+### Phase 14 — Multi-identités & Alias d'expédition ("Send As") ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 50. Multi-identités & Alias d'expédition ("Send As") | 🟡 SECONDaire | Moyen | ✅ Livré (Sous-document `aliases` sur Account, validation RFC 5322 anti-spoofing avec header `Sender`, sélecteur et dialogue `AccountAliasesDialog`) |
+
+### Phase 15 — Sécurité Avancée & Chiffrement OpenPGP de bout en bout (E2EE) ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 51. Chiffrement & Signature OpenPGP client (RFC 4880/9580) | 🔴 CRITIQUE | Élevé | ✅ Livré (Bibliothèque `openpgp`, paires Curve25519 & RSA 4096, chiffrement/signature à la volée dans compose) |
+| 52. Gestionnaire backend & trousseau de clés PGP | 🟠 IMPORTANTE | Moyen | ✅ Livré (Modèle `PgpKey`, validation Zod, routes `/api/pgp`, trousseau utilisateur et correspondants) |
+| 53. Déchiffrement et vérification de signature dans le lecteur | 🟠 IMPORTANTE | Moyen | ✅ Livré (Bannière interactive `PgpMessageBanner`, déverrouillage passphrase en mémoire, badge d'intégrité vert) |
+
+### Phase 16 — Productivité & Interopérabilité : Désabonnement 1-clic, Blocage & Import EML ✅ LIVRÉ
+
+| Étape | Priorité | Effort estimé | État |
+|---|---|---|---|
+| 54. Désabonnement en 1 clic (List-Unsubscribe RFC 2369 / RFC 8058) | 🟠 IMPORTANTE | Moyen | ✅ Livré (`unsubscribeService`, One-Click POST backend proxy sans fuite CORS, extraction dans `messageFetchService`, bouton `UnsubscribeButton` et dialogue `UnsubscribeDialog`) |
+| 55. Blocage d'expéditeur en 1 clic ("Block Sender") | 🟡 SECONDaire | Faible | ✅ Livré (`blockSenderService`, création de règle idempotente `markAsJunk`, déplacement immédiat, dialogue de confirmation `BlockSenderDialog`, entrée contextuelle `MessageContextMenu` et header lecteur) |
+| 56. Import d'emails bruts RFC 822 (.eml) dans un dossier IMAP | 🟡 SECONDaire | Moyen | ✅ Livré (`importEmailService`, validation 25 Mo, décodage base64/buffer, `client.append()`, miroir MongoDB, diffusion SSE `message:new`, dialogue avec drag & drop `ImportEmlDialog` accessible dans `FolderActionsMenu` et `FolderContextMenu`) |
 
 ---
 
@@ -1048,23 +1072,26 @@ Légende : ✅ Livré · ⚠️ Partiel · ❌ Manquant
 | Sanitization HTML | ✅ | Phase 3 + 4 | Double défense : isomorphic-dompurify backend + DOMPurify frontend |
 | Pool IMAP API (lazy) | ✅ | Phase 3 | imapPool (verrou par compte, TTL 5 min) |
 | Helmet & JWT pinning | ✅ | Phase 5 | Helmet HTTP headers + pinning algorithme HS256 |
-| Chiffrement PGP bout en bout | ❌ | Future | Signature et déchiffrement OpenPGP |
+| Chiffrement PGP bout en bout | ✅ | Phase 15 | OpenPGP RFC 4880/9580, Curve25519 & RSA 4096, déchiffrement lecteur & chiffrement envoi |
 | **Temps réel & Observabilité** | | | |
 | Notifications push SSE | ✅ | Phase 5 | SSE endpoint /api/events + Redis Pub/Sub worker→API |
 | Notifications bureau & carillon | ✅ | Phase 8 | Notifications Web natives + synthèse audio Web Audio sans asset |
 | Health check & Métriques | ✅ | Phase 6 + 10 | /api/health (MongoDB, Redis, worker heartbeat) + /api/metrics Prometheus |
 | **Carnet d'adresses & Contacts** | | | |
 | Carnet d'adresses (CRUD) | ✅ | Phase 6 | Modèle Contact + recherche/autocomplétion compose |
-| Ajout auto des expéditeurs | ✅ | Phase 10 | Opt-in `preferences.autoAddContacts`, best-effort dans idleLoop |
+| Ajout auto des expéditeurs | ✅ | Phase 10 | Opt-in `preferences.autoAddContacts`, multi-sync (initiale, delta, polling, lecture), upsert ObjectId & filtre robots |
 | Import / Export vCard & CSV | ✅ | Phase 11 | RFC 6350 & RFC 4180, déduplication stricte par email, dialogue UI |
 | **Productivité avancée** | | | |
 | Envoi programmé ("Send Later") | ✅ | Phase 13 | Modèle ScheduledMessage, runner worker périodique 15s, Split Button & presets UI |
 | Pièces jointes dans les brouillons | ✅ | Phase 13 | Persistance multipart/mixed dans Drafts IMAP, auto-save et restauration |
 | Multi-identités & Alias | ✅ | Phase 14 | Sous-document Account, CRUD REST, envoi avec alias From/Sender, selecteur & dialog |
+| Désabonnement 1-clic | ✅ | Phase 16 | RFC 2369 / RFC 8058, One-Click POST proxy, mailto, dialogue UnsubscribeDialog |
+| Blocage d'expéditeur | ✅ | Phase 16 | Création automatique de règle markAsJunk, déplacement immédiat, BlockSenderDialog |
+| Importation d'emails bruts .eml | ✅ | Phase 16 | Append IMAP, miroir MongoDB, upload drag & drop ImportEmlDialog |
 | **Tests & Qualité** | | | |
-| Tests backend (Vitest) | ✅ | Phase 3 → 14 | 511 tests passés (60 fichiers) |
-| Tests frontend (Vitest + jsdom) | ✅ | Phase 10 → 14 | 103 tests passés (25 fichiers) |
-| Total tests automatisés | ✅ | Global | **614 tests automatisés 100% verts** |
+| Tests backend (Vitest) | ✅ | Phase 3 → 16 | 543 tests passés (65 fichiers) |
+| Tests frontend (Vitest + jsdom) | ✅ | Phase 10 → 16 | 128 tests passés (32 fichiers) |
+| Total tests automatisés | ✅ | Global | **671 tests automatisés 100% verts** |
 
 ---
 

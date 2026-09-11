@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   useMessageDetail,
   useMessageThread,
@@ -22,6 +22,7 @@ import { QuickReplyBar } from "@/components/mail/QuickReplyBar";
 import { MessageMetadataHeader } from "@/components/mail/MessageMetadataHeader";
 import { ReadReceiptBanner } from "@/components/mail/ReadReceiptBanner";
 import { CalendarInviteBanner } from "@/components/mail/CalendarInviteBanner";
+import { PgpMessageBanner } from "@/components/mail/PgpMessageBanner";
 import { MessageToolbar } from "@/components/mail/MessageToolbar";
 import { useEmailShortcuts } from "@/lib/hooks/useEmailShortcuts";
 import { Mail, Loader2, FileEdit, Pencil } from "lucide-react";
@@ -49,6 +50,11 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const openCompose = useUIStore((s) => s.openCompose);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
   const setSelectedFolder = useUIStore((s) => s.setSelectedFolder);
+  const [decryptedBody, setDecryptedBody] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDecryptedBody(null);
+  }, [uid, folder]);
 
   const handleEditDraft = async () => {
     if (uid === null || !message) return;
@@ -56,26 +62,21 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   };
 
   const handleSelectThreadMessage = (itemFolder: string, itemUid: number) => {
-    if (itemFolder !== folder) {
-      setSelectedFolder(itemFolder);
-    }
+    if (itemFolder !== folder) setSelectedFolder(itemFolder);
     setSelectedUid(itemUid);
   };
 
   const handleDownloadEml = () => {
     if (!uid || !message) return;
-    const url = `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/raw`;
     const link = document.createElement("a");
-    link.href = url;
+    link.href = `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/raw`;
     link.download = `${message.subject || `message-${uid}`}.eml`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   // Marquer comme lu à l'ouverture si non lu.
   useEffect(() => {
@@ -165,13 +166,11 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   };
 
   const handleForward = () => {
-    if (!message) return;
-    openCompose("forward", { subject: message.subject });
+    if (message) openCompose("forward", { subject: message.subject });
   };
 
   const handleToggleSeen = () => {
-    if (uid === null || !message) return;
-    updateFlags.mutate({ uid, flags: { seen: !message.flags.seen } });
+    if (uid !== null && message) updateFlags.mutate({ uid, flags: { seen: !message.flags.seen } });
   };
 
   useEmailShortcuts({
@@ -194,21 +193,15 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         <div className="flex size-14 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground border border-border mb-3 shadow-xs">
           <Mail className="size-6" />
         </div>
-        <h3 className="text-sm font-semibold font-display text-foreground">
-          Aucun message sélectionné
-        </h3>
+        <h3 className="text-sm font-semibold font-display text-foreground">Aucun message sélectionné</h3>
         <p className="mt-1 text-xs text-muted-foreground max-w-xs">
           Sélectionnez un email dans la liste ou utilisez les raccourcis clavier pour naviguer.
         </p>
         <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 font-mono border border-border">
-            C
-          </span>
+          <span className="flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 font-mono border border-border">C</span>
           <span>Nouveau message</span>
           <span className="text-border">·</span>
-          <span className="flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 font-mono border border-border">
-            ?
-          </span>
+          <span className="flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 font-mono border border-border">?</span>
           <span>Aide raccourcis</span>
         </div>
       </div>
@@ -279,6 +272,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
           folder={folder}
           uid={uid}
           recipientEmail={message.readReceiptRequestedTo}
+          readReceiptSentAt={message.readReceiptSentAt}
         />
       )}
 
@@ -286,6 +280,14 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       {message.calendarEvent && (
         <CalendarInviteBanner calendarEvent={message.calendarEvent} />
       )}
+
+      {/* Bannière de déchiffrement OpenPGP */}
+      <PgpMessageBanner
+        key={`pgp-${folder}-${uid}`}
+        content={message.text || message.html}
+        senderEmail={message.from.address}
+        onDecrypted={setDecryptedBody}
+      />
 
       {/* Bannière d'avertissement de brouillon non envoyé */}
       {isDraft && (
@@ -317,7 +319,10 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
             <AttachmentList accountId={accountId} folder={folder} uid={uid} attachments={message.attachments} />
           </div>
         )}
-        <EmailIframe html={message.html} text={message.text} />
+        <EmailIframe
+          html={decryptedBody ? undefined : message.html}
+          text={decryptedBody || message.text}
+        />
       </div>
 
       {/* Barre de réponse rapide (masquée pour les brouillons) */}

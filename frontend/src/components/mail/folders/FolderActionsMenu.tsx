@@ -10,7 +10,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FolderPlus, Pencil, Trash2, MoreVertical, Shield } from "lucide-react";
+import { FolderPlus, Pencil, Trash2, MoreVertical, Shield, Upload } from "lucide-react";
 
 export interface FolderActionsMenuProps {
   folder: FolderInfo;
@@ -18,6 +18,7 @@ export interface FolderActionsMenuProps {
   onCreateSubfolder: (parent: FolderInfo) => void;
   onRename: (folder: FolderInfo) => void;
   onDelete: (folder: FolderInfo) => void;
+  onImportEml: (folder: FolderInfo) => void;
 }
 
 export function FolderActionsMenu({
@@ -25,6 +26,7 @@ export function FolderActionsMenu({
   onCreateSubfolder,
   onRename,
   onDelete,
+  onImportEml,
 }: FolderActionsMenuProps) {
   const protectedFolder = isProtectedFolder(folder);
 
@@ -52,6 +54,16 @@ export function FolderActionsMenu({
           <FolderPlus className="size-3.5 mr-2 text-muted-foreground" />
           Nouveau sous-dossier
           <DropdownMenuShortcut>⇧N</DropdownMenuShortcut>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onImportEml(folder);
+          }}
+        >
+          <Upload className="size-3.5 mr-2 text-muted-foreground" />
+          Importer des messages (.eml)
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

@@ -198,7 +198,7 @@ async function pollLoop(
 
       try {
         // 1. Sync les nouveaux messages (idempotent).
-        const synced = await runInitialSyncForFolder(client, accountId, path);
+        const synced = await runInitialSyncForFolder(client, accountId, path, userId);
         if (synced > 0) {
           publishEvent({
             type: 'message:new',
