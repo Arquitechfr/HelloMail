@@ -28,7 +28,7 @@ export default function EmptyStatePage() {
             <Mail className="size-7" />
           </div>
           <div>
-            <h2 className="text-lg font-bold font-display tracking-tight text-foreground">Bienvenue sur HelloMail</h2>
+            <h2 className="text-lg font-bold font-display tracking-tight text-foreground">Bienvenue sur Mailora</h2>
             <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
               Ajoutez votre premier compte IMAP depuis la barre latérale pour commencer à synchroniser et gérer vos emails.
             </p>

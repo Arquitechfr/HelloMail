@@ -7,7 +7,7 @@ describe("useComposeSignature", () => {
   const baseAccount: Account = {
     _id: "acc-1",
     provider: "imap",
-    emailAddress: "jean.dupont@hellomail.fr",
+    emailAddress: "jean.dupont@mailora.me",
     displayName: "Jean Dupont",
     isActive: true,
     createdAt: "2026-01-01",
@@ -18,14 +18,14 @@ describe("useComposeSignature", () => {
       variables: {
         jobTitle: "Directeur Technique",
         phone: "+33 6 00 00 00 00",
-        company: "HelloMail SAS",
+        company: "Mailora SAS",
       },
     },
     aliases: [
       {
         _id: "alias-1",
-        email: "support@hellomail.fr",
-        name: "Support HelloMail",
+        email: "support@mailora.me",
+        name: "Support HelMailoraloMail",
         isDefault: false,
         signature: {
           enabled: true,
@@ -44,7 +44,7 @@ describe("useComposeSignature", () => {
     renderHook(() =>
       useComposeSignature({
         currentAccount: baseAccount,
-        activeSender: { name: "Jean Dupont", address: "jean.dupont@hellomail.fr" },
+        activeSender: { name: "Jean Dupont", address: "jean.dupont@mailora.me" },
         mode: "new",
         body,
         setBody,
@@ -54,7 +54,7 @@ describe("useComposeSignature", () => {
     expect(setBody).toHaveBeenCalled();
     expect(body).toContain("Jean Dupont");
     expect(body).toContain("Directeur Technique");
-    expect(body).toContain("jean.dupont@hellomail.fr");
+    expect(body).toContain("jean.dupont@mailora.me");
     expect(body).toContain('data-signature="true"');
   });
 
@@ -65,7 +65,7 @@ describe("useComposeSignature", () => {
     renderHook(() =>
       useComposeSignature({
         currentAccount: baseAccount,
-        activeSender: { address: "jean.dupont@hellomail.fr" },
+        activeSender: { address: "jean.dupont@mailora.me" },
         mode: "reply",
         body,
         setBody,
@@ -76,7 +76,7 @@ describe("useComposeSignature", () => {
   });
 
   it("met à jour dynamiquement la signature lors d'un changement d'expéditeur vers un alias", () => {
-    let body = '<p>Bonjour,</p><div data-signature="true" class="hellomail-signature"><p>-- </p><p>Jean Dupont</p><p>Directeur Technique</p><p>jean.dupont@hellomail.fr</p></div>';
+    let body = '<p>Bonjour,</p><div data-signature="true" class="mailora-signature"><p>-- </p><p>Jean Dupont</p><p>Directeur Technique</p><p>jean.dupont@mailora.me</p></div>';
     const setBody = vi.fn((updater) => {
       body = typeof updater === "function" ? updater(body) : updater;
     });
@@ -93,7 +93,7 @@ describe("useComposeSignature", () => {
         }),
       {
         initialProps: {
-          sender: { name: "Jean Dupont", address: "jean.dupont@hellomail.fr" },
+          sender: { name: "Jean Dupont", address: "jean.dupont@mailora.me" },
         },
       },
     );
@@ -101,12 +101,12 @@ describe("useComposeSignature", () => {
     // Changement d'expéditeur vers l'alias support
     act(() => {
       rerender({
-        sender: { name: "Support HelloMail", address: "support@hellomail.fr" },
+        sender: { name: "Support Mailora", address: "support@mailora.me" },
       });
     });
 
     expect(body).toContain("L'équipe Support");
-    expect(body).toContain("support@hellomail.fr");
+    expect(body).toContain("support@mailora.me");
     expect(body).not.toContain("Directeur Technique");
   });
 
@@ -119,7 +119,7 @@ describe("useComposeSignature", () => {
     const { result } = renderHook(() =>
       useComposeSignature({
         currentAccount: baseAccount,
-        activeSender: { name: "Jean Dupont", address: "jean.dupont@hellomail.fr" },
+        activeSender: { name: "Jean Dupont", address: "jean.dupont@mailora.me" },
         mode: "reply",
         body,
         setBody,

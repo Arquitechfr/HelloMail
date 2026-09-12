@@ -103,7 +103,7 @@ describe('sendEmail avec alias ("Send As")', () => {
 
   const baseInput: SendEmailInput = {
     to: ['client@example.com'],
-    subject: 'Assistance HelloMail',
+    subject: 'Assistance Mailora',
     text: 'Bonjour, voici notre retour.',
   };
 

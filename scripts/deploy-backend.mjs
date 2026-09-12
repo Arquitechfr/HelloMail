@@ -6,7 +6,7 @@ import { copy, copyEnvForProduction, DEPLOY_DIR, resetDir, ROOT, run, writeStand
 const SRC = path.join(ROOT, 'backend');
 const DEST = path.join(DEPLOY_DIR, 'backend');
 
-console.log('=== Déploiement backend HelloMail ===');
+console.log('=== Déploiement backend Mailora ===');
 
 // Nettoyage complet avant régénération — aucun fichier obsolète ne subsiste
 resetDir(DEST);
@@ -38,5 +38,5 @@ console.log(`
 ✔ deploy/backend/ prêt — uploader le dossier via FTP, puis sur le serveur :
     cd backend
     pnpm install --prod --frozen-lockfile
-    pm2 start ecosystem.config.cjs   # hellomail-api + hellomail-worker
+    pm2 start ecosystem.config.cjs   # mailora-api + mailora-worker
 `);

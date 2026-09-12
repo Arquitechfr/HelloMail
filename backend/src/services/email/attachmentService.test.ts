@@ -172,4 +172,30 @@ describe('fetchRawMessageStream', () => {
 
     expect(mockClient.mailboxOpen).toHaveBeenCalledWith('INBOX', { readOnly: true });
   });
+
+  it('libère le pool de manière idempotente lors d\'une destruction prématurée du stream', async () => {
+    const { imapPool } = await import('./imapPool.js');
+    mockClient.fetchOne.mockResolvedValueOnce({
+      uid: 100,
+      envelope: { subject: 'Interruption Test' },
+      size: 5000,
+    });
+    const fakeContent = new Readable({
+      read() {
+        // stream sans fin
+      },
+    });
+    mockClient.download.mockResolvedValueOnce({
+      content: fakeContent,
+    });
+
+    const result = await fetchRawMessageStream(makeAccount(), 'INBOX', 100);
+    // Simule la coupure de socket HTTP qui détruit le stream aval
+    await new Promise<void>((resolve) => {
+      result.stream.once('close', () => resolve());
+      result.stream.destroy();
+    });
+
+    expect(imapPool.release).toHaveBeenCalled();
+  });
 });

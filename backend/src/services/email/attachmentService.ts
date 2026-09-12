@@ -11,6 +11,45 @@ export interface AttachmentStream {
 }
 
 /**
+ * Encapsule un stream de lecture IMAP dans un PassThrough sécurisé avec libération idempotente du pool.
+ * Gère la fin normale, les erreurs, et les fermetures prématurées (ex: coupure de socket HTTP).
+ */
+function createSafePassThrough(content: Readable, accountId: string): PassThrough {
+  const passThrough = new PassThrough();
+  let released = false;
+
+  const safeRelease = (): void => {
+    if (!released) {
+      released = true;
+      imapPool.release(accountId);
+    }
+  };
+
+  content.once('end', safeRelease);
+  content.once('error', (err) => {
+    safeRelease();
+    passThrough.destroy(err);
+  });
+  content.once('close', safeRelease);
+
+  passThrough.once('close', () => {
+    safeRelease();
+    if (!content.destroyed) {
+      content.destroy();
+    }
+  });
+  passThrough.once('error', () => {
+    safeRelease();
+    if (!content.destroyed) {
+      content.destroy();
+    }
+  });
+
+  content.pipe(passThrough);
+  return passThrough;
+}
+
+/**
  * Télécharge une pièce jointe spécifique d'un message et retourne un stream.
  *
  * Le pool est libéré uniquement quand le stream est entièrement consommé
@@ -48,17 +87,7 @@ export async function fetchAttachmentStream(
     }
 
     const { content } = await client.download(uid, part, { uid: true });
-
-    // Wrapper PassThrough : libère le pool quand le stream se termine.
-    const passThrough = new PassThrough();
-    const releasePool = (): void => imapPool.release(accountId);
-
-    content.on('end', releasePool);
-    content.on('error', (err) => {
-      releasePool();
-      passThrough.destroy(err);
-    });
-    content.pipe(passThrough);
+    const passThrough = createSafePassThrough(content, accountId);
 
     return {
       stream: passThrough,
@@ -107,16 +136,7 @@ export async function fetchRawMessageStream(
     }
 
     const { content } = await client.download(uid, undefined, { uid: true });
-
-    const passThrough = new PassThrough();
-    const releasePool = (): void => imapPool.release(accountId);
-
-    content.on('end', releasePool);
-    content.on('error', (err) => {
-      releasePool();
-      passThrough.destroy(err);
-    });
-    content.pipe(passThrough);
+    const passThrough = createSafePassThrough(content, accountId);
 
     const safeSubject = sanitizeFilename(msg.envelope?.subject || `message-${uid}`);
 

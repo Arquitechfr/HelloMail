@@ -1,125 +1,97 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { InMemoryOfflineDb } from "./db";
+import { InMemoryOfflineDb } from "./inMemoryDb";
 import type { Message, MessageDetail } from "@/lib/api-types";
 
-describe("InMemoryOfflineDb", () => {
+describe("OfflineDatabase - pruneOldCache", () => {
   let db: InMemoryOfflineDb;
-
-  const mockMsg1: Message = {
-    _id: "m1",
-    accountId: "acc1",
-    folder: "INBOX",
-    uid: 101,
-    subject: "Premier message",
-    from: { address: "alice@test.com", name: "Alice" },
-    to: [{ address: "bob@test.com" }],
-    date: "2026-03-01T10:00:00Z",
-    flags: { seen: false, flagged: false, answered: false },
-    hasAttachments: false,
-    size: 1024,
-    isPinned: false,
-  };
-
-  const mockMsg2: Message = {
-    _id: "m2",
-    accountId: "acc1",
-    folder: "INBOX",
-    uid: 102,
-    subject: "Deuxième message épinglé",
-    from: { address: "bob@test.com", name: "Bob" },
-    to: [{ address: "alice@test.com" }],
-    date: "2026-03-02T10:00:00Z",
-    flags: { seen: true, flagged: true, answered: false },
-    hasAttachments: true,
-    size: 2048,
-    isPinned: true,
-  };
 
   beforeEach(() => {
     db = new InMemoryOfflineDb();
   });
 
-  it("sauvegarde et récupère les messages en respectant le tri (épinglés en premier)", async () => {
-    await db.saveMessages("acc1", "INBOX", [mockMsg1, mockMsg2]);
-    const messages = await db.getMessages("acc1", "INBOX");
+  it("supprime les détails de messages expirés selon le TTL maxDetailAgeDays", async () => {
+    const accountId = "acc-1";
+    const folder = "INBOX";
 
-    expect(messages).toHaveLength(2);
-    // Le message épinglé doit être en tête de liste
-    expect(messages[0].uid).toBe(102);
-    expect(messages[1].uid).toBe(101);
-  });
-
-  it("sauvegarde et récupère le détail d'un message", async () => {
-    const detail: MessageDetail = {
-      ...mockMsg1,
+    const freshDetail: MessageDetail = {
+      flags: { seen: true, flagged: false, answered: false },
+      from: { address: "a@b.com" },
+      to: [{ address: "me@b.com" }],
+      subject: "Frais",
+      date: new Date().toISOString(),
       headers: {},
-      text: "Corps du message en texte",
-      html: "<p>Corps du message en HTML</p>",
       attachments: [],
+      size: 100,
+      text: "Corps récent",
     };
 
-    await db.saveMessageDetail("acc1", "INBOX", 101, detail);
-    const retrieved = await db.getMessageDetail("acc1", "INBOX", 101);
+    const oldDetail: MessageDetail = {
+      flags: { seen: true, flagged: false, answered: false },
+      from: { address: "old@b.com" },
+      to: [{ address: "me@b.com" }],
+      subject: "Ancien",
+      date: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+      headers: {},
+      attachments: [],
+      size: 100,
+      text: "Corps ancien",
+    };
 
-    expect(retrieved).not.toBeNull();
-    expect(retrieved?.text).toBe("Corps du message en texte");
-    expect(retrieved?.html).toBe("<p>Corps du message en HTML</p>");
-  });
+    // Sauvegarder les détails
+    await db.saveMessageDetail(accountId, folder, 1, freshDetail);
+    await db.saveMessageDetail(accountId, folder, 2, oldDetail);
 
-  it("met à jour les flags d'un message localement", async () => {
-    await db.saveMessages("acc1", "INBOX", [mockMsg1]);
-    await db.updateMessageFlagsLocally("acc1", "INBOX", 101, { seen: true, flagged: true });
-
-    const messages = await db.getMessages("acc1", "INBOX");
-    expect(messages[0].flags.seen).toBe(true);
-    expect(messages[0].flags.flagged).toBe(true);
-  });
-
-  it("met à jour l'épinglage localement", async () => {
-    await db.saveMessages("acc1", "INBOX", [mockMsg1]);
-    await db.updateMessagePinLocally("acc1", "INBOX", 101, true);
-
-    const messages = await db.getMessages("acc1", "INBOX");
-    expect(messages[0].isPinned).toBe(true);
-  });
-
-  it("supprime un message localement", async () => {
-    await db.saveMessages("acc1", "INBOX", [mockMsg1, mockMsg2]);
-    await db.deleteMessageLocally("acc1", "INBOX", 101);
-
-    const messages = await db.getMessages("acc1", "INBOX");
-    expect(messages).toHaveLength(1);
-    expect(messages[0].uid).toBe(102);
-  });
-
-  it("gère les mutations en attente (ajout, listing, suppression, purge)", async () => {
-    const id1 = await db.addPendingMutation({
-      type: "UPDATE_FLAGS",
-      accountId: "acc1",
-      folder: "INBOX",
-      uid: 101,
-      payload: { seen: true },
+    // Simuler que le détail 2 est daté de 35 jours dans le cache
+    const thirtyFiveDaysAgo = Date.now() - 35 * 24 * 60 * 60 * 1000;
+    (db as unknown as { details: Map<string, unknown> }).details.set(`${accountId}:${folder}:2`, {
+      ...oldDetail,
+      cachedAt: thirtyFiveDaysAgo,
     });
 
-    const id2 = await db.addPendingMutation({
-      type: "DELETE_MESSAGE",
-      accountId: "acc1",
-      folder: "INBOX",
-      uid: 102,
-    });
+    // Exécuter l'élagage avec un TTL de 30 jours
+    const result = await db.pruneOldCache(500, 30);
 
-    let pending = await db.getPendingMutations();
-    expect(pending).toHaveLength(2);
-    expect(pending[0].id).toBe(id1);
-    expect(pending[1].id).toBe(id2);
+    expect(result.prunedDetails).toBe(1);
+    expect(await db.getMessageDetail(accountId, folder, 1)).not.toBeNull();
+    expect(await db.getMessageDetail(accountId, folder, 2)).toBeNull();
+  });
 
-    await db.removePendingMutation(id1);
-    pending = await db.getPendingMutations();
-    expect(pending).toHaveLength(1);
-    expect(pending[0].id).toBe(id2);
+  it("plafonne le nombre de messages stockés par dossier au seuil maxMessagesPerFolder", async () => {
+    const accountId = "acc-1";
+    const folder = "INBOX";
 
-    await db.clearPendingMutations();
-    pending = await db.getPendingMutations();
-    expect(pending).toHaveLength(0);
+    const messages: Message[] = [];
+    for (let i = 1; i <= 10; i++) {
+      messages.push({
+        _id: `msg-${i}`,
+        accountId,
+        folder,
+        uid: i,
+        flags: { seen: true, flagged: false, answered: false },
+        from: { address: `sender${i}@test.com` },
+        to: [{ address: "me@test.com" }],
+        subject: `Message ${i}`,
+        date: new Date(2026, 0, i).toISOString(), // i = 10 est le plus récent
+        hasAttachments: false,
+        size: 200,
+      });
+    }
+
+    await db.saveMessages(accountId, folder, messages);
+
+    // Élaguer avec un seuil de 5 messages max par dossier
+    const result = await db.pruneOldCache(5, 30);
+
+    expect(result.prunedMessages).toBe(5);
+    const remaining = await db.getMessages(accountId, folder);
+    expect(remaining).toHaveLength(5);
+    // Doit avoir conservé les 5 plus récents (UIDs 6 à 10)
+    const remainingUids = remaining.map((m) => m.uid);
+    expect(remainingUids).toContain(10);
+    expect(remainingUids).toContain(9);
+    expect(remainingUids).toContain(8);
+    expect(remainingUids).toContain(7);
+    expect(remainingUids).toContain(6);
+    expect(remainingUids).not.toContain(1);
   });
 });

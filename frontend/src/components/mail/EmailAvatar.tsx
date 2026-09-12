@@ -39,7 +39,7 @@ function extractDomain(emailOrDomain?: string | null): string | null {
 }
 
 /**
- * Composant Avatar intelligent d'HelloMail.
+ * Composant Avatar intelligent de Mailora.
  *
  * Tente d'afficher le logo officiel de l'expéditeur ou du compte via l'API Logo.dev
  * (proxifiée et mise en cache côté backend sur /api/logos/:domain).

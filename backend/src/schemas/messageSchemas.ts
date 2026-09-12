@@ -76,6 +76,18 @@ export const sendEmailSchema = z.object({
   inReplyTo: z.string().optional(),
   references: z.array(z.string()).optional(),
   requestReadReceipt: z.boolean().optional(),
+  followUpReminder: z
+    .object({
+      remindAt: z.string().refine(
+        (val) => {
+          const d = new Date(val);
+          return !isNaN(d.getTime()) && d.getTime() > Date.now();
+        },
+        { message: "L'échéance du rappel doit être située dans le futur" },
+      ),
+      note: z.string().trim().max(500).optional(),
+    })
+    .optional(),
 });
 
 /**

@@ -186,7 +186,7 @@ describe('searchMessages', () => {
     expect(query['flags.seen']).toBe(false);
     expect(query['flags.flagged']).toBe(true);
     expect(query.hasAttachments).toBe(true);
-    expect(query['from.address']).toEqual({ $regex: 'alice@test.com', $options: 'i' });
+    expect(query['from.address']).toEqual({ $regex: 'alice@test\\.com', $options: 'i' });
   });
 
   it('applique le filtre par plage de dates', async () => {
@@ -213,5 +213,20 @@ describe('searchMessages', () => {
 
     expect(result.page).toBe(2);
     expect(result.limit).toBe(10);
+  });
+
+  it('échappe les métacaractères regex dans les filtres from, to et subject (anti-ReDoS)', async () => {
+    await searchMessages(makeAccount(), {
+      from: 'support+alert@societe.com',
+      to: 'team[finance]@societe.com',
+      subject: '[URGENT] (Important) Problème ?',
+      page: 1,
+      limit: 20,
+    });
+
+    const query = mockFind.mock.calls[0][0] as Record<string, unknown>;
+    expect(query['from.address']).toEqual({ $regex: 'support\\+alert@societe\\.com', $options: 'i' });
+    expect(query['to.address']).toEqual({ $regex: 'team\\[finance\\]@societe\\.com', $options: 'i' });
+    expect(query.subject).toEqual({ $regex: '\\[URGENT\\] \\(Important\\) Problème \\?', $options: 'i' });
   });
 });

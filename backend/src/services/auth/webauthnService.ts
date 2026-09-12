@@ -22,7 +22,7 @@ function getRpId(): string {
   }
 }
 
-const RP_NAME = 'HelloMail';
+const RP_NAME = 'Mailora';
 
 /**
  * Génère les options d'enregistrement WebAuthn pour un utilisateur.

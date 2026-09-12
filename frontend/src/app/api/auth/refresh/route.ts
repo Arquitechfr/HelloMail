@@ -5,7 +5,7 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4001";
 /**
  * Route Handler server-side pour le refresh token.
  *
- * Le cookie httpOnly `hellomail_refresh` (path /api/auth, sameSite strict)
+ * Le cookie httpOnly `mailora_refresh` (path /api/auth, sameSite strict)
  * ne peut pas être envoyé directement par le navigateur sur un rewrite Next.js
  * côté client. Cette route handler :
  * 1. Reçoit la requête POST du navigateur (same-origin, cookie envoyé).

@@ -27,7 +27,7 @@ describe('inlineImageService', () => {
     expect(attachment.contentType).toBe('image/png');
     expect(attachment.filename).toBe('signature-logo-1.png');
     expect(attachment.content).toBe(rawBase64);
-    expect(attachment.cid).toMatch(/^sig-img-\d+-1-[a-z0-9]+@hellomail$/);
+    expect(attachment.cid).toMatch(/^sig-img-\d+-1-[a-z0-9]+@mailora$/);
 
     expect(result.cleanHtml).toContain(`src="cid:${attachment.cid}"`);
     expect(result.cleanHtml).toContain('alt="Logo"');

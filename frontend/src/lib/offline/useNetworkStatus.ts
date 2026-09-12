@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { offlineDb } from "./db";
 import { replayPendingMutations } from "./offlineQueueService";
+import { tabSyncHub } from "@/lib/sync/tabSyncHub";
 import { toast } from "sonner";
 
 export interface NetworkStatus {
@@ -59,6 +60,12 @@ export function useNetworkStatus(): NetworkStatus {
   const syncNowRef = useRef(syncNow);
   syncNowRef.current = syncNow;
 
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
+
+  const refreshPendingCountRef = useRef(refreshPendingCount);
+  refreshPendingCountRef.current = refreshPendingCount;
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -70,7 +77,7 @@ export function useNetworkStatus(): NetworkStatus {
 
     const handleOffline = () => {
       setIsOnline(false);
-      refreshPendingCount();
+      refreshPendingCountRef.current();
       toast.warning("Mode hors-ligne activé. Vos actions seront synchronisées au retour du réseau.");
     };
 
@@ -79,17 +86,42 @@ export function useNetworkStatus(): NetworkStatus {
 
     // Initialisation
     setIsOnline(navigator.onLine);
-    refreshPendingCount();
+    refreshPendingCountRef.current();
+
+    // Élagage automatique du cache en arrière-plan (non-bloquant)
+    offlineDb.pruneOldCache().catch((err) => {
+      console.warn("[offlineDb] Erreur lors de l'élagage du cache:", err);
+    });
+
+    // Synchronisation multi-onglets des mutations en attente et rejeux
+    const unsubAdded = tabSyncHub.on("offline:mutation_added", () => {
+      refreshPendingCountRef.current();
+    });
+
+    const unsubCompleted = tabSyncHub.on("offline:sync_completed", () => {
+      refreshPendingCountRef.current();
+      Promise.all([
+        queryClientRef.current.invalidateQueries({ queryKey: ["messages"] }),
+        queryClientRef.current.invalidateQueries({ queryKey: ["folders"] }),
+        queryClientRef.current.invalidateQueries({ queryKey: ["unified"] }),
+      ]).catch((err) =>
+        console.warn("[useNetworkStatus] Invalidation après sync inter-onglets:", err),
+      );
+    });
 
     // Vérifier périodiquement s'il y a des mutations en attente
-    const interval = setInterval(refreshPendingCount, 5000);
+    const interval = setInterval(() => {
+      refreshPendingCountRef.current();
+    }, 5000);
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       clearInterval(interval);
+      unsubAdded();
+      unsubCompleted();
     };
-  }, [refreshPendingCount]);
+  }, []);
 
   return {
     isOnline,

@@ -10,7 +10,7 @@ const mockDeleteContactKey = vi.fn();
 
 const mockUserKeys: PgpKeyInfo[] = [
   {
-    email: "moncompte@hellomail.fr",
+    email: "moncompte@mailora.me",
     name: "Mon Nom",
     armoredPublicKey: "-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----",
     fingerprint: "1234567890ABCDEF1234567890ABCDEF12345678",
@@ -61,7 +61,7 @@ vi.mock("@/lib/queries/pgp", () => ({
 
 vi.mock("@/lib/queries/accounts", () => ({
   useAccounts: () => ({
-    data: [{ _id: "acc-1", emailAddress: "moncompte@hellomail.fr" }],
+    data: [{ _id: "acc-1", emailAddress: "moncompte@mailora.me" }],
   }),
 }));
 
@@ -95,7 +95,7 @@ describe("PgpKeyManager", () => {
     render(<PgpKeyManager />);
 
     expect(screen.getByText("Mes clés OpenPGP personnelles")).toBeInTheDocument();
-    expect(screen.getByText("moncompte@hellomail.fr")).toBeInTheDocument();
+    expect(screen.getByText("moncompte@mailora.me")).toBeInTheDocument();
     expect(screen.getByText(/Curve25519/)).toBeInTheDocument();
   });
 

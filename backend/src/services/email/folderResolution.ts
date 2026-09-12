@@ -17,6 +17,7 @@ import { MessageModel } from '../../models/Message.js';
  * réel nommé « Snoozed »).
  */
 export const VIRTUAL_SNOOZED_FOLDER = '__snoozed__';
+export const VIRTUAL_REMINDERS_FOLDER = '__reminders__';
 
 function dbReady(): boolean {
   return mongoose.connection.readyState === 1;
@@ -90,7 +91,11 @@ export async function resolveMessageFolder(
   folder: string,
   uid: number,
 ): Promise<string> {
-  if (folder !== VIRTUAL_SNOOZED_FOLDER && folder !== 'Snoozed') {
+  if (
+    folder !== VIRTUAL_SNOOZED_FOLDER &&
+    folder !== VIRTUAL_REMINDERS_FOLDER &&
+    folder !== 'Snoozed'
+  ) {
     return folder;
   }
   if (!dbReady()) {
@@ -104,7 +109,6 @@ export async function resolveMessageFolder(
   const doc = await MessageModel.findOne({
     accountId,
     uid,
-    snoozedUntil: { $gt: new Date() },
   })
     .select('folder')
     .lean();

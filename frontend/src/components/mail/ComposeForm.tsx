@@ -16,6 +16,7 @@ import { ComposeActions } from "@/components/mail/ComposeActions";
 import { AttachmentDropzone, type AttachmentItem } from "@/components/mail/AttachmentDropzone";
 import { ScheduleSendDialog } from "@/components/mail/ScheduleSendDialog";
 import { ScheduledMessagesDialog } from "@/components/mail/ScheduledMessagesDialog";
+import { FollowUpDialog } from "@/components/mail/reminders/FollowUpDialog";
 import { useScheduleSend } from "@/lib/hooks/useScheduleSend";
 import { useComposeSignature } from "@/lib/hooks/useComposeSignature";
 import { useComposePgp } from "@/lib/hooks/useComposePgp";
@@ -71,6 +72,8 @@ export function ComposeForm({
   const [body, setBody] = useState<string>(restoredData?.body ?? replyTo?.html ?? "");
   const [attachments, setAttachments] = useState<AttachmentItem[]>(restoredData?.attachments ?? []);
   const [requestReadReceipt, setRequestReadReceipt] = useState(restoredData?.requestReadReceipt ?? false);
+  const [followUp, setFollowUp] = useState<{ remindAt: string; note?: string } | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(!!(restoredData?.cc || restoredData?.bcc));
@@ -81,28 +84,17 @@ export function ComposeForm({
   const currentAccount = accounts?.find((a) => a._id === accountId);
 
   const { handleInsertSignature } = useComposeSignature({
-    currentAccount,
-    activeSender: from,
-    mode,
-    body,
-    setBody,
-    hasRestoredData: Boolean(restoredData),
+    currentAccount, activeSender: from, mode, body, setBody, hasRestoredData: Boolean(restoredData),
   });
 
   const {
-    scheduleDialogOpen,
-    setScheduleDialogOpen,
-    scheduledListDialogOpen,
-    setScheduledListDialogOpen,
+    scheduleDialogOpen, setScheduleDialogOpen,
+    scheduledListDialogOpen, setScheduledListDialogOpen,
     scheduleSend,
   } = useScheduleSend({ accountId, draftUid, onClose });
 
   const {
-    pgpEncrypt,
-    setPgpEncrypt,
-    pgpSign,
-    setPgpSign,
-    processPgpPayload,
+    pgpEncrypt, setPgpEncrypt, pgpSign, setPgpSign, processPgpPayload,
   } = useComposePgp({ fromAddress: from?.address || currentAccount?.emailAddress });
 
   const buildPayload = useCallback((): SendEmailInput => {
@@ -120,8 +112,9 @@ export function ComposeForm({
       inReplyTo: mode === "reply" ? replyTo?.messageId : undefined,
       references: mode === "reply" && replyTo?.messageId ? [replyTo.messageId] : undefined,
       requestReadReceipt: requestReadReceipt ? true : undefined,
+      followUpReminder: followUp ? { remindAt: followUp.remindAt, note: followUp.note } : undefined,
     };
-  }, [from, to, cc, bcc, subject, body, attachments, mode, replyTo, requestReadReceipt]);
+  }, [from, to, cc, bcc, subject, body, attachments, mode, replyTo, requestReadReceipt, followUp]);
 
   // Auto-save avec debounce 5s (incluant les pièces jointes).
   const saveDraft = useCallback(async () => {
@@ -221,25 +214,15 @@ export function ComposeForm({
       // Fermeture immédiate du panneau de composition
       onClose();
 
-      const recipientText =
-        payload.to[0] + (payload.to.length > 1 ? ` (+${payload.to.length - 1})` : "");
-
+      const recipientText = payload.to[0] + (payload.to.length > 1 ? ` (+${payload.to.length - 1})` : "");
       queueSend({
-        accountId,
-        payload,
-        mode,
-        replyTo,
-        draftUid,
-        attachments,
-        recipientPreview: recipientText,
-        subjectPreview: payload.subject,
+        accountId, payload, mode, replyTo, draftUid, attachments,
+        recipientPreview: recipientText, subjectPreview: payload.subject,
         totalDurationMs: undoSendDelay * 1000,
         onExecute: async () => {
           try {
             await sendEmail.mutateAsync(payload);
-            if (draftUid) {
-              deleteDraft.mutate(draftUid);
-            }
+            if (draftUid) deleteDraft.mutate(draftUid);
             toast.success("Message envoyé avec succès");
           } catch (err) {
             if (err instanceof ApiError) toast.error(`Échec : ${err.message}`);
@@ -263,9 +246,7 @@ export function ComposeForm({
   };
 
   const handleSelectTemplate = (template: EmailTemplate) => {
-    if (!subject.trim() && template.subject) {
-      setSubject(template.subject);
-    }
+    if (!subject.trim() && template.subject) setSubject(template.subject);
     const newBody = body ? `${body}<br><br>${template.bodyHtml}` : template.bodyHtml;
     setBody(newBody);
     handleBodyChange(newBody);
@@ -327,13 +308,14 @@ export function ComposeForm({
         onSelectTemplate={handleSelectTemplate}
         onOpenSchedule={() => setScheduleDialogOpen(true)}
         onOpenScheduledList={() => setScheduledListDialogOpen(true)}
+        onOpenFollowUp={() => setFollowUpOpen(true)}
+        hasFollowUp={Boolean(followUp)}
         pgpEncrypt={pgpEncrypt}
         onPgpEncryptChange={setPgpEncrypt}
         pgpSign={pgpSign}
         onPgpSignChange={setPgpSign}
       />
 
-      {/* Dialogues de planification Send Later */}
       <ScheduleSendDialog
         open={scheduleDialogOpen}
         onOpenChange={setScheduleDialogOpen}
@@ -343,6 +325,17 @@ export function ComposeForm({
         open={scheduledListDialogOpen}
         onOpenChange={setScheduledListDialogOpen}
         accountId={accountId}
+      />
+      <FollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        accountId={accountId}
+        folder="Sent"
+        uid={0}
+        initialRemindAt={followUp?.remindAt}
+        initialNote={followUp?.note}
+        onSelect={(remindAt, note) => setFollowUp({ remindAt, note })}
+        onClear={() => setFollowUp(null)}
       />
     </form>
   );

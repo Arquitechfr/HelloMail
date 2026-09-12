@@ -36,7 +36,7 @@ describe('calendarService', () => {
         'ORGANIZER;CN="Alice Dupont":mailto:alice@example.com',
         'UID:meet-12345@google.com',
         'ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN="Bob Martin":mailto:bob@example.com',
-        'SUMMARY:Réunion de lancement\, projet HelloMail',
+        'SUMMARY:Réunion de lancement\, projet Mailora',
         'DESCRIPTION:Première réunion de cadrage.\\nOrdre du jour: architecture et liv',
         ' rables.',
         'LOCATION:Salle de réunion A\, Étage 2',
@@ -48,7 +48,7 @@ describe('calendarService', () => {
 
       const event = parseICalendar(ics);
       expect(event).not.toBeNull();
-      expect(event?.summary).toBe('Réunion de lancement, projet HelloMail');
+      expect(event?.summary).toBe('Réunion de lancement, projet Mailora');
       expect(event?.method).toBe('REQUEST');
       expect(event?.location).toBe('Salle de réunion A, Étage 2');
       expect(event?.status).toBe('CONFIRMED');

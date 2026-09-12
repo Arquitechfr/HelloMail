@@ -29,6 +29,8 @@ export interface IMessageDocument extends Document {
   isPinned?: boolean;
   pinnedAt?: Date | null;
   readReceiptSentAt?: Date | null;
+  followUpStatus?: 'pending' | 'triggered' | 'replied' | 'dismissed' | null;
+  followUpRemindAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -123,6 +125,15 @@ const messageSchema = new Schema<IMessageDocument>(
       type: Date,
       default: null,
     },
+    followUpStatus: {
+      type: String,
+      enum: ['pending', 'triggered', 'replied', 'dismissed', null],
+      default: null,
+    },
+    followUpRemindAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -152,6 +163,9 @@ messageSchema.index({ accountId: 1, folder: 1, date: -1 });
 
 // Index pour le filtrage par dossier et statut de mise en sommeil (snooze)
 messageSchema.index({ accountId: 1, folder: 1, snoozedUntil: 1 });
+
+// Index pour les rappels de suivi / relances (Follow-Up)
+messageSchema.index({ accountId: 1, followUpStatus: 1, followUpRemindAt: 1 });
 
 // Index pour le regroupement de conversation / threading.
 messageSchema.index({ accountId: 1, messageId: 1 });

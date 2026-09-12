@@ -54,7 +54,7 @@ export function SettingsAccountsSection() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm sm:text-base font-bold font-display text-foreground">
-                  {user?.email || (meLoading ? "Chargement du compte..." : "Compte HelloMail")}
+                  {user?.email || (meLoading ? "Chargement du compte..." : "Compte Mailora")}
                 </h2>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-semibold">
                   Compte Maître

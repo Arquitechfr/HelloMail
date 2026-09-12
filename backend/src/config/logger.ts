@@ -35,7 +35,7 @@ export const logger = pino(
       ],
       censor: '[REDACTED]',
     },
-    base: { service: 'hellomail' },
+    base: { service: 'mailora' },
   },
   transport,
 );

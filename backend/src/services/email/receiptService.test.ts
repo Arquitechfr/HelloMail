@@ -17,7 +17,7 @@ vi.mock('../../models/Message.js', () => ({
 describe('receiptService', () => {
   const mockAccount = {
     _id: '64f1a2b3c4d5e6f7a8b9c0d1',
-    emailAddress: 'user@hellomail.com',
+    emailAddress: 'user@mailora.me',
   } as unknown as IAccountDocument;
 
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe('receiptService', () => {
       messageId: '<msg-123@sender.com>',
       readReceiptRequestedTo: 'sender@sender.com',
       from: { address: 'sender@sender.com' },
-      to: [{ address: 'user@hellomail.com' }],
+      to: [{ address: 'user@mailora.me' }],
       date: new Date('2026-09-10T12:00:00Z'),
       headers: {},
       flags: { seen: true, answered: false, flagged: false },
@@ -39,7 +39,7 @@ describe('receiptService', () => {
     });
 
     const sendEmailSpy = vi.spyOn(sendService, 'sendEmail').mockResolvedValue({
-      messageId: '<ack-999@hellomail.com>',
+      messageId: '<ack-999@mailora.me>',
       accepted: ['sender@sender.com'],
       rejected: [],
     });
@@ -67,7 +67,7 @@ describe('receiptService', () => {
       readReceiptRequestedTo: 'sender@sender.com',
       readReceiptSentAt: '2026-09-11T10:00:00.000Z',
       from: { address: 'sender@sender.com' },
-      to: [{ address: 'user@hellomail.com' }],
+      to: [{ address: 'user@mailora.me' }],
       date: new Date(),
       headers: {},
       flags: { seen: true, answered: true, flagged: false },
@@ -88,7 +88,7 @@ describe('receiptService', () => {
     vi.spyOn(messageFetchService, 'fetchMessageDetail').mockResolvedValue({
       subject: 'Sans accusé',
       from: { address: 'sender@sender.com' },
-      to: [{ address: 'user@hellomail.com' }],
+      to: [{ address: 'user@mailora.me' }],
       date: new Date(),
       headers: {},
       flags: { seen: true, answered: false, flagged: false },

@@ -11,7 +11,7 @@ import { FolderTree } from "@/components/mail/FolderTree";
 import { UnifiedFolderList } from "@/components/mail/unified/UnifiedFolderList";
 import { SmartFolderList } from "@/components/mail/smart/SmartFolderList";
 import { Button } from "@/components/ui/button";
-import { Plus, Mail, Loader2, X, FolderKanban, Tag as TagIcon, Clock } from "lucide-react";
+import { Plus, Mail, Loader2, X, FolderKanban, Tag as TagIcon, Clock, BellRing } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AccountSidebar() {
@@ -144,6 +144,19 @@ export function AccountSidebar() {
                     >
                       <Clock className={cn("size-4 shrink-0", selectedFolder === "__snoozed__" ? "text-primary" : "text-muted-foreground")} />
                       <span className="flex-1 truncate">En sommeil</span>
+                    </div>
+                    {/* Dossier virtuel À relancer (Follow-up Reminders) */}
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer mt-0.5",
+                        selectedFolder === "__reminders__"
+                          ? "bg-primary/15 text-primary font-medium"
+                          : "hover:bg-muted/50 text-foreground/80",
+                      )}
+                      onClick={() => handleSelectFolder("__reminders__", account._id)}
+                    >
+                      <BellRing className={cn("size-4 shrink-0", selectedFolder === "__reminders__" ? "text-primary" : "text-muted-foreground")} />
+                      <span className="flex-1 truncate">À relancer</span>
                     </div>
                   </div>
                 )}

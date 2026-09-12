@@ -38,7 +38,7 @@ describe("folder-utils", () => {
 
   describe("getParentPath", () => {
     it("extrait le chemin parent avec le délimiteur", () => {
-      expect(getParentPath("Work/Clients/HelloMail", "/")).toBe("Work/Clients");
+      expect(getParentPath("Work/Clients/Mailora", "/")).toBe("Work/Clients");
       expect(getParentPath("Work/Clients", "/")).toBe("Work");
       expect(getParentPath("Work.Clients", ".")).toBe("Work");
     });

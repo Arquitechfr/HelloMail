@@ -62,4 +62,32 @@ describe('createHandler', () => {
     expect(res.headers['retry-after']).toBe('5');
     expect(res.body.error.message).toBe('Trop d\'envois');
   });
+
+  it('laisse passer la requête en mode fail-open si le store lève une erreur (passOnStoreError: true)', async () => {
+    const failingStore = {
+      init: () => {},
+      increment: async () => {
+        throw new Error('Redis connection lost');
+      },
+      decrement: async () => {},
+      resetKey: async () => {},
+    };
+
+    const app = express();
+    app.use(
+      '/resilient',
+      rateLimit({
+        windowMs: 60_000,
+        limit: 1,
+        passOnStoreError: true,
+        store: failingStore as never,
+      }),
+    );
+    app.get('/resilient', (_req, res) => res.json({ status: 'ok' }));
+    app.use(errorHandler);
+
+    // Ne doit PAS lever une 500 mais laisser passer (200)
+    const res = await request(app).get('/resilient').expect(200);
+    expect(res.body.status).toBe('ok');
+  });
 });

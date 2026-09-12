@@ -25,7 +25,7 @@ export async function generateTOTPSetup(
   );
 
   // Construit l'URL otpauth (format standard TOTP).
-  const otpauthUrl = generateURI({ secret, label: user.email, issuer: 'HelloMail' });
+  const otpauthUrl = generateURI({ secret, label: user.email, issuer: 'Mailora' });
 
   // Génère le QR code en data URL (base64 PNG).
   const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);

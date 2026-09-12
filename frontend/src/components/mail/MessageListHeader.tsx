@@ -48,7 +48,7 @@ export function MessageListHeader({
             </div>
           ) : (
             <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider font-display truncate">
-              {searching ? "Recherche" : folder === "__snoozed__" ? "En sommeil" : folder}
+              {searching ? "Recherche" : folder === "__snoozed__" ? "En sommeil" : folder === "__reminders__" ? "À relancer" : folder}
             </h2>
           )}
           <span className="rounded-full bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground border border-border/60 shrink-0">

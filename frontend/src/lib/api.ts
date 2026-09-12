@@ -1,4 +1,6 @@
 import { useAuthStore } from "@/lib/stores/authStore";
+import { tabSyncHub } from "@/lib/sync/tabSyncHub";
+import type { AuthTokenRefreshedPayload } from "@/lib/sync/tabSyncTypes";
 import type { ApiErrorBody } from "@/lib/api-types";
 
 /**
@@ -46,6 +48,10 @@ export async function refreshToken(): Promise<string | null> {
       useAuthStore.setState({
         accessToken: data.accessToken,
         ...(data.user ? { user: data.user } : {}),
+      });
+      tabSyncHub.broadcast<AuthTokenRefreshedPayload>("auth:token_refreshed", {
+        accessToken: data.accessToken,
+        user: data.user,
       });
       return data.accessToken;
     } catch {

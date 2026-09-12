@@ -11,7 +11,7 @@ const mockAccounts: Account[] = [
   {
     _id: "acc-1",
     provider: "imap",
-    emailAddress: "alice@hellomail.fr",
+    emailAddress: "alice@mailora.me",
     displayName: "Alice Durant",
     isActive: true,
     createdAt: "2026-01-01",
@@ -22,14 +22,14 @@ const mockAccounts: Account[] = [
       variables: {
         jobTitle: "Directrice",
         phone: "+33 6 11 22 33 44",
-        company: "HelloMail",
+        company: "Mailora",
       },
     },
     aliases: [
       {
         _id: "alias-1",
-        email: "contact@hellomail.fr",
-        name: "Contact HelloMail",
+        email: "contact@mailora.me",
+        name: "Contact Mailora",
         isDefault: false,
         signature: {
           enabled: false,
@@ -62,7 +62,7 @@ describe("AccountSignatureManager", () => {
 
   it("affiche le compte et l'indicateur d'alias", () => {
     render(<AccountSignatureManager />);
-    expect(screen.getAllByText("alice@hellomail.fr").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("alice@mailora.me").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Alice Durant").length).toBeGreaterThan(0);
     expect(screen.getByText("1 alias configuré")).toBeInTheDocument();
   });
@@ -91,7 +91,7 @@ describe("AccountSignatureManager", () => {
     const user = userEvent.setup();
     render(<AccountSignatureManager />);
 
-    const aliasBtn = screen.getByRole("button", { name: /contact@hellomail\.fr/i });
+    const aliasBtn = screen.getByRole("button", { name: /contact@mailora\.me/i });
     await user.click(aliasBtn);
 
     expect(screen.getByText("Activer la signature pour cet alias")).toBeInTheDocument();

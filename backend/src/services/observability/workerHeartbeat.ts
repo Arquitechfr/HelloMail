@@ -5,13 +5,13 @@ import { logger } from '../../config/logger.js';
 /**
  * Heartbeat du sync worker, exposé via Redis et lu par `/api/health`.
  *
- * Le worker (process séparé `worker.ts`) écrit une clé `hellomail:worker:heartbeat`
+ * Le worker (process séparé `worker.ts`) écrit une clé `mailora:worker:heartbeat`
  * toutes les 30s avec un TTL de 90s. L'API lit la clé pour exposer l'état du
  * worker : 'running' (clé fraîche), 'stale' (clé absente/expirée),
  * 'unknown' (Redis indisponible ou mode test).
  */
 
-const HEARTBEAT_KEY = 'hellomail:worker:heartbeat';
+const HEARTBEAT_KEY = 'mailora:worker:heartbeat';
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TTL_S = 90;
 

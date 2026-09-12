@@ -133,7 +133,7 @@ export const useUIStore = create<UIState>()(
       setNotificationSoundEnabled: (enabled) => set({ notificationSoundEnabled: enabled }),
     }),
     {
-      name: "hellomail-ui",
+      name: "mailora-ui",
       partialize: (state) => ({
         selectedAccountId: state.selectedAccountId,
         selectedFolder: state.selectedFolder,

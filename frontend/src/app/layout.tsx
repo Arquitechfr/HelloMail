@@ -26,13 +26,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HelloMail — Webmail moderne",
+  title: "Mailora — Webmail moderne",
   description: "Client webmail auto-hébergé, façon Thunderbird mais web.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "HelloMail",
+    title: "Mailora",
   },
   icons: {
     icon: "/icon.svg",

@@ -431,4 +431,48 @@ describe('Messages routes (intégration)', () => {
     expect(res.body.total).toBe(1);
     expect(res.body.data[0].subject).toBe('Vrai dossier Snoozed');
   });
+
+  it('GET /:accountId/messages/:folder/:uid/attachments/:part → retourne la pièce jointe avec Content-Disposition attachment par défaut', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+    const { Readable } = await import('node:stream');
+
+    mockFetchAttachmentStream.mockResolvedValueOnce({
+      stream: Readable.from(['fake attachment data']),
+      contentType: 'application/pdf',
+      filename: 'document.pdf',
+      size: 20,
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages/INBOX/42/attachments/2`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(res.headers['content-disposition']).toContain('document.pdf');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('GET /:accountId/messages/:folder/:uid/attachments/:part?disposition=inline → retourne avec Content-Disposition inline pour prévisualisation', async () => {
+    const { token, accountId } = await setupUserAndAccount(app);
+    const { Readable } = await import('node:stream');
+
+    mockFetchAttachmentStream.mockResolvedValueOnce({
+      stream: Readable.from(['fake image data']),
+      contentType: 'image/png',
+      filename: 'photo.png',
+      size: 15,
+    });
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/messages/INBOX/42/attachments/3?disposition=inline`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.headers['content-disposition']).toContain('inline');
+    expect(res.headers['content-disposition']).toContain('photo.png');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
 });

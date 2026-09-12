@@ -10,6 +10,7 @@ import { reconcileFolder } from './reconcileFolder.js';
 import { publishEvent } from '../realtime/eventPublisher.js';
 import { applyRulesToIncomingMessage } from '../email/ruleService.js';
 import { addSenderContactIfEnabled } from '../contacts/contactService.js';
+import { checkAndResolveFollowUpReminder } from '../email/followUpReplyDetector.js';
 
 const FETCH_QUERY = {
   uid: true,
@@ -106,6 +107,16 @@ export async function runIdleLoop(
               'Erreur ajout contact expéditeur (non bloquant)',
             );
           });
+
+          // Détection et résolution automatique des rappels de suivi (Follow-Up)
+          if (savedMsg) {
+            checkAndResolveFollowUpReminder(accountId, savedMsg).catch((remErr) => {
+              logger.warn(
+                { accountId, error: remErr instanceof Error ? remErr.message : 'inconnu' },
+                'Erreur résolution rappel relance (non bloquant)',
+              );
+            });
+          }
         } catch (error) {
           logger.error(
             { accountId, uid: msg.uid, error: error instanceof Error ? error.message : 'erreur inconnue' },

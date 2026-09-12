@@ -1,20 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  useMessageDetail,
-  useMessageThread,
-  useUpdateFlags,
-  useDeleteMessage,
-  useMoveMessage,
-  useMarkAsJunk,
-  usePinMessage,
-} from "@/lib/queries/messages";
+import { useMessageDetail, useMessageThread } from "@/lib/queries/messages";
 import { useFolders } from "@/lib/queries/folders";
 import { useUIStore } from "@/lib/stores/uiStore";
-import { isDraftFolder, isTrashFolder } from "@/lib/folder-utils";
-import { openDraftCompose } from "@/lib/draft-utils";
-import { Button } from "@/components/ui/button";
+import { isDraftFolder } from "@/lib/folder-utils";
 import { EmailIframe } from "@/components/mail/EmailIframe";
 import { AttachmentList } from "@/components/mail/AttachmentList";
 import { MessageThreadView } from "@/components/mail/MessageThreadView";
@@ -25,9 +15,12 @@ import { CalendarInviteBanner } from "@/components/mail/CalendarInviteBanner";
 import { PgpMessageBanner } from "@/components/mail/PgpMessageBanner";
 import { EmailSecurityBanner } from "@/components/mail/EmailSecurityBanner";
 import { MessageToolbar } from "@/components/mail/MessageToolbar";
-import { useEmailShortcuts } from "@/lib/hooks/useEmailShortcuts";
-import { Mail, Loader2, FileEdit, Pencil } from "lucide-react";
-import { toast } from "sonner";
+import { DraftEditBanner } from "@/components/mail/DraftEditBanner";
+import { MessageEmptyState } from "@/components/mail/MessageEmptyState";
+import { FollowUpBanner } from "@/components/mail/reminders/FollowUpBanner";
+import { FollowUpDialog } from "@/components/mail/reminders/FollowUpDialog";
+import { useMessageReaderActions } from "@/lib/hooks/useMessageReaderActions";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MessageReaderProps {
@@ -38,13 +31,6 @@ interface MessageReaderProps {
 
 export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const { data: message, isLoading } = useMessageDetail(accountId, folder, uid);
-  const updateFlags = useUpdateFlags(accountId, folder);
-  // `mutate` est stable en React Query v5 — ne change pas de référence entre les renders.
-  const markAsSeen = updateFlags.mutate;
-  const deleteMessage = useDeleteMessage(accountId, folder);
-  const moveMessage = useMoveMessage(accountId, folder);
-  const markAsJunk = useMarkAsJunk(accountId, folder);
-  const pinMutation = usePinMessage(accountId, folder);
   const { data: thread } = useMessageThread(accountId, folder, uid);
   const { data: folders } = useFolders(accountId);
   const isDraft = isDraftFolder(folder, folders);
@@ -52,167 +38,28 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
   const setSelectedFolder = useUIStore((s) => s.setSelectedFolder);
   const [decryptedBody, setDecryptedBody] = useState<string | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
 
   useEffect(() => {
     setDecryptedBody(null);
   }, [uid, folder]);
 
-  const handleEditDraft = async () => {
-    if (uid === null || !message) return;
-    await openDraftCompose(accountId, folder, uid, message);
-  };
+  const actions = useMessageReaderActions({
+    accountId,
+    folder,
+    uid,
+    message,
+    folders,
+    isDraft,
+  });
 
   const handleSelectThreadMessage = (itemFolder: string, itemUid: number) => {
     if (itemFolder !== folder) setSelectedFolder(itemFolder);
     setSelectedUid(itemUid);
   };
 
-  const handleDownloadEml = () => {
-    if (!uid || !message) return;
-    const link = document.createElement("a");
-    link.href = `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/raw`;
-    link.download = `${message.subject || `message-${uid}`}.eml`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = () => window.print();
-
-  // Marquer comme lu à l'ouverture si non lu.
-  useEffect(() => {
-    if (message && !message.flags.seen && uid !== null) {
-      markAsSeen({ uid, flags: { seen: true } });
-    }
-  }, [message, uid, markAsSeen]);
-
-  const handleDelete = () => {
-    if (uid === null) return;
-    // Dans la Corbeille, la suppression est définitive.
-    const permanent = isTrashFolder(folder, folders);
-    deleteMessage.mutate(
-      { uid, permanent },
-      {
-        onSuccess: () => {
-          toast.success(
-            permanent
-              ? "Message supprimé définitivement"
-              : "Message déplacé vers la Corbeille",
-          );
-          setSelectedUid(null);
-        },
-        onError: () => toast.error("Erreur lors de la suppression"),
-      },
-    );
-  };
-
-  const handleToggleFlag = () => {
-    if (uid === null || !message) return;
-    updateFlags.mutate({ uid, flags: { flagged: !message.flags.flagged } });
-  };
-
-  const handleTogglePin = () => {
-    if (uid === null || !message) return;
-    const nextPinned = !message.isPinned;
-    pinMutation.mutate(
-      { uid, isPinned: nextPinned },
-      {
-        onSuccess: () => toast.success(nextPinned ? "Message mis en avant" : "Mise en avant retirée"),
-        onError: () => toast.error("Erreur lors de la mise en avant"),
-      },
-    );
-  };
-
-  const handleMarkJunk = () => {
-    if (uid === null) return;
-    markAsJunk.mutate(uid, {
-      onSuccess: () => {
-        toast.success("Marqué comme spam");
-        setSelectedUid(null);
-      },
-      onError: () => toast.error("Erreur"),
-    });
-  };
-
-  const handleArchive = () => {
-    if (uid === null) return;
-    moveMessage.mutate(
-      { uid, destination: "Archive" },
-      {
-        onSuccess: () => {
-          toast.success("Message archivé");
-          setSelectedUid(null);
-        },
-        onError: () => toast.error("Erreur lors du déplacement"),
-      },
-    );
-  };
-
-  const handleReply = () => {
-    if (!message) return;
-    openCompose("reply", {
-      messageId: message.messageId,
-      subject: message.subject,
-      from: message.from.address,
-      to: [message.from.address],
-    });
-  };
-
-  const handleReplyAll = () => {
-    if (!message) return;
-    openCompose("reply", {
-      messageId: message.messageId,
-      subject: message.subject,
-      from: message.from.address,
-      to: [
-        message.from.address,
-        ...message.to.map((t) => t.address),
-        ...(message.cc?.map((c) => c.address) ?? []),
-      ],
-    });
-  };
-
-  const handleForward = () => {
-    if (message) openCompose("forward", { subject: message.subject });
-  };
-
-  const handleToggleSeen = () => {
-    if (uid !== null && message) updateFlags.mutate({ uid, flags: { seen: !message.flags.seen } });
-  };
-
-  useEmailShortcuts({
-    enabled: uid !== null && !!message,
-    onReply: isDraft ? handleEditDraft : handleReply,
-    onReplyAll: isDraft ? undefined : handleReplyAll,
-    onForward: isDraft ? undefined : handleForward,
-    onToggleSeen: handleToggleSeen,
-    onToggleFlagged: handleToggleFlag,
-    onTogglePin: handleTogglePin,
-    onArchive: isDraft ? undefined : handleArchive,
-    onDelete: handleDelete,
-    onMarkJunk: isDraft ? undefined : handleMarkJunk,
-    onPrint: handlePrint,
-  });
-
   if (uid === null) {
-    return (
-      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-card/10 p-8 text-center select-none">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground border border-border mb-3 shadow-xs">
-          <Mail className="size-6" />
-        </div>
-        <h3 className="text-sm font-semibold font-display text-foreground">Aucun message sélectionné</h3>
-        <p className="mt-1 text-xs text-muted-foreground max-w-xs">
-          Sélectionnez un email dans la liste ou utilisez les raccourcis clavier pour naviguer.
-        </p>
-        <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 font-mono border border-border">C</span>
-          <span>Nouveau message</span>
-          <span className="text-border">·</span>
-          <span className="flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 font-mono border border-border">?</span>
-          <span>Aide raccourcis</span>
-        </div>
-      </div>
-    );
+    return <MessageEmptyState />;
   }
 
   if (isLoading) {
@@ -247,18 +94,19 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         isPinned={Boolean(message.isPinned)}
         isSnoozed={!!message.snoozedUntil}
         isDraft={isDraft}
-        onEditDraft={handleEditDraft}
+        onEditDraft={actions.handleEditDraft}
         onSnoozed={() => setSelectedUid(null)}
         onBack={() => setSelectedUid(null)}
-        onReply={handleReply}
-        onForward={handleForward}
-        onToggleFlag={handleToggleFlag}
-        onTogglePin={handleTogglePin}
-        onArchive={handleArchive}
-        onMarkJunk={handleMarkJunk}
-        onDelete={handleDelete}
-        onPrint={handlePrint}
-        onDownloadEml={handleDownloadEml}
+        onReply={actions.handleReply}
+        onForward={actions.handleForward}
+        onToggleFlag={actions.handleToggleFlag}
+        onTogglePin={actions.handleTogglePin}
+        onArchive={actions.handleArchive}
+        onMarkJunk={actions.handleMarkJunk}
+        onDelete={actions.handleDelete}
+        onPrint={actions.handlePrint}
+        onDownloadEml={actions.handleDownloadEml}
+        onFollowUp={() => setFollowUpOpen(true)}
       />
 
       {/* Fil de discussion de la conversation */}
@@ -270,6 +118,15 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
 
       {/* En-tête des métadonnées du message */}
       <MessageMetadataHeader message={message} accountId={accountId} folder={folder} uid={uid!} />
+
+      {/* Bannière de rappel de relance (Follow-Up) */}
+      <FollowUpBanner
+        accountId={accountId}
+        folder={folder}
+        uid={uid!}
+        subject={message.subject}
+        onReply={actions.handleReply}
+      />
 
       {/* Bannière d'alerte de sécurité de l'expéditeur */}
       <EmailSecurityBanner summary={message.securitySummary} senderEmail={message.from.address} />
@@ -300,27 +157,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
       />
 
       {/* Bannière d'avertissement de brouillon non envoyé */}
-      {isDraft && (
-        <div className="mx-6 mt-3 mb-1 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-amber-950 dark:text-amber-200 no-print">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <FileEdit className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold">Ceci est un brouillon non envoyé</p>
-              <p className="text-[11px] text-muted-foreground truncate">
-                Vous pouvez reprendre la rédaction et l&apos;envoyer à tout moment.
-              </p>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            onClick={handleEditDraft}
-            className="gap-1.5 h-7 px-2.5 text-xs font-medium shrink-0 cursor-pointer"
-          >
-            <Pencil className="size-3.5" />
-            <span>Reprendre la rédaction</span>
-          </Button>
-        </div>
-      )}
+      {isDraft && <DraftEditBanner onEditDraft={actions.handleEditDraft} />}
 
       {/* Corps scrollable + pièces jointes */}
       <div className="flex-1 overflow-y-auto px-6 py-4 printable-area">
@@ -350,10 +187,19 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
               html: template.bodyHtml,
             })
           }
-          onReply={handleReply}
-          onReplyAll={handleReplyAll}
+          onReply={actions.handleReply}
+          onReplyAll={actions.handleReplyAll}
         />
       )}
+
+      {/* Dialogue de programmation du rappel de relance */}
+      <FollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        accountId={accountId}
+        folder={folder}
+        uid={uid!}
+      />
     </div>
   );
 }

@@ -17,7 +17,7 @@ import { logger } from '../../config/logger.js';
  * En mode test, retourne toujours un lock no-op (pas de dépendance Redis).
  */
 
-const LOCK_PREFIX = 'hellomail:sync-lock:';
+const LOCK_PREFIX = 'mailora:sync-lock:';
 const LOCK_TTL_MS = 120_000;
 const RENEW_INTERVAL_MS = 60_000;
 

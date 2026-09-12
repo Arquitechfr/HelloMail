@@ -8,9 +8,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# AGENTS.md — HelloMail Frontend
+# AGENTS.md — Mailora Frontend
 
-Client webmail Next.js consommant l'API REST HelloMail (`backend/`).
+Client webmail Next.js consommant l'API REST Mailora (`backend/`).
 
 ## Stack
 
@@ -91,7 +91,7 @@ frontend/src/
 ## Design system & Architecture UI Pro
 
 - **`globals.css` source de vérité** : variables shadcn (OKLCH), tokens glass et aurora. Aucune couleur hardcodée.
-- **Header fixe compact (`AppHeader`)** : barre d'outils permanente en haut contenant le logo HelloMail, statut live SSE, actions rapides (Nouveau message, Synchroniser, Recherche globale Cmd+K, Raccourcis `?`, Thème) et menu profil (`UserDropdown`).
+- **Header fixe compact (`AppHeader`)** : barre d'outils permanente en haut contenant le logo Mailora, statut live SSE, actions rapides (Nouveau message, Synchroniser, Recherche globale Cmd+K, Raccourcis `?`, Thème) et menu profil (`UserDropdown`).
 - **Recherche globale universelle (`GlobalSearchDialog`)** : palette Spotlight (Cmd+K / Ctrl+K ou bouton Rechercher) montée dans `MailLayout`, active sur toutes les pages (réglages, contacts, boîte...). Filtres d'opérateurs rapides (`is:unread`, `is:flagged`, `has:attachment`), sélecteur multi-comptes, aperçu des emails en direct, navigation flèches/Entrée et redirection directe vers le message.
 - **Fenêtre de rédaction universelle (`ComposePanel`)** : modale flottante globale montée dans `MailLayout`, accessible depuis n'importe quel écran (Boîte de réception, Hub de réglages, Carnet d'adresses) via le bouton "Nouveau message", le raccourci `C`, la réponse rapide ou l'action "Écrire" d'un contact. Contrôles plein écran/restaurer (`Maximize2`/`Minimize2`), fermeture rapide (`X` ou `Échap`), repli automatique sur le compte actif/par défaut sans quitter le contexte ni naviguer.
 - **Autoconfiguration email transparente & Formulaire épuré (`AddAccountDialog`)** : résolution automatique instantanée des serveurs IMAP et SMTP dès la saisie de l'email via `/api/accounts/autoconfig` (Mozilla ISPDB + DNS MX + heuristiques). Formulaire épuré affichant par défaut uniquement l'email, le mot de passe, le nom d'affichage et les boutons OAuth Google / Microsoft 365, avec panneau repliable "Paramètres du serveur (Avancé)" (`ServerSettingsAccordion`) pour les réglages manuels.

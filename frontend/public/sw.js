@@ -1,9 +1,9 @@
 /**
- * Service Worker HelloMail
+ * Service Worker Mailora
  * Cache des assets statiques et résilience hors-ligne.
  */
 
-const CACHE_NAME = 'hellomail-static-v1';
+const CACHE_NAME = 'mailora-static-v1';
 const PRECACHE_ASSETS = [
   '/',
   '/mail',

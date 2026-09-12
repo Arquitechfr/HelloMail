@@ -10,7 +10,9 @@ export type RealtimeEventType =
   | 'message:deleted'
   | 'message:flags'
   | 'account:syncError'
-  | 'scheduled:sent';
+  | 'scheduled:sent'
+  | 'reminder:triggered'
+  | 'reminder:resolved';
 
 export interface RealtimeEvent {
   type: RealtimeEventType;
@@ -20,7 +22,7 @@ export interface RealtimeEvent {
 }
 
 /** Canal Redis Pub/Sub pour la propagation des événements temps réel. */
-export const EVENTS_CHANNEL = 'hellomail:events';
+export const EVENTS_CHANNEL = 'mailora:events';
 
 let publisher: Redis | null = null;
 

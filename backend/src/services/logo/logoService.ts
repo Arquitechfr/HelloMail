@@ -196,7 +196,7 @@ export async function getLogo(domainOrEmail: string): Promise<LogoResult | null>
 
   // 2. Vérification du cache Redis (best-effort)
   const redis = getRedisClient();
-  const redisKey = `hellomail:logo:${domain}`;
+  const redisKey = `mailora:logo:${domain}`;
 
   if (redis) {
     try {
@@ -242,7 +242,7 @@ export async function getLogo(domainOrEmail: string): Promise<LogoResult | null>
       signal: controller.signal,
       headers: {
         Accept: 'image/png,image/*;q=0.8',
-        'User-Agent': 'HelloMail/1.0',
+        'User-Agent': 'Mailora/1.0',
       },
     });
     clearTimeout(timeout);

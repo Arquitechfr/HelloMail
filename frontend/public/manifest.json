@@ -1,6 +1,6 @@
 {
-  "name": "HelloMail — Webmail moderne",
-  "short_name": "HelloMail",
+  "name": "Mailora — Webmail moderne",
+  "short_name": "Mailora",
   "description": "Client webmail auto-hébergé, façon Thunderbird mais web.",
   "start_url": "/mail",
   "scope": "/",

@@ -24,6 +24,7 @@ import logoRoutes from './routes/logoRoutes.js';
 import { unifiedRoutes } from './routes/unifiedRoutes.js';
 import { scheduledMessagesRoutes } from './routes/scheduledMessagesRoutes.js';
 import pgpRoutes from './routes/pgpRoutes.js';
+import { reminderRoutes } from './routes/reminderRoutes.js';
 import { senderListRoutes } from './routes/senderListRoutes.js';
 import smartFoldersRoutes from './routes/smartFoldersRoutes.js';
 import { notFound } from './middleware/notFound.js';
@@ -73,6 +74,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/accounts', foldersRoutes);
   app.use('/api/accounts', draftsRoutes);
   app.use('/api/accounts', scheduledMessagesRoutes);
+  app.use('/api/accounts', reminderRoutes);
   app.use('/api/accounts/oauth', oauthRoutes);
   app.use('/api/contacts', contactsRoutes);
   app.use('/api/rules', rulesRoutes);
@@ -89,7 +91,7 @@ async function bootstrap(): Promise<void> {
   app.use(errorHandler);
 
   const server = app.listen(env.PORT, () => {
-    logger.info(`HelloMail démarré sur le port ${env.PORT}`);
+    logger.info(`Mailora démarré sur le port ${env.PORT}`);
   });
 
   // Graceful shutdown : SIGTERM/SIGINT arrêtent proprement le serveur.

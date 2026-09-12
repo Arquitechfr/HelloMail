@@ -70,7 +70,7 @@ export function AppHeader() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-display text-base font-bold tracking-tight text-foreground">
-              HelloMail
+              Mailora
             </span>
           </div>
         </div>

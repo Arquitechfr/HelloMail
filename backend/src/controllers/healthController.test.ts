@@ -54,10 +54,10 @@ describe('Health & Metrics', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('text/plain');
-    // Vérifie que les métriques contiennent les compteurs HelloMail.
-    expect(res.text).toContain('hellomail_http_requests_total');
-    expect(res.text).toContain('hellomail_http_request_duration_seconds');
-    expect(res.text).toContain('hellomail_mongodb_connected');
+    // Vérifie que les métriques contiennent les compteurs Mailora.
+    expect(res.text).toContain('mailora_http_requests_total');
+    expect(res.text).toContain('mailora_http_request_duration_seconds');
+    expect(res.text).toContain('mailora_mongodb_connected');
   });
 
   it('GET /api/metrics inclut les métriques Node.js par défaut', async () => {
@@ -75,11 +75,11 @@ describe('Health & Metrics', () => {
     const res = await request(app).get('/api/metrics');
 
     // Vérifie que le compteur a été incrémenté (au moins 3 requêtes health + 1 metrics).
-    expect(res.text).toContain('hellomail_http_requests_total');
+    expect(res.text).toContain('mailora_http_requests_total');
     // Cherche le compteur pour GET /api/health.
     const healthLines = res.text
       .split('\n')
-      .filter((l) => l.includes('hellomail_http_requests_total') && l.includes('/api/health'));
+      .filter((l) => l.includes('mailora_http_requests_total') && l.includes('/api/health'));
     expect(healthLines.length).toBeGreaterThan(0);
   });
 });

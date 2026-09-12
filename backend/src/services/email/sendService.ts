@@ -255,23 +255,22 @@ async function saveToSent(account: IAccountDocument, rawMime: Buffer): Promise<v
     const sentPath = (await findSentFolder(account)) ?? 'Sent';
 
     const client = await imapPool.acquire(account);
-    let appendResult: { uid?: number } | undefined;
     try {
-      appendResult = (await client.append(sentPath, rawMime, ['\\Seen'])) as { uid?: number } | undefined;
+      const appendResult = (await client.append(sentPath, rawMime, ['\\Seen'])) as { uid?: number } | undefined;
+
+      // Miroir dans MongoDB : récupère l'enveloppe du message appendé pour l'upsert.
+      // Best-effort — si l'UID est absent ou le fetch échoue, le worker rattrapera
+      // à la prochaine sync initiale (le dossier Sent est désormais syncé au démarrage).
+      if (appendResult?.uid) {
+        await mirrorSentToMongo(client, account, accountId, sentPath, appendResult.uid);
+      } else {
+        logger.info(
+          { accountId, folder: sentPath },
+          'Append Sent sans UID — miroir MongoDB reporté à la prochaine sync worker',
+        );
+      }
     } finally {
       imapPool.release(accountId);
-    }
-
-    // Miroir dans MongoDB : récupère l'enveloppe du message appendé pour l'upsert.
-    // Best-effort — si l'UID est absent ou le fetch échoue, le worker rattrapera
-    // à la prochaine sync initiale (le dossier Sent est désormais syncé au démarrage).
-    if (appendResult?.uid) {
-      await mirrorSentToMongo(client, account, accountId, sentPath, appendResult.uid);
-    } else {
-      logger.info(
-        { accountId, folder: sentPath },
-        'Append Sent sans UID — miroir MongoDB reporté à la prochaine sync worker',
-      );
     }
   } catch (error) {
     // La sauvegarde dans Sent est best-effort : ne pas faire échouer l'envoi.

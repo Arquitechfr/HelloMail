@@ -47,7 +47,7 @@ export async function sendReadReceipt(
     `  Date d'affichage : ${formattedDate} UTC`,
     `  Message-ID : ${detail.messageId || 'inconnu'}`,
     '',
-    `Ceci est une confirmation automatique de lecture émise par HelloMail conforme à la RFC 3798.`,
+    `Ceci est une confirmation automatique de lecture émise par Mailora conforme à la RFC 3798.`,
   ].join('\n');
 
   await sendEmail(account, {

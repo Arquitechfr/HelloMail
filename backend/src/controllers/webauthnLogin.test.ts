@@ -24,7 +24,7 @@ vi.mock('@simplewebauthn/server', () => ({
   })),
   generateRegistrationOptions: vi.fn(async () => ({
     challenge: 'mock_reg_challenge',
-    rpName: 'HelloMail',
+    rpName: 'Mailora',
     rpID: 'localhost',
     user: { id: 'userid', name: 'test@example.com', displayName: 'test@example.com' },
   })),

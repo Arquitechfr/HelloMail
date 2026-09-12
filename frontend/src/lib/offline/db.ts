@@ -1,38 +1,16 @@
 import type { Message, MessageDetail } from "@/lib/api-types";
+import type {
+  MutationType,
+  PendingMutation,
+  OfflineDatabase,
+  PruneResult,
+} from "./types";
+import { InMemoryOfflineDb } from "./inMemoryDb";
 
-export type MutationType =
-  | "UPDATE_FLAGS"
-  | "PIN_MESSAGE"
-  | "DELETE_MESSAGE"
-  | "MOVE_MESSAGE"
-  | "MARK_JUNK";
+export type { MutationType, PendingMutation, OfflineDatabase, PruneResult };
+export { InMemoryOfflineDb };
 
-export interface PendingMutation {
-  id?: number;
-  type: MutationType;
-  accountId: string;
-  folder: string;
-  uid: number;
-  payload?: Record<string, unknown>;
-  createdAt: number;
-  attempts?: number;
-}
-
-export interface OfflineDatabase {
-  saveMessages(accountId: string, folder: string, messages: Message[]): Promise<void>;
-  getMessages(accountId: string, folder: string): Promise<Message[]>;
-  saveMessageDetail(accountId: string, folder: string, uid: number, detail: MessageDetail): Promise<void>;
-  getMessageDetail(accountId: string, folder: string, uid: number): Promise<MessageDetail | null>;
-  updateMessageFlagsLocally(accountId: string, folder: string, uid: number, flags: Partial<Message["flags"]>): Promise<void>;
-  updateMessagePinLocally(accountId: string, folder: string, uid: number, isPinned: boolean): Promise<void>;
-  deleteMessageLocally(accountId: string, folder: string, uid: number): Promise<void>;
-  addPendingMutation(mutation: Omit<PendingMutation, "id" | "createdAt">): Promise<number>;
-  getPendingMutations(): Promise<PendingMutation[]>;
-  removePendingMutation(id: number): Promise<void>;
-  clearPendingMutations(): Promise<void>;
-}
-
-const DB_NAME = "hellomail_offline_db";
+const DB_NAME = "mailora_offline_db";
 const DB_VERSION = 1;
 
 /**
@@ -82,12 +60,11 @@ class BrowserIndexedDb implements OfflineDatabase {
     const store = tx.objectStore("messages");
 
     for (const msg of messages) {
-      const record = {
+      store.put({
         ...msg,
         id: `${accountId}:${folder}:${msg.uid}`,
         cachedAt: Date.now(),
-      };
-      store.put(record);
+      });
     }
 
     return new Promise((resolve, reject) => {
@@ -106,7 +83,6 @@ class BrowserIndexedDb implements OfflineDatabase {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => {
         const results = (request.result as (Message & { id: string })[]) || [];
-        // Trier localement : isPinned d'abord, puis date descendante
         results.sort((a, b) => {
           if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
           return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -121,12 +97,11 @@ class BrowserIndexedDb implements OfflineDatabase {
     const db = await this.getDB();
     const tx = db.transaction("message_details", "readwrite");
     const store = tx.objectStore("message_details");
-    const record = {
+    store.put({
       ...detail,
       id: `${accountId}:${folder}:${uid}`,
       cachedAt: Date.now(),
-    };
-    store.put(record);
+    });
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -150,8 +125,7 @@ class BrowserIndexedDb implements OfflineDatabase {
     const db = await this.getDB();
     const tx = db.transaction("messages", "readwrite");
     const store = tx.objectStore("messages");
-    const key = `${accountId}:${folder}:${uid}`;
-    const getReq = store.get(key);
+    const getReq = store.get(`${accountId}:${folder}:${uid}`);
 
     return new Promise((resolve, reject) => {
       getReq.onsuccess = () => {
@@ -170,8 +144,7 @@ class BrowserIndexedDb implements OfflineDatabase {
     const db = await this.getDB();
     const tx = db.transaction("messages", "readwrite");
     const store = tx.objectStore("messages");
-    const key = `${accountId}:${folder}:${uid}`;
-    const getReq = store.get(key);
+    const getReq = store.get(`${accountId}:${folder}:${uid}`);
 
     return new Promise((resolve, reject) => {
       getReq.onsuccess = () => {
@@ -189,8 +162,7 @@ class BrowserIndexedDb implements OfflineDatabase {
   async deleteMessageLocally(accountId: string, folder: string, uid: number): Promise<void> {
     const db = await this.getDB();
     const tx = db.transaction("messages", "readwrite");
-    const store = tx.objectStore("messages");
-    store.delete(`${accountId}:${folder}:${uid}`);
+    tx.objectStore("messages").delete(`${accountId}:${folder}:${uid}`);
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -201,13 +173,11 @@ class BrowserIndexedDb implements OfflineDatabase {
   async addPendingMutation(mutation: Omit<PendingMutation, "id" | "createdAt">): Promise<number> {
     const db = await this.getDB();
     const tx = db.transaction("pending_mutations", "readwrite");
-    const store = tx.objectStore("pending_mutations");
-    const record: PendingMutation = {
+    const request = tx.objectStore("pending_mutations").add({
       ...mutation,
       createdAt: Date.now(),
       attempts: 0,
-    };
-    const request = store.add(record);
+    });
 
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result as number);
@@ -218,8 +188,7 @@ class BrowserIndexedDb implements OfflineDatabase {
   async getPendingMutations(): Promise<PendingMutation[]> {
     const db = await this.getDB();
     const tx = db.transaction("pending_mutations", "readonly");
-    const store = tx.objectStore("pending_mutations");
-    const request = store.getAll();
+    const request = tx.objectStore("pending_mutations").getAll();
 
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve((request.result as PendingMutation[]) || []);
@@ -230,8 +199,7 @@ class BrowserIndexedDb implements OfflineDatabase {
   async removePendingMutation(id: number): Promise<void> {
     const db = await this.getDB();
     const tx = db.transaction("pending_mutations", "readwrite");
-    const store = tx.objectStore("pending_mutations");
-    store.delete(id);
+    tx.objectStore("pending_mutations").delete(id);
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -242,98 +210,76 @@ class BrowserIndexedDb implements OfflineDatabase {
   async clearPendingMutations(): Promise<void> {
     const db = await this.getDB();
     const tx = db.transaction("pending_mutations", "readwrite");
-    const store = tx.objectStore("pending_mutations");
-    store.clear();
+    tx.objectStore("pending_mutations").clear();
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   }
-}
 
-/**
- * Implémentation en mémoire pour le SSR, Node.js et les tests unitaires.
- */
-export class InMemoryOfflineDb implements OfflineDatabase {
-  private messages = new Map<string, Message>();
-  private details = new Map<string, MessageDetail>();
-  private mutations: PendingMutation[] = [];
-  private nextMutationId = 1;
+  async pruneOldCache(maxMessagesPerFolder = 500, maxDetailAgeDays = 30): Promise<PruneResult> {
+    const db = await this.getDB();
+    let prunedDetails = 0;
+    let prunedMessages = 0;
 
-  async saveMessages(accountId: string, folder: string, messages: Message[]): Promise<void> {
-    for (const msg of messages) {
-      this.messages.set(`${accountId}:${folder}:${msg.uid}`, { ...msg });
-    }
-  }
+    // 1. Purge des détails de messages expirés (TTL)
+    const cutoff = Date.now() - maxDetailAgeDays * 24 * 60 * 60 * 1000;
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("message_details", "readwrite");
+      const store = tx.objectStore("message_details");
+      const request = store.openCursor();
 
-  async getMessages(accountId: string, folder: string): Promise<Message[]> {
-    const results: Message[] = [];
-    const prefix = `${accountId}:${folder}:`;
-    for (const [key, val] of this.messages.entries()) {
-      if (key.startsWith(prefix)) {
-        results.push({ ...val });
-      }
-    }
-    results.sort((a, b) => {
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) {
+          const val = cursor.value as { cachedAt?: number };
+          if (val.cachedAt && val.cachedAt < cutoff) {
+            cursor.delete();
+            prunedDetails++;
+          }
+          cursor.continue();
+        }
+      };
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
-    return results;
-  }
 
-  async saveMessageDetail(accountId: string, folder: string, uid: number, detail: MessageDetail): Promise<void> {
-    this.details.set(`${accountId}:${folder}:${uid}`, { ...detail });
-  }
+    // 2. Plafonnement du nombre de messages par dossier (LRU)
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("messages", "readwrite");
+      const store = tx.objectStore("messages");
+      const request = store.getAll();
 
-  async getMessageDetail(accountId: string, folder: string, uid: number): Promise<MessageDetail | null> {
-    const d = this.details.get(`${accountId}:${folder}:${uid}`);
-    return d ? { ...d } : null;
-  }
+      request.onsuccess = () => {
+        const messages = (request.result as (Message & { id: string; cachedAt?: number })[]) || [];
+        const groups = new Map<string, (Message & { id: string })[]>();
 
-  async updateMessageFlagsLocally(accountId: string, folder: string, uid: number, flags: Partial<Message["flags"]>): Promise<void> {
-    const key = `${accountId}:${folder}:${uid}`;
-    const current = this.messages.get(key);
-    if (current) {
-      current.flags = { ...current.flags, ...flags };
-      this.messages.set(key, current);
-    }
-  }
+        for (const msg of messages) {
+          const key = `${msg.accountId}:${msg.folder}`;
+          const list = groups.get(key) || [];
+          list.push(msg);
+          groups.set(key, list);
+        }
 
-  async updateMessagePinLocally(accountId: string, folder: string, uid: number, isPinned: boolean): Promise<void> {
-    const key = `${accountId}:${folder}:${uid}`;
-    const current = this.messages.get(key);
-    if (current) {
-      current.isPinned = isPinned;
-      this.messages.set(key, current);
-    }
-  }
+        for (const list of groups.values()) {
+          if (list.length > maxMessagesPerFolder) {
+            list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const excess = list.slice(maxMessagesPerFolder);
+            for (const item of excess) {
+              store.delete(item.id);
+              prunedMessages++;
+            }
+          }
+        }
+      };
 
-  async deleteMessageLocally(accountId: string, folder: string, uid: number): Promise<void> {
-    this.messages.delete(`${accountId}:${folder}:${uid}`);
-  }
-
-  async addPendingMutation(mutation: Omit<PendingMutation, "id" | "createdAt">): Promise<number> {
-    const id = this.nextMutationId++;
-    this.mutations.push({
-      ...mutation,
-      id,
-      createdAt: Date.now(),
-      attempts: 0,
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
-    return id;
-  }
 
-  async getPendingMutations(): Promise<PendingMutation[]> {
-    return [...this.mutations];
-  }
-
-  async removePendingMutation(id: number): Promise<void> {
-    this.mutations = this.mutations.filter((m) => m.id !== id);
-  }
-
-  async clearPendingMutations(): Promise<void> {
-    this.mutations = [];
+    return { prunedMessages, prunedDetails };
   }
 }
 

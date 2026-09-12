@@ -13,6 +13,7 @@ import {
   Download,
   Pencil,
   Pin,
+  BellRing,
 } from "lucide-react";
 import { SnoozeDropdown } from "@/components/mail/SnoozeDropdown";
 
@@ -36,6 +37,7 @@ interface MessageToolbarProps {
   onPrint: () => void;
   onDownloadEml: () => void;
   onSnoozed?: () => void;
+  onFollowUp?: () => void;
   children?: React.ReactNode;
 }
 
@@ -59,6 +61,7 @@ export function MessageToolbar({
   onPrint,
   onDownloadEml,
   onSnoozed,
+  onFollowUp,
   children,
 }: MessageToolbarProps) {
   return (
@@ -148,6 +151,18 @@ export function MessageToolbar({
             isSnoozed={isSnoozed}
             onSnoozed={onSnoozed}
           />
+        )}
+
+        {!isDraft && onFollowUp && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onFollowUp}
+            title="Rappel de suivi & relance"
+            aria-label="Rappel de suivi"
+          >
+            <BellRing className="size-4" />
+          </Button>
         )}
 
         {children}

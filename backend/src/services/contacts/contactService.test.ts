@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { addSenderContactIfEnabled } from './contactService.js';
+import { addSenderContactIfEnabled, searchContacts } from './contactService.js';
 import { UserModel } from '../../models/User.js';
 import { ContactModel } from '../../models/Contact.js';
 import { Types } from 'mongoose';
@@ -13,6 +13,7 @@ vi.mock('../../models/User.js', () => ({
 vi.mock('../../models/Contact.js', () => ({
   ContactModel: {
     updateOne: vi.fn(),
+    find: vi.fn(),
   },
 }));
 
@@ -91,5 +92,29 @@ describe('contactService - addSenderContactIfEnabled', () => {
       },
       { upsert: true },
     );
+  });
+
+  describe('searchContacts', () => {
+    it('échappe les caractères spéciaux regex dans la requête de recherche', async () => {
+      const mockChain = {
+        sort: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockResolvedValue([
+          { _id: '1', name: 'Support Dev', email: 'support+dev@test.com' },
+        ]),
+      };
+      vi.spyOn(ContactModel, 'find').mockReturnValue(mockChain as never);
+
+      const results = await searchContacts(userId, 'support+dev@test.com');
+
+      expect(results).toHaveLength(1);
+      expect(ContactModel.find).toHaveBeenCalledWith({
+        userId,
+        $or: [
+          { name: { $regex: 'support\\+dev@test\\.com', $options: 'i' } },
+          { email: { $regex: 'support\\+dev@test\\.com', $options: 'i' } },
+        ],
+      });
+    });
   });
 });

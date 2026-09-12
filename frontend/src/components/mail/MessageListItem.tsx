@@ -14,7 +14,7 @@ import { EmailAvatar } from "./EmailAvatar";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageQuickActions } from "./MessageQuickActions";
 import { useUIStore } from "@/lib/stores/uiStore";
-import { Paperclip, Star, Clock, Pin, Check } from "lucide-react";
+import { Paperclip, Star, Clock, Pin, Check, BellRing } from "lucide-react";
 
 interface MessageListItemProps {
   accountId: string;
@@ -228,17 +228,30 @@ export function MessageListItem({
           <div className="flex shrink-0 items-center gap-1.5 ml-1">
             {isPinned && <Pin className="size-3 fill-primary text-primary" />}
             {isFlagged && <Star className="size-3 fill-amber-400 text-amber-400" />}
+            {message.followUpStatus === "triggered" && <BellRing className="size-3 text-amber-500 animate-pulse" />}
             {message.hasAttachments && <Paperclip className="size-3 text-muted-foreground" />}
             {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
           </div>
         </div>
 
-        {(message.tags && message.tags.length > 0 || message.snoozedUntil) && (
+        {(message.tags && message.tags.length > 0 || message.snoozedUntil || message.followUpStatus) && (
           <div className="flex items-center gap-1 flex-wrap mt-0.5">
             {message.snoozedUntil && (
               <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
                 <Clock className="size-2.5" />
                 <span>Réveil {formatRelativeDate(message.snoozedUntil)}</span>
+              </span>
+            )}
+            {message.followUpStatus === "triggered" && (
+              <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                <BellRing className="size-2.5" />
+                <span>À relancer</span>
+              </span>
+            )}
+            {message.followUpStatus === "pending" && (
+              <span className="flex items-center gap-1 text-[10px] text-primary/80 font-medium bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                <BellRing className="size-2.5" />
+                <span>Relance prévue</span>
               </span>
             )}
             {message.tags?.slice(0, 2).map((tag) => (

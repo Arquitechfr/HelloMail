@@ -270,9 +270,15 @@ describe('sendEmail', () => {
       // Ouvre Sent en readOnly pour fetch l'enveloppe.
       expect(mockClient.mailboxOpen).toHaveBeenCalledWith('Sent', { readOnly: true });
       expect(mockClient.fetchOne).toHaveBeenCalledWith(42, expect.objectContaining({ uid: true }), { uid: true });
-      // Upsert dans MongoDB.
       expect(mockMapFetchResult).toHaveBeenCalledWith('507f1f77bcf86cd799439011', 'Sent', expect.anything());
       expect(mockMessageUpdateOne).toHaveBeenCalledTimes(1);
+
+      // Vérifie que imapPool.release n'a été appelé qu'après le fetchOne du miroir
+      const { imapPool } = await import('./imapPool.js');
+      expect(imapPool.release).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
+      const fetchOneOrder = mockClient.fetchOne.mock.invocationCallOrder[0];
+      const releaseOrder = vi.mocked(imapPool.release).mock.invocationCallOrder[0];
+      expect(fetchOneOrder).toBeLessThan(releaseOrder);
     });
 
     it('ne fait pas de miroir MongoDB si append retourne sans UID', async () => {

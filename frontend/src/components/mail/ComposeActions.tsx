@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Save, X, ChevronDown, Clock, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, Send, Save, X, ChevronDown, Clock, Lock, ShieldCheck, BellRing } from "lucide-react";
 import { TemplateInsertDropdown } from "@/components/mail/TemplateInsertDropdown";
 import type { EmailTemplate } from "@/lib/types/templates";
 
@@ -20,6 +20,8 @@ interface ComposeActionsProps {
   onPgpEncryptChange?: (checked: boolean) => void;
   pgpSign?: boolean;
   onPgpSignChange?: (checked: boolean) => void;
+  onOpenFollowUp?: () => void;
+  hasFollowUp?: boolean;
 }
 
 export function ComposeActions({
@@ -37,6 +39,8 @@ export function ComposeActions({
   onPgpEncryptChange,
   pgpSign,
   onPgpSignChange,
+  onOpenFollowUp,
+  hasFollowUp,
 }: ComposeActionsProps) {
   return (
     <div className="flex items-center justify-between">
@@ -120,6 +124,19 @@ export function ComposeActions({
           >
             <ShieldCheck className="size-3" />
             <span className="hidden sm:inline">Signer</span>
+          </Button>
+        )}
+        {onOpenFollowUp && (
+          <Button
+            type="button"
+            variant={hasFollowUp ? "default" : "outline"}
+            size="xs"
+            onClick={onOpenFollowUp}
+            className={`text-[11px] gap-1 h-7 px-2 ${hasFollowUp ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}`}
+            title="Me rappeler si aucune réponse reçue"
+          >
+            <BellRing className="size-3" />
+            <span className="hidden sm:inline">{hasFollowUp ? "Rappel actif" : "Rappel"}</span>
           </Button>
         )}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">

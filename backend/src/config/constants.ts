@@ -1,6 +1,6 @@
 import { env } from './env.js';
 
-export const COOKIE_REFRESH_TOKEN = 'hellomail_refresh';
+export const COOKIE_REFRESH_TOKEN = 'mailora_refresh';
 
 export const JWT_ACCESS_EXPIRES_IN = env.JWT_ACCESS_EXPIRES_IN;
 export const JWT_REFRESH_EXPIRES_IN_DAYS = env.JWT_REFRESH_EXPIRES_IN_DAYS;

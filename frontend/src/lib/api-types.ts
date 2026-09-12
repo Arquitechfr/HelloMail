@@ -1,5 +1,5 @@
 /**
- * Types API — miroir des types backend HelloMail.
+ * Types API — miroir des types backend Mailora.
  * Source : backend/src/models/ + backend/src/services/email/ + backend/src/services/realtime/
  */
 
@@ -194,6 +194,8 @@ export interface Message {
   snoozedUntil?: string | null;
   isPinned?: boolean;
   pinnedAt?: string | null;
+  followUpStatus?: 'pending' | 'triggered' | 'replied' | 'dismissed' | null;
+  followUpRemindAt?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -256,6 +258,8 @@ export interface MessageDetail {
   snoozedUntil?: string | null;
   isPinned?: boolean;
   pinnedAt?: string | null;
+  followUpStatus?: 'pending' | 'triggered' | 'replied' | 'dismissed' | null;
+  followUpRemindAt?: string | null;
   calendarEvent?: CalendarEventInfo;
   unsubscribeInfo?: UnsubscribeInfo;
   securitySummary?: EmailSecuritySummary;
@@ -337,6 +341,10 @@ export interface SendEmailInput {
   inReplyTo?: string;
   references?: string[];
   requestReadReceipt?: boolean;
+  followUpReminder?: {
+    remindAt: string;
+    note?: string;
+  };
 }
 
 export interface SendResult {
@@ -427,7 +435,9 @@ export type RealtimeEventType =
   | "message:deleted"
   | "message:flags"
   | "account:syncError"
-  | "scheduled:sent";
+  | "scheduled:sent"
+  | "reminder:triggered"
+  | "reminder:resolved";
 
 export interface RealtimeEvent {
   type: RealtimeEventType;

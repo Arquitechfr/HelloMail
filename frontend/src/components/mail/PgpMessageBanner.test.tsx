@@ -5,7 +5,7 @@ import { PgpMessageBanner } from "./PgpMessageBanner";
 
 const mockUserKeys = [
   {
-    email: "dest@hellomail.fr",
+    email: "dest@mailora.me",
     armoredPrivateKey: "-----BEGIN PGP PRIVATE KEY BLOCK-----\ntest\n-----END PGP PRIVATE KEY BLOCK-----",
     armoredPublicKey: "-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----",
   },

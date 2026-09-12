@@ -4,6 +4,7 @@ import { AccountModel } from '../../models/Account.js';
 import { MessageModel, type IMessageDocument } from '../../models/Message.js';
 import { parseSearchQuery } from './searchService.js';
 import { AppError } from '../../utils/AppError.js';
+import { escapeRegExp } from '../../utils/regex.js';
 import {
   createSmartFolderSchema,
   type CreateSmartFolderInput,
@@ -84,13 +85,13 @@ export function buildSmartFolderMongoQuery(
   const { filters } = parsed;
 
   if (filters.from) {
-    mongoQuery['from.address'] = { $regex: filters.from, $options: 'i' };
+    mongoQuery['from.address'] = { $regex: escapeRegExp(filters.from), $options: 'i' };
   }
   if (filters.to) {
-    mongoQuery['to.address'] = { $regex: filters.to, $options: 'i' };
+    mongoQuery['to.address'] = { $regex: escapeRegExp(filters.to), $options: 'i' };
   }
   if (filters.subject) {
-    mongoQuery.subject = { $regex: filters.subject, $options: 'i' };
+    mongoQuery.subject = { $regex: escapeRegExp(filters.subject), $options: 'i' };
   }
   if (filters.seen !== undefined) {
     mongoQuery['flags.seen'] = filters.seen;

@@ -184,11 +184,11 @@ describe('Accounts routes (intégration)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         enabled: true,
-        text: 'Ma super signature HelloMail',
+        text: 'Ma super signature Mailora',
       });
 
     expect(res.status).toBe(200);
     expect(res.body.signature.enabled).toBe(true);
-    expect(res.body.signature.text).toBe('Ma super signature HelloMail');
+    expect(res.body.signature.text).toBe('Ma super signature Mailora');
   });
 });

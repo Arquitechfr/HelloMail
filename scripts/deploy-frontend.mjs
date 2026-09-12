@@ -6,7 +6,7 @@ import { copy, copyEnvForProduction, DEPLOY_DIR, resetDir, ROOT, run } from './d
 const SRC = path.join(ROOT, 'frontend');
 const DEST = path.join(DEPLOY_DIR, 'frontend');
 
-console.log('=== Déploiement frontend HelloMail ===');
+console.log('=== Déploiement frontend Mailora ===');
 
 if (!process.env.BACKEND_URL) {
   console.warn('⚠  BACKEND_URL non défini — les rewrites /api/* seront fixés sur http://localhost:4001 au build.');
@@ -44,5 +44,5 @@ console.log(`
 ✔ deploy/frontend/ prêt — uploader le dossier via FTP, puis sur le serveur :
     cd frontend
     pnpm install --prod --frozen-lockfile
-    pm2 start ecosystem.config.cjs   # hellomail-web (Next.js, port 3001)
+    pm2 start ecosystem.config.cjs   # mailora-web (Next.js, port 3001)
 `);

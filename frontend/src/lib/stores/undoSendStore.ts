@@ -95,7 +95,7 @@ export const useUndoSendStore = create<UndoSendState>()(
       clearPendingSend: () => set({ pendingSend: null }),
     }),
     {
-      name: "hellomail-undo-send",
+      name: "mailora-undo-send",
       partialize: (state) => ({
         undoSendDelay: state.undoSendDelay,
       }),

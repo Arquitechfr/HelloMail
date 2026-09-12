@@ -114,7 +114,7 @@ describe("PwaRegister", () => {
     // Déclencher le changement d'état vers installed
     workerListeners["statechange"]();
     expect(toast.info).toHaveBeenCalledWith(
-      "Une nouvelle version de HelloMail est prête",
+      "Une nouvelle version de Mailora est prête",
       expect.objectContaining({
         duration: 8000,
       }),

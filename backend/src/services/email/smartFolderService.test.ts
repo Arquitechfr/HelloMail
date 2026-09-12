@@ -110,6 +110,16 @@ describe('smartFolderService', () => {
       expect(query.isPinned).toBe(true);
       expect(query.tags).toBe('urgent');
     });
+
+    it('échappe les caractères spéciaux regex dans les requêtes de dossiers intelligents', () => {
+      const query = buildSmartFolderMongoQuery(
+        { query: 'from:alert+billing@cloud.com subject:[CRITIQUE]' },
+        [accountId1],
+      );
+
+      expect(query['from.address']).toEqual({ $regex: 'alert\\+billing@cloud\\.com', $options: 'i' });
+      expect(query.subject).toEqual({ $regex: '\\[CRITIQUE\\]', $options: 'i' });
+    });
   });
 
   describe('CRUD SmartFolder', () => {

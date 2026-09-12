@@ -19,7 +19,7 @@ export function SettingsAppearanceSection() {
               </h2>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Personnalisez l&apos;ambiance visuelle d&apos;HelloMail. Le thème Obsidian offre un contraste optimisé pour réduire la fatigue oculaire.
+              Personnalisez l&apos;ambiance visuelle d&apos;Mailora. Le thème Obsidian offre un contraste optimisé pour réduire la fatigue oculaire.
             </p>
           </div>
 

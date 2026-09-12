@@ -1,4 +1,4 @@
-// Helpers partagés des scripts de déploiement HelloMail.
+// Helpers partagés des scripts de déploiement Mailora.
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';

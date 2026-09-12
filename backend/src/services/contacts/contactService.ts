@@ -3,6 +3,7 @@ import { ContactModel, type IContactDocument } from '../../models/Contact.js';
 import { UserModel } from '../../models/User.js';
 import { AppError } from '../../utils/AppError.js';
 import { logger } from '../../config/logger.js';
+import { escapeRegExp } from '../../utils/regex.js';
 
 export interface ContactInput {
   name: string;
@@ -95,11 +96,12 @@ export async function deleteContact(userId: string, contactId: string): Promise<
  * Utilise l'index textuel MongoDB.
  */
 export async function searchContacts(userId: string, query: string): Promise<ContactResult[]> {
+  const escaped = escapeRegExp(query);
   const contacts = await ContactModel.find({
     userId,
     $or: [
-      { name: { $regex: query, $options: 'i' } },
-      { email: { $regex: query, $options: 'i' } },
+      { name: { $regex: escaped, $options: 'i' } },
+      { email: { $regex: escaped, $options: 'i' } },
     ],
   })
     .sort({ name: 1 })

@@ -47,7 +47,7 @@ export function extractInlineImages(html?: string): ExtractInlineImagesResult {
       const cleanedBase64 = base64Data.replace(/\s+/g, '');
       const mime = mimeType.toLowerCase();
       const ext = MIME_TO_EXT[mime] || 'png';
-      const cid = `sig-img-${Date.now()}-${imageCounter}-${Math.random().toString(36).slice(2, 7)}@hellomail`;
+      const cid = `sig-img-${Date.now()}-${imageCounter}-${Math.random().toString(36).slice(2, 7)}@mailora`;
       const filename = `signature-logo-${imageCounter}.${ext}`;
 
       inlineAttachments.push({

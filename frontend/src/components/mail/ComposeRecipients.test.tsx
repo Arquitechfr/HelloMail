@@ -21,7 +21,7 @@ describe("ComposeRecipients", () => {
   const mockAccount: Account = {
     _id: "acc-123",
     provider: "imap",
-    emailAddress: "principal@hellomail.fr",
+    emailAddress: "principal@mailora.me",
     displayName: "Jean Dupont",
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -52,7 +52,7 @@ describe("ComposeRecipients", () => {
     );
 
     expect(screen.getByText("De :")).toBeInTheDocument();
-    expect(screen.getByText("Jean Dupont <principal@hellomail.fr>")).toBeInTheDocument();
+    expect(screen.getByText("Jean Dupont <principal@mailora.me>")).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
@@ -61,7 +61,7 @@ describe("ComposeRecipients", () => {
       {
         _id: "alias-1",
         name: "Support Pro",
-        email: "support@hellomail.fr",
+        email: "support@mailora.me",
         isDefault: true,
       },
     ];
@@ -72,7 +72,7 @@ describe("ComposeRecipients", () => {
     render(
       <ComposeRecipients
         currentAccount={mockAccount}
-        from={{ name: "Jean Dupont", address: "principal@hellomail.fr" }}
+        from={{ name: "Jean Dupont", address: "principal@mailora.me" }}
         onFromChange={onFromChange}
         to="dest@test.com"
         onToChange={vi.fn()}
@@ -92,11 +92,11 @@ describe("ComposeRecipients", () => {
     });
     expect(select).toBeInTheDocument();
 
-    await userEvent.selectOptions(select, "support@hellomail.fr");
+    await userEvent.selectOptions(select, "support@mailora.me");
 
     expect(onFromChange).toHaveBeenCalledWith({
       name: "Support Pro",
-      address: "support@hellomail.fr",
+      address: "support@mailora.me",
     });
   });
 

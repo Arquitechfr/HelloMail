@@ -41,7 +41,7 @@ export function NotificationSettings() {
     }
     if (permission === "granted" && desktopEnabled) {
       showDesktopNotification({
-        title: "HelloMail — Notification de test",
+        title: "Mailora — Notification de test",
         body: "Votre système de notifications de bureau et carillon sonore fonctionne parfaitement !",
       });
       toast.success("Notification de test envoyée !");
@@ -89,7 +89,7 @@ export function NotificationSettings() {
               <span className="text-xs font-medium text-foreground">Autorisation du navigateur</span>
               <p className="text-[11px] text-muted-foreground">
                 {permission === "granted"
-                  ? "HelloMail est autorisé à envoyer des alertes système."
+                  ? "Mailora est autorisé à envoyer des alertes système."
                   : permission === "denied"
                     ? "Les notifications sont bloquées dans les paramètres de votre navigateur."
                     : "Autorisation requise pour afficher les notifications à l'écran."}

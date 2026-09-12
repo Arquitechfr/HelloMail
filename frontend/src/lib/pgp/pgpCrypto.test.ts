@@ -27,7 +27,7 @@ describe('pgpCrypto', () => {
   it('génère une paire de clés Curve25519 et permet le chiffrement/déchiffrement', async () => {
     const keyPair = await generatePgpKeyPair({
       name: 'Alice Dupont',
-      email: 'alice@hellomail.fr',
+      email: 'alice@mailora.me',
       type: 'ecc',
     });
 
@@ -42,7 +42,7 @@ describe('pgpCrypto', () => {
     expect(info.isPrivate).toBe(false);
 
     // Chiffrement d'un message
-    const secretMessage = 'Ceci est un message top secret HelloMail 2026.';
+    const secretMessage = 'Ceci est un message top secret Mailora 2026.';
     const encrypted = await encryptPgpMessage({
       plainText: secretMessage,
       recipientPublicKeysArmored: [keyPair.armoredPublicKey],

@@ -1,5 +1,10 @@
 import { offlineDb, type PendingMutation, type MutationType } from "./db";
 import { apiFetch } from "@/lib/api";
+import { tabSyncHub } from "@/lib/sync/tabSyncHub";
+import type {
+  OfflineMutationAddedPayload,
+  OfflineSyncCompletedPayload,
+} from "@/lib/sync/tabSyncTypes";
 
 export interface ReplayResult {
   total: number;
@@ -56,11 +61,23 @@ export async function queueOfflineMutation(
     console.warn("[OfflineQueue] Erreur lors de la mise à jour locale:", err);
   }
 
+  tabSyncHub.broadcast<OfflineMutationAddedPayload>("offline:mutation_added", {
+    mutation: {
+      id,
+      type,
+      accountId,
+      folder,
+      uid,
+      payload,
+      createdAt: Date.now(),
+    },
+  });
+
   return id;
 }
 
 /**
- * Rejoue séquentiellement les mutations en attente vers l'API HelloMail.
+ * Rejoue séquentiellement les mutations en attente vers l'API Mailora.
  */
 export async function replayPendingMutations(
   caller: ApiCaller = apiFetch,
@@ -95,6 +112,12 @@ export async function replayPendingMutations(
         break;
       }
     }
+  }
+
+  if (applied > 0) {
+    tabSyncHub.broadcast<OfflineSyncCompletedPayload>("offline:sync_completed", {
+      appliedCount: applied,
+    });
   }
 
   return { total: pending.length, applied, failed };

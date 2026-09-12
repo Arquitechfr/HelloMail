@@ -19,7 +19,7 @@ vi.mock('../../config/constants.js', () => ({
   RATE_LIMIT_AUTH_MAX: 100,
   RATE_LIMIT_GLOBAL_WINDOW_MS: 900_000,
   RATE_LIMIT_GLOBAL_MAX: 1000,
-  COOKIE_REFRESH_TOKEN: 'hellomail_refresh',
+  COOKIE_REFRESH_TOKEN: 'mailora_refresh',
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_REFRESH_EXPIRES_IN_DAYS: 30,
 }));

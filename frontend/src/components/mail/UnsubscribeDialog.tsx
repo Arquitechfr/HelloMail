@@ -91,13 +91,13 @@ export function UnsubscribeDialog({
           {info.isOneClick ? (
             <p>
               Cet expéditeur supporte la désinscription standardisée en 1 clic.
-              HelloMail va transmettre une requête sécurisée pour retirer votre adresse
+              Mailora va transmettre une requête sécurisée pour retirer votre adresse
               de cette liste de diffusion.
             </p>
           ) : info.mailto ? (
             <p>
               Un courriel de demande de désabonnement va être transmis automatiquement
-              par HelloMail au gestionnaire de la liste de diffusion.
+              par Mailora au gestionnaire de la liste de diffusion.
             </p>
           ) : (
             <p>

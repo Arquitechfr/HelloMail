@@ -188,7 +188,7 @@ export function AccountAliasesDialog({
                   </Label>
                   <Input
                     id="alias-name"
-                    placeholder="Ex: Support HelloMail"
+                    placeholder="Ex: Support Mailora"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="h-8 text-xs"

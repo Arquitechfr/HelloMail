@@ -24,7 +24,7 @@ describe('AccountService.updateSignature', () => {
     const account = await AccountModel.create({
       userId,
       provider: 'imap',
-      emailAddress: 'test-sig@hellomail.dev',
+      emailAddress: 'test-sig@mailora.dev',
       imapConfig: {
         host: 'imap.test.dev',
         port: 993,
@@ -32,22 +32,22 @@ describe('AccountService.updateSignature', () => {
         smtpHost: 'smtp.test.dev',
         smtpPort: 465,
         smtpSecure: true,
-        username: 'test-sig@hellomail.dev',
+        username: 'test-sig@mailora.dev',
         encryptedPassword: encrypt('secret'),
       },
     });
 
     const signatureData = {
       enabled: true,
-      text: 'Bien cordialement,\nL\'équipe HelloMail',
-      html: '<p>Bien cordialement,<br><strong>L\'équipe HelloMail</strong></p>',
+      text: 'Bien cordialement,\nL\'équipe Mailora',
+      html: '<p>Bien cordialement,<br><strong>L\'équipe Mailora</strong></p>',
     };
 
     const updated = await AccountService.updateSignature(userId, account._id.toString(), signatureData);
 
     expect(updated).not.toBeNull();
     expect(updated.signature?.enabled).toBe(true);
-    expect(updated.signature?.text).toContain('HelloMail');
+    expect(updated.signature?.text).toContain('Mailora');
     expect(updated.signature?.html).toContain('<strong>');
   });
 

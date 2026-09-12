@@ -138,7 +138,7 @@ export function SettingsSidebar({
       {/* Pied de page du menu réglages */}
       <div className="p-3 border-t border-border/60 bg-muted/10">
         <p className="text-[11px] text-muted-foreground text-center">
-          HelloMail v1.0 • Paramètres
+          Mailora v1.0 • Paramètres
         </p>
       </div>
     </aside>

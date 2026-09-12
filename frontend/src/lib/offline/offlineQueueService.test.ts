@@ -89,4 +89,27 @@ describe("offlineQueueService", () => {
     const remaining = await offlineDb.getPendingMutations();
     expect(remaining).toHaveLength(2);
   });
+
+  it("diffuse les événements offline:mutation_added et offline:sync_completed via tabSyncHub", async () => {
+    const { tabSyncHub } = await import("@/lib/sync/tabSyncHub");
+    const broadcastSpy = vi.spyOn(tabSyncHub, "broadcast");
+
+    const id = await queueOfflineMutation("PIN_MESSAGE", "acc1", "INBOX", 42, { isPinned: true });
+    expect(broadcastSpy).toHaveBeenCalledWith(
+      "offline:mutation_added",
+      expect.objectContaining({
+        mutation: expect.objectContaining({ id, uid: 42, type: "PIN_MESSAGE" }),
+      }),
+    );
+
+    const mockCaller = vi.fn().mockResolvedValue({ ok: true });
+    await replayPendingMutations(mockCaller);
+
+    expect(broadcastSpy).toHaveBeenCalledWith(
+      "offline:sync_completed",
+      { appliedCount: 1 },
+    );
+
+    broadcastSpy.mockRestore();
+  });
 });

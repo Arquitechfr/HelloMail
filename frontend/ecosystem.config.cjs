@@ -1,4 +1,4 @@
-// pm2 — Configuration du frontend Next.js HelloMail.
+// pm2 — Configuration du frontend Next.js Mailora.
 //
 // Usage : pm2 start ecosystem.config.cjs
 //
@@ -10,7 +10,7 @@
 module.exports = {
   apps: [
     {
-      name: 'hellomail-web',
+      name: 'mailora-web',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3001',
       cwd: __dirname,

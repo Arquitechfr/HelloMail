@@ -143,7 +143,7 @@ export async function executeUnsubscribe(
       await sendEmail(account, {
         to: [to],
         subject: subject ?? 'Unsubscribe',
-        text: 'Unsubscribe request sent automatically by HelloMail client.',
+        text: 'Unsubscribe request sent automatically by Mailora client.',
       });
 
       return {

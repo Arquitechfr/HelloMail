@@ -23,7 +23,7 @@ export function formatSignatureHtml(sigText: string): string {
 
 /** Enrobe une signature HTML dans un conteneur identifiable. */
 export function wrapSignatureContainer(html: string): string {
-  return `<div data-signature="true" class="hellomail-signature">${html}</div>`;
+  return `<div data-signature="true" class="mailora-signature">${html}</div>`;
 }
 
 /**

@@ -21,8 +21,17 @@ import {
 } from '../services/email/messageActionService.js';
 import { snoozeMessage } from '../services/email/snoozeService.js';
 import { pinMessage } from '../services/email/pinService.js';
-import { folderExists, folderPathExists, resolveCanonicalFolder, resolveMessageFolder, VIRTUAL_SNOOZED_FOLDER } from '../services/email/folderService.js';
+import { folderExists, folderPathExists, resolveCanonicalFolder, resolveMessageFolder, VIRTUAL_SNOOZED_FOLDER, VIRTUAL_REMINDERS_FOLDER } from '../services/email/folderService.js';
+import { createReminderForSentMessage } from '../services/email/followUpReminderService.js';
 import { logger } from '../config/logger.js';
+
+async function findUserAccount(accountId: string, userId: string) {
+  const account = await AccountModel.findOne({ _id: accountId, userId });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+  return account;
+}
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
@@ -31,12 +40,7 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
   const page = Number(req.query.page ?? 1);
   const limit = Number(req.query.limit ?? 20);
 
-  // Vérifie que le compte appartient à l'utilisateur authentifié.
-  // Ne jamais exposer l'existence d'un compte d'autrui → 404 (pas 403).
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   // Canonicalise l'alias de la boîte de réception (ex. « Boîte de réception »
   // chez Zoho, flag \Inbox) vers 'INBOX', le nom de stockage en base.
@@ -50,19 +54,26 @@ export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response
     folder === VIRTUAL_SNOOZED_FOLDER ||
     (folder === 'Snoozed' && !(await folderPathExists(accountId, 'Snoozed')));
 
+  const isVirtualReminders = folder === VIRTUAL_REMINDERS_FOLDER;
+
   // Valide l'existence du dossier via le cache Folder (D10).
-  // Bypass : dossier virtuel « En sommeil » et requêtes filtrées par tag (folder libre).
+  // Bypass : dossiers virtuels (« En sommeil », « À relancer ») et requêtes filtrées par tag (folder libre).
   // Si le cache n'est pas peuplé, folderExists dégrade en permissif.
-  if (folder && !isVirtualSnoozed && !(await folderExists(account, folder))) {
+  if (folder && !isVirtualSnoozed && !isVirtualReminders && !(await folderExists(account, folder))) {
     throw AppError.notFound('Dossier introuvable');
   }
 
   const filter: Record<string, unknown> = { accountId };
-  const sortOption: Record<string, 1 | -1> =
-    isVirtualSnoozed ? { isPinned: -1, snoozedUntil: 1 } : { isPinned: -1, date: -1 };
+  const sortOption: Record<string, 1 | -1> = isVirtualSnoozed
+    ? { isPinned: -1, snoozedUntil: 1 }
+    : isVirtualReminders
+      ? { isPinned: -1, followUpRemindAt: 1 }
+      : { isPinned: -1, date: -1 };
 
   if (isVirtualSnoozed) {
     filter.snoozedUntil = { $gt: new Date() };
+  } else if (isVirtualReminders) {
+    filter.followUpStatus = { $in: ['triggered', 'pending'] };
   } else {
     if (folder) filter.folder = folder;
     filter.snoozedUntil = { $not: { $gt: new Date() } };
@@ -129,11 +140,7 @@ export const search = asyncHandler(async (req: AuthenticatedRequest, res: Respon
 
 export const getOne = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid } = req.params;
-
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const detail = await fetchMessageDetail(account, realFolder, Number(uid));
@@ -142,11 +149,7 @@ export const getOne = asyncHandler(async (req: AuthenticatedRequest, res: Respon
 
 export const getAttachment = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid, part } = req.params;
-
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const { stream, contentType, filename, size } = await fetchAttachmentStream(
@@ -156,22 +159,25 @@ export const getAttachment = asyncHandler(async (req: AuthenticatedRequest, res:
     part,
   );
 
+  const disposition = req.query.disposition === 'inline' ? 'inline' : 'attachment';
   res.setHeader('Content-Type', contentType);
-  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+  res.setHeader('Content-Disposition', `${disposition}; filename="${encodeURIComponent(filename)}"`);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   if (size > 0) {
     res.setHeader('Content-Length', String(size));
   }
 
+  res.once('close', () => {
+    if (!res.writableEnded) {
+      stream.destroy();
+    }
+  });
   stream.pipe(res);
 });
 
 export const getRaw = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid } = req.params;
-
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const { stream, contentType, filename, size } = await fetchRawMessageStream(
@@ -186,18 +192,32 @@ export const getRaw = asyncHandler(async (req: AuthenticatedRequest, res: Respon
     res.setHeader('Content-Length', String(size));
   }
 
+  res.once('close', () => {
+    if (!res.writableEnded) {
+      stream.destroy();
+    }
+  });
   stream.pipe(res);
 });
 
 export const send = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
+  const account = await findUserAccount(accountId, req.user.id);
+  const result = await sendEmail(account, req.body);
 
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
+  if (req.body.followUpReminder?.remindAt) {
+    createReminderForSentMessage(
+      req.user.id,
+      accountId,
+      result.messageId,
+      req.body.subject,
+      req.body.to[0] ?? '',
+      'Sent',
+      0,
+      req.body.followUpReminder,
+    ).catch((err) => logger.warn({ accountId, err }, 'Erreur création rappel post-envoi'));
   }
 
-  const result = await sendEmail(account, req.body);
   res.status(202).json(result);
 });
 
@@ -290,11 +310,7 @@ export const fetchMore = asyncHandler(async (req: AuthenticatedRequest, res: Res
 
 export const getThread = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid } = req.params;
-
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const thread = await getConversationThread(accountId, realFolder, Number(uid));
@@ -303,11 +319,7 @@ export const getThread = asyncHandler(async (req: AuthenticatedRequest, res: Res
 
 export const sendReceipt = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid } = req.params;
-
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const realFolder = await resolveMessageFolder(accountId, folder, Number(uid));
   const result = await sendReadReceipt(account, realFolder, Number(uid));
@@ -316,11 +328,7 @@ export const sendReceipt = asyncHandler(async (req: AuthenticatedRequest, res: R
 
 export const snooze = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid } = req.params;
-
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const snoozedUntilDate = req.body.snoozedUntil ? new Date(req.body.snoozedUntil) : null;
   const message = await snoozeMessage(account, folder, Number(uid), snoozedUntilDate);
@@ -329,13 +337,8 @@ export const snooze = asyncHandler(async (req: AuthenticatedRequest, res: Respon
 
 export const pin = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId, folder, uid } = req.params;
-  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
-  if (!account) {
-    throw AppError.notFound('Compte introuvable');
-  }
+  const account = await findUserAccount(accountId, req.user.id);
 
   const message = await pinMessage(account, folder, Number(uid), Boolean(req.body.isPinned));
   res.status(200).json(message);
 });
-
-

@@ -135,7 +135,7 @@ export function LoginForm() {
         <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
           <Mail className="size-6" />
         </div>
-        <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">HelloMail</h1>
+        <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">Mailora</h1>
         <p className="text-xs text-muted-foreground">Connectez-vous à votre webmail moderne</p>
       </div>
 

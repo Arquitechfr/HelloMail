@@ -90,7 +90,11 @@ export async function saveDraft(
 ): Promise<DraftResult> {
   const accountId = String(account._id);
 
-  if (!account.imapConfig?.encryptedPassword) {
+  if (!account.imapConfig?.host) {
+    throw AppError.badRequest('Configuration IMAP/SMTP manquante pour ce compte');
+  }
+
+  if (account.provider === 'imap' && !account.imapConfig?.encryptedPassword) {
     throw AppError.badRequest('Configuration IMAP/SMTP manquante pour ce compte');
   }
 

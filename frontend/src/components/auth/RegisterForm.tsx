@@ -54,7 +54,7 @@ export function RegisterForm() {
           <Mail className="size-6" />
         </div>
         <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">Créer un compte</h1>
-        <p className="text-xs text-muted-foreground">Inscrivez-vous pour utiliser HelloMail</p>
+        <p className="text-xs text-muted-foreground">Inscrivez-vous pour utiliser Mailora</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

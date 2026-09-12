@@ -1,4 +1,4 @@
-# AGENTS.md — HelloMail Workspace
+# AGENTS.md — Mailora Workspace
 
 Client webmail from-scratch (façon Thunderbird, mais web).
 
@@ -34,16 +34,16 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (827 tests, 118 fichiers — 638 backend + 189 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (916 tests, 132 fichiers — 654 backend + 262 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
 ## Structure
 
 ```
-HelloMail/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-16 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-16 livrées
+Mailora/
+├── backend/     # API REST (Express + MongoDB) — Phases 1-25 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-25 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -142,7 +142,7 @@ HelloMail/
   - Couverture globale : **631 tests Vitest backend (73 fichiers), 166 tests Vitest frontend (41 fichiers) — 797 tests au total, 0 `as any`**.
 - **Phase 21 : Signatures d'Email Avancées, Variables & Images Inline (Intégralité livrée)** ✅ :
   - **Lot 21.1 : Variables dynamiques dans les signatures** : Support de `ISignatureConfig` avec variables coordonnées `variables?: { phone?, jobTitle?, company? }` sur `Account` et ses alias, schémas Zod stricts `signatureVariablesSchema` et `updateSignatureSchema`, helper universel `signature-utils.ts` résolvant `{{prenom}}`, `{{nom}}`, `{{nom_complet}}`, `{{email}}`, `{{telephone}}`, `{{poste}}`, `{{societe}}` et leurs alias (`phone`, `tel`, `jobTitle`, `titre`, `company`, `entreprise`), catalogue interactif `AVAILABLE_SIGNATURE_VARIABLES`, 7 tests unitaires.
-  - **Lot 21.2 : Support des images inline (CID / Data URI)** : Service backend `inlineImageService.ts` assurant la détection et conversion automatique des Data URIs base64 en références Content-ID (`cid:sig-img-...@hellomail`) et attachments MIME, intégration dans `sendService.ts` et `draftService.ts` pour une encapsulation native `multipart/related` sans logo détaché en pièce jointe, 5 tests unitaires.
+  - **Lot 21.2 : Support des images inline (CID / Data URI)** : Service backend `inlineImageService.ts` assurant la détection et conversion automatique des Data URIs base64 en références Content-ID (`cid:sig-img-...@mailora`) et attachments MIME, intégration dans `sendService.ts` et `draftService.ts` pour une encapsulation native `multipart/related` sans logo détaché en pièce jointe, 5 tests unitaires.
   - **Lot 21.3 : Signatures par alias d'expédition & Remplacement dynamique** : Signatures configurables par alias (`AccountAlias.signature`), routes `PATCH /:aliasId/signature`, composant éditeur `AccountSignatureIdentityEditor` avec coordonnées d'identité, barre de badges de variables en 1 clic, bouton d'upload de logo (< 250 Ko) et aperçu en temps réel, gestionnaire d'identités `AccountSignatureManager`, hook `useComposeSignature` réagissant à l'expéditeur actif (`activeSender`) avec remplacement dynamique propre et sans résidu dans `ComposeForm`.
   - Couverture globale : **638 tests Vitest backend (74 fichiers), 189 tests Vitest frontend (44 fichiers) — 827 tests au total, 0 `as any`**.
 - **Phase 22 : Résilience & Mode Hors-Ligne PWA (Cache Local & File d'Attente) (Intégralité livrée)** ✅ :
@@ -150,6 +150,26 @@ HelloMail/
   - **Lot 22.2 : Cache local IndexedDB performant (zéro dépendance externe)** : Moteur de base de données locale pur TypeScript `frontend/src/lib/offline/db.ts` (`BrowserIndexedDb` s'appuyant sur `window.indexedDB` natif + fallback `InMemoryOfflineDb`), stockage persistant des messages (index composé `account_folder`), des corps détaillés (`message_details`) et de la file d'attente (`pending_mutations`), méthodes optimistes locales (`updateMessageFlagsLocally`, `updateMessagePinLocally`, `deleteMessageLocally`), 6 tests unitaires.
   - **Lot 22.3 : File d'attente d'actions hors-ligne & Auto-Sync réactive** : Service de file d'attente FIFO `offlineQueueService.ts` avec rejeu séquentiel automatique et idempotent, hook réactif de connectivité `useNetworkStatus.ts` avec déclenchement automatique à la reconnexion et alertes sonner, helpers d'interception et de repli `offlineSyncHelpers.ts` (`fetchMessagesWithOfflineFallback`, `fetchDetailWithOfflineFallback`, `executeOrQueueOffline`), intégration complète dans `frontend/src/lib/queries/messages.ts`, et indicateur dynamique dans `AppHeader.tsx` (pastille verte « En direct », indicateur bleu « Synchronisation... », badge ambré « Hors-ligne » avec compteur des actions en attente), 16 tests unitaires.
   - Couverture globale : **638 tests Vitest backend (74 fichiers), 217 tests Vitest frontend (50 fichiers) — 855 tests au total, 0 `as any`**.
-
-
-
+- **Phase 23 : Durcissement Fondations, Gardes-fous & Résilience Système (Intégralité livrée)** ✅ :
+  - **Lot 23.1 : Déblocage des brouillons pour les comptes OAuth** : Correction de la garde d'authentification dans `draftService.ts` permettant aux comptes Google OAuth et Microsoft OAuth de créer et mettre à jour leurs brouillons via XOAUTH2 sans exiger d'`encryptedPassword`, tests unitaires dédiés.
+  - **Lot 23.2 : Protection globale contre les injections Regex (ReDoS)** : Helper pur `escapeRegExp` (`backend/src/utils/regex.ts`) avec échappement de l'ensemble des métacaractères regex, intégré systématiquement dans `searchService.ts`, `smartFolderService.ts` et `contactService.ts`, éliminant les erreurs 500 sur les alias email `+` et les crochets/parenthèses de sujets, 9 tests unitaires.
+  - **Lot 23.3 : Sécurisation du cycle de vie des streams IMAP et connexions HTTP** : Helper `createSafePassThrough` dans `attachmentService.ts` avec libération idempotente du pool (`safeRelease`) et destruction en cascade du stream amont ImapFlow sur interruption cliente, garde-fou `res.once('close')` dans `messagesController.ts`, tests de coupure prématurée.
+  - **Lot 23.4 : Élimination de la race condition sur la réutilisation de client dans `saveToSent`** : Extension du bloc `try ... finally { imapPool.release(accountId); }` englobant à la fois `client.append()` et `mirrorSentToMongo()` dans `sendService.ts`, prévenant toute acquisition concurrente pendant la phase d'upsert, test unitaire d'ordonnancement d'appels.
+  - **Lot 23.5 : Résilience Fail-Open du Rate Limiter Redis** : Ajout systématique de `passOnStoreError: true` sur `globalRateLimit`, `authRateLimit` et `sendRateLimit` dans `rateLimit.ts` pour garantir la continuité de service en cas d'indisponibilité ou rupture socket de Redis, test unitaire de store en erreur.
+  - **Lot 23.6 : Politique d'élagage automatique LRU / TTL dans le cache IndexedDB** : Méthode `pruneOldCache` sur `OfflineDatabase` avec purge TTL des corps de messages (`message_details`, 30 jours) et plafonnement LRU par dossier (500 messages max), découpage architectural sous 300 lignes (`types.ts`, `inMemoryDb.ts`, `db.ts`), déclenchement non-bloquant à l'initialisation dans `useNetworkStatus.ts`, tests unitaires complets.
+  - **Lot 23.7 : Refactoring modulaire de `MessageReader.tsx` (< 200 lignes)** : Découpage de `MessageReader.tsx` (passé de 360 lignes à 183 lignes) via l'extraction des composants `DraftEditBanner.tsx` (32 lignes), `MessageEmptyState.tsx` (24 lignes) et du hook de coordination d'actions et raccourcis `useMessageReaderActions.ts` (190 lignes), 100% conforme aux conventions strictes de modularité.
+  - Couverture globale : **652 tests Vitest backend (75 fichiers), 219 tests Vitest frontend (51 fichiers) — 871 tests au total, 0 `as any`**.
+- **Phase 24 : Synchronisation Multi-Onglets & Hub BroadcastChannel (Intégralité livrée)** ✅ :
+  - **Lot 24.1 : Hub central BroadcastChannel bi-directionnel** : Module `tabSyncHub.ts` et types `tabSyncTypes.ts` s'appuyant sur l'API native `BroadcastChannel` (`mailora-bus`) avec fallback transparent en mémoire (SSR/navigateurs non supportés), filtrage anti-écho strict par `senderTabId`, typage complet des enveloppes d'événements (auth, SSE, leader election, offline mutations), méthode `dispatchEnvelope` et 5 tests unitaires dédiés.
+  - **Lot 24.2 : Élection de leader inter-onglets & déduplication SSE** : Classe `leaderElection.ts` gérant le cycle de vie de leader unique parmi les onglets ouverts via heartbeat périodique (2000 ms), timeout d'élection (4500 ms), passation ordonnée de pouvoir lors de la fermeture d'onglet (`leader:resigned`), et 5 tests unitaires de consensus.
+  - **Lot 24.3 : Connexion SSE unique & Relais BroadcastChannel** : Refactoring de `useSSE.ts` conditionnant l'ouverture de l'unique `EventSource` HTTP au rôle de leader (`isLeader`), transmission automatique de tous les événements temps réel (`message:new`, `message:deleted`, `message:flags`, etc.) aux onglets passifs via `tabSyncHub.broadcast("sse:event")`, filtrage strict par `userId`, et 4 tests unitaires de relai.
+  - **Lot 24.4 : Synchronisation temps réel de l'état d'authentification** : Connexion de `authStore.ts` et de `api.ts` au hub inter-onglets : synchronisation immédiate de la connexion (`auth:login`), de la déconnexion (`auth:logout`) et du rafraîchissement d'access token (`auth:token_refreshed`), sans écriture sur `localStorage` (anti-XSS), 7 tests unitaires.
+  - **Lot 24.5 : File d'attente hors-ligne & Mutations réactives multi-onglets** : Intégration dans `offlineQueueService.ts` (`offline:mutation_added`, `offline:sync_completed`), écoute réactive dans `useNetworkStatus.ts` pour actualiser le badge de mutations en attente et invalider les caches TanStack Query en direct sur tous les onglets lors de la synchronisation, tests unitaires.
+  - Couverture globale : **652 tests Vitest backend (75 fichiers), 235 tests Vitest frontend (53 fichiers) — 887 tests au total, 0 `as any`**.
+- **Phase 25 : Visualiseur & Prévisualisation des Pièces Jointes Avancée (Intégralité livrée)** ✅ :
+  - **Lot 25.1 : Backend — Support de `disposition=inline` et sécurité** : Support du paramètre de requête `?disposition=inline` sur `GET /api/accounts/:accountId/messages/:folder/:uid/attachments/:part`, en-tête `X-Content-Type-Options: nosniff` contre le MIME-sniffing, factorisation interne `findUserAccount` (contrôleur allégé de 354 à 327 lignes), 20 tests d'intégration contrôleur validés.
+  - **Lot 25.2 : Moteur de classification & Utilitaires de prévisualisation** : Module `attachment-utils.ts` avec classification par Content-Type et extension (image, pdf, text, audio, video, archive, spreadsheet, document, presentation, other), détection des formats prévisualisables `isAttachmentPreviewable`, assignation d'icônes et palettes de pastilles, déduction du langage de syntaxe, 12 tests unitaires.
+  - **Lot 25.3 : Visualiseurs modulaires spécialisés** : Ensemble de visualiseurs sous `components/mail/preview/` (< 150 lignes chacun) : `ImageViewer` (zoom 25%-400%, rotation horaire 90°, reset, immunité XSS via balise `<img>`), `PdfViewer` (intégration `<iframe>` / vue native PDF avec repli téléchargeable), `TextViewer` (lecture universelle `readBlobAsText` avec TextDecoder/arrayBuffer, troncature 2 Mo, numérotation de lignes, copie dans le presse-papier), `MediaViewer` (lecteurs HTML5 audio et vidéo avec contrôles intégrés), et `UnsupportedPreview` (fiche élégante pour formats binaires avec bouton direct de téléchargement).
+  - **Lot 25.4 : Lightbox d'aperçu universelle (`AttachmentPreviewModal`)** : Overlay plein écran avec flou d'arrière-plan glassmorphism, en-tête avec métadonnées, pagination `X sur Y`, navigation au clic et raccourcis clavier (`Échap`, `Flèche Gauche`, `Flèche Droite`), téléchargement direct, et gestion anti-fuite mémoire stricte via `URL.revokeObjectURL` systématique au démontage, 5 tests unitaires.
+  - **Lot 25.5 : Cartes interactives & Actions dans `AttachmentList`** : Refonte de la liste de pièces jointes avec cartes thématiques colorées, bouton "Aperçu" (icône `Eye`), bouton "Télécharger" individuel, action globale "Tout télécharger" avec barre de statut, et orchestration de la lightbox d'aperçu, 5 tests unitaires.
+  - Couverture globale : **654 tests Vitest backend (75 fichiers), 262 tests Vitest frontend (57 fichiers) — 916 tests au total, 0 `as any`**.

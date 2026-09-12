@@ -1,5 +1,6 @@
 import type { IAccountDocument } from '../../models/Account.js';
 import { MessageModel } from '../../models/Message.js';
+import { escapeRegExp } from '../../utils/regex.js';
 
 export interface SearchQuery {
   q?: string;
@@ -173,15 +174,15 @@ export async function searchMessages(
     mongoQuery.folder = query.folder;
   }
 
-  // Filtres par expéditeur/destinataire/sujet (regex insensible à la casse).
+  // Filtres par expéditeur/destinataire/sujet (regex insensible à la casse et assainie).
   if (filters.from) {
-    mongoQuery['from.address'] = { $regex: filters.from, $options: 'i' };
+    mongoQuery['from.address'] = { $regex: escapeRegExp(filters.from), $options: 'i' };
   }
   if (filters.to) {
-    mongoQuery['to.address'] = { $regex: filters.to, $options: 'i' };
+    mongoQuery['to.address'] = { $regex: escapeRegExp(filters.to), $options: 'i' };
   }
   if (filters.subject) {
-    mongoQuery.subject = { $regex: filters.subject, $options: 'i' };
+    mongoQuery.subject = { $regex: escapeRegExp(filters.subject), $options: 'i' };
   }
 
   // Filtres par flags.

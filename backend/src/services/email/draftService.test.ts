@@ -113,6 +113,58 @@ describe('draftService', () => {
       );
     });
 
+    it('lance une erreur si un compte IMAP n\'a pas de mot de passe', async () => {
+      const imapAccountNoPass = {
+        _id: '507f1f77bcf86cd799439011',
+        emailAddress: 'user@test.com',
+        provider: 'imap',
+        imapConfig: { host: 'imap.test.com', port: 993, secure: true },
+      } as unknown as IAccountDocument;
+
+      await expect(saveDraft(imapAccountNoPass, { subject: 'Test', text: '' })).rejects.toThrow(
+        'Configuration IMAP/SMTP manquante pour ce compte',
+      );
+    });
+
+    it('sauvegarde un brouillon avec succès pour un compte Google OAuth sans encryptedPassword', async () => {
+      const oauthAccount = {
+        _id: '507f1f77bcf86cd799439011',
+        emailAddress: 'user@gmail.com',
+        provider: 'google_oauth',
+        imapConfig: { host: 'imap.gmail.com', port: 993, secure: true },
+        oauthConfig: { encryptedRefreshToken: { iv: 'a', authTag: 'b', ciphertext: 'c' } },
+      } as unknown as IAccountDocument;
+
+      const result = await saveDraft(oauthAccount, {
+        to: ['dest@test.com'],
+        subject: 'Brouillon Google OAuth',
+        text: 'Corps OAuth',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.uid).toBe(42);
+      expect(mockClient.append).toHaveBeenCalledWith('Drafts', expect.any(Buffer), ['\\Draft']);
+    });
+
+    it('sauvegarde un brouillon avec succès pour un compte Microsoft OAuth sans encryptedPassword', async () => {
+      const msAccount = {
+        _id: '507f1f77bcf86cd799439011',
+        emailAddress: 'user@outlook.com',
+        provider: 'microsoft_oauth',
+        imapConfig: { host: 'outlook.office365.com', port: 993, secure: true },
+        oauthConfig: { encryptedRefreshToken: { iv: 'a', authTag: 'b', ciphertext: 'c' } },
+      } as unknown as IAccountDocument;
+
+      const result = await saveDraft(msAccount, {
+        to: ['dest@test.com'],
+        subject: 'Brouillon Microsoft OAuth',
+        text: 'Corps MS',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.uid).toBe(42);
+    });
+
     it('libère le pool en finally', async () => {
       const { imapPool } = await import('./imapPool.js');
 

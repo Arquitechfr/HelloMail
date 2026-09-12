@@ -1,4 +1,4 @@
-# AGENTS.md — Backend HelloMail
+# AGENTS.md — Backend Mailora
 
 API REST pour la gestion de comptes email (IMAP/SMTP) avec chiffrement des identifiants.
 
@@ -138,7 +138,7 @@ src/
 
 ### eventPublisher — Publisher Redis Pub/Sub (worker→API)
 
-- Publie sur le canal `hellomail:events` via `ioredis`.
+- Publie sur le canal `mailora:events` via `ioredis`.
 - Types d'événements : `message:new`, `message:deleted`, `message:flags`, `account:syncError`.
 - Les événements ne contiennent **jamais** de sujet/corps d'email (uniquement UID, folder, flags, errorMsg).
 - Non bloquant : une erreur Redis n'interrompt pas la synchronisation (best-effort).

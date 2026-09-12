@@ -1,4 +1,4 @@
-// pm2 — Configuration des deux process HelloMail.
+// pm2 — Configuration des deux process Mailora.
 //
 // pm2 est installé globalement sur le serveur de prod.
 // Usage : pm2 start ecosystem.config.cjs
@@ -9,7 +9,7 @@ require('dotenv').config();
 module.exports = {
   apps: [
     {
-      name: 'hellomail-api',
+      name: 'mailora-api',
       script: 'dist/app.js',
       instances: 1,
       autorestart: true,
@@ -19,7 +19,7 @@ module.exports = {
       },
     },
     {
-      name: 'hellomail-worker',
+      name: 'mailora-worker',
       script: 'dist/worker.js',
       instances: 1,
       autorestart: true,

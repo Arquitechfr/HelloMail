@@ -26,7 +26,7 @@ export function PwaRegister() {
               installingWorker.state === "installed" &&
               navigator.serviceWorker.controller
             ) {
-              toast.info("Une nouvelle version de HelloMail est prête", {
+              toast.info("Une nouvelle version de Mailora est prête", {
                 action: {
                   label: "Recharger",
                   onClick: () => window.location.reload(),

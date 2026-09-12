@@ -12,6 +12,7 @@ export { isProtectedFolder };
 // Ré-export des helpers de résolution (implémentés dans folderResolution.ts).
 export {
   VIRTUAL_SNOOZED_FOLDER,
+  VIRTUAL_REMINDERS_FOLDER,
   resolveCanonicalFolder,
   folderPathExists,
   resolveMessageFolder,
