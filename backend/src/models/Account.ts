@@ -34,7 +34,18 @@ export interface IAccountDocument extends Document {
   lastSyncedAt?: Date;
   lastSyncError?: string;
   aliases?: IAccountAlias[];
+  storageQuota?: IStorageQuota;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IStorageQuota {
+  supported: boolean;
+  usedBytes?: number;
+  totalBytes?: number;
+  percentage?: number;
+  usedMessages?: number;
+  totalMessages?: number;
   updatedAt: Date;
 }
 
@@ -88,6 +99,19 @@ const accountAliasSchema = new Schema<IAccountAlias>(
     signature: { type: signatureConfigSchema, required: false },
   },
   { _id: true },
+);
+
+const storageQuotaSchema = new Schema<IStorageQuota>(
+  {
+    supported: { type: Boolean, default: true },
+    usedBytes: { type: Number, required: false },
+    totalBytes: { type: Number, required: false },
+    percentage: { type: Number, required: false },
+    usedMessages: { type: Number, required: false },
+    totalMessages: { type: Number, required: false },
+    updatedAt: { type: Date, required: false },
+  },
+  { _id: false },
 );
 
 const accountSchema = new Schema<IAccountDocument>(
@@ -149,6 +173,10 @@ const accountSchema = new Schema<IAccountDocument>(
     aliases: {
       type: [accountAliasSchema],
       default: [],
+    },
+    storageQuota: {
+      type: storageQuotaSchema,
+      required: false,
     },
   },
   {

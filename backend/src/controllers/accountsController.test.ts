@@ -7,10 +7,19 @@ import { authRoutes } from '../routes/authRoutes.js';
 import { accountsRoutes } from '../routes/accountsRoutes.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 
-// Mock des tests de connexion IMAP/SMTP (évite de se connecter à un vrai serveur).
 vi.mock('../services/email/connectionTest.js', () => ({
   testImapConnection: vi.fn().mockResolvedValue(undefined),
   testSmtpConnection: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../services/email/imapQuotaService.js', () => ({
+  getAccountQuota: vi.fn().mockResolvedValue({
+    supported: true,
+    usedBytes: 1048576,
+    totalBytes: 10485760,
+    percentage: 10,
+    updatedAt: new Date(),
+  }),
 }));
 
 function createApp(): express.Express {
@@ -190,5 +199,25 @@ describe('Accounts routes (intégration)', () => {
     expect(res.status).toBe(200);
     expect(res.body.signature.enabled).toBe(true);
     expect(res.body.signature.text).toBe('Ma super signature Mailora');
+  });
+
+  it('GET /api/accounts/:id/quota → 200 avec les informations de quota', async () => {
+    const token = await registerAndLogin(app, 'quota-api@test.com');
+
+    const createRes = await request(app)
+      .post('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validAccountBody);
+
+    const accountId = createRes.body._id;
+
+    const res = await request(app)
+      .get(`/api/accounts/${accountId}/quota?refresh=true`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.supported).toBe(true);
+    expect(res.body.percentage).toBe(10);
+    expect(res.body.usedBytes).toBe(1048576);
   });
 });

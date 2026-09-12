@@ -208,5 +208,19 @@ Mailora/
   - **Lot 30.5 : Frontend — Types, Requêtes TanStack & Dialogue (`RestoreProfileDialog.tsx`)** : Types `profile.ts`, requêtes `usePreviewProfile` et `useRestoreProfile` avec invalidation des caches applicatifs, utilitaire `downloadProfileBackup`, dialogue modal interactif (293 lignes) avec déchiffrement, compteurs par badges, sélection par cases à cocher et stratégie de conflit, 2 tests unitaires.
   - **Lot 30.6 : Frontend — Panneau de Réglages & Navigation (`ProfileBackupSection.tsx`)** : Carte de sauvegarde avec protection par mot de passe optionnelle, zone de glisser-déposer de fichier `.json`, nouvelle section « Sauvegarde & Restauration » (`backup`, `ArchiveRestore`) dans `SETTINGS_GROUPS` et `/mail/settings`, 3 tests unitaires.
   - Couverture globale : **710 tests Vitest backend (85 fichiers), 305 tests Vitest frontend (68 fichiers) — 1015 tests au total, 0 `as any`**.
+- **Phase 31 : Gestion du Quota IMAP (RFC 2087), Alertes de Saturation & Jauge de Stockage (Intégralité livrée)** ✅ :
+  - **Lot 31.1 : Backend — Modèle Mongoose & Service Quota RFC 2087 (`imapQuotaService.ts`)** : Sous-document `storageQuota` sur `Account` avec mise en cache TTL 15 minutes, interrogation de `client.getQuota('INBOX')` via `imapPool`, extraction de `storage` et `messages` en octets natifs, calcul du pourcentage et repli gracieux (`supported: false`) si le serveur ne supporte pas `QUOTA`, 5 tests unitaires validés.
+  - **Lot 31.2 : Backend — Contrôleur REST & Route dédiée (`accountsController.ts`, `accountsRoutes.ts`)** : Endpoint `GET /api/accounts/:accountId/quota` avec support du paramètre `?refresh=true` pour forcer la synchronisation instantanée, méthode `AccountService.getAccountQuota` avec vérification de propriété de compte, 1 test d'intégration Supertest.
+  - **Lot 31.3 : Frontend — Types, Utilitaire de taille & Requêtes TanStack** : Interface `StorageQuota` dans `api-types.ts`, fonction `formatStorageSize` dans `utils.ts` supportant les Mo et Go, hooks `useAccountQuota` (staleTime 5 min) et mutation `useRefreshAccountQuota` dans `queries/accounts.ts`.
+  - **Lot 31.4 : Frontend — Composant Jauge & Intégration Barre Latérale** : Composant `StorageQuotaBar.tsx` avec barre de progression dynamique, code couleur sémantique (vert normal, orange attention 75-89%, rouge pulsant saturation ≥90%), bouton de rafraîchissement rapide avec icône animée `RefreshCw`, infobulle détaillée, intégré au pied de la barre latérale `AccountSidebar.tsx` pour le compte actif, 4 tests unitaires validés.
+  - Couverture globale : **716 tests Vitest backend (86 fichiers), 309 tests Vitest frontend (69 fichiers) — 1025 tests au total, 0 `as any`**.
+- **Feuille de route V4 (En cours)** 📋 :
+  - **Phase 32 (À venir)** : Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic.
+  - **Phase 33 (À venir)** : Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages.
+  - **Phase 34 (À venir)** : Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée.
+  - **Phase 35 (À venir)** : Impression & Export PDF Unifié de Fil de Discussion (Thread Print).
+  - **Phase 36 (À venir)** : Optimiseur de Stockage & Nettoyeur Intelligent (« Mailbox Cleaner »).
+  - **Phase 37 (À venir)** : Synchronisation des Contacts Externes via CardDAV (RFC 6352).
+
 
 

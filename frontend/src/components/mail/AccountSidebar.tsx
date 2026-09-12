@@ -11,6 +11,7 @@ import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { FolderTree } from "@/components/mail/FolderTree";
 import { UnifiedFolderList } from "@/components/mail/unified/UnifiedFolderList";
 import { SmartFolderList } from "@/components/mail/smart/SmartFolderList";
+import { StorageQuotaBar } from "@/components/mail/StorageQuotaBar";
 import { Button } from "@/components/ui/button";
 import { Plus, Mail, Loader2, X, FolderKanban, Tag as TagIcon, Clock, BellRing } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -198,8 +199,9 @@ export function AccountSidebar() {
         )}
       </div>
 
-      {/* Pied : bouton ajouter un compte */}
+      {/* Pied : jauge de stockage et bouton ajouter un compte */}
       <div className="border-t border-border p-2">
+        <StorageQuotaBar accountId={selectedAccountId} className="mb-2" />
         <Button
           variant="outline"
           size="sm"

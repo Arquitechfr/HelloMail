@@ -59,3 +59,15 @@ export const update = asyncHandler(
     res.status(200).json(account);
   },
 );
+
+export const getQuota = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+    const forceRefresh = req.query.refresh === 'true';
+    const quota = await AccountService.getAccountQuota(
+      req.user.id,
+      req.params.id,
+      forceRefresh,
+    );
+    res.status(200).json(quota);
+  },
+);

@@ -38,5 +38,11 @@ router.patch(
   validate({ params: accountIdParamSchema, body: updateSignatureSchema }),
   accountsController.updateSignature,
 );
+router.get(
+  '/:id/quota',
+  requireAuth,
+  validate({ params: accountIdParamSchema }),
+  accountsController.getQuota,
+);
 
 export const accountsRoutes = router;

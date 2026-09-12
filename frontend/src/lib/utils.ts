@@ -20,6 +20,15 @@ export function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
+/** Formate une taille de stockage de boîte mail pouvant atteindre les Go/To (ex: "15.0 Go", "850 Mo"). */
+export function formatStorageSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "0 o";
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} Go`;
+}
+
 /** Télécharge un blob avec un nom de fichier donné. */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);

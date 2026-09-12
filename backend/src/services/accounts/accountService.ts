@@ -1,9 +1,10 @@
-import { AccountModel, IAccountDocument } from '../../models/Account.js';
+import { AccountModel, IAccountDocument, IStorageQuota } from '../../models/Account.js';
 import { AppError } from '../../utils/AppError.js';
 import { ACCOUNT_SAFE_PROJECTION } from '../../utils/projections.js';
 import { encrypt } from '../security/encryptionService.js';
 import { testImapConnection, testSmtpConnection } from '../email/connectionTest.js';
 import { getNextAccountColor } from '../../config/accountColors.js';
+import { getAccountQuota } from '../email/imapQuotaService.js';
 
 export interface CreateImapAccountInput {
   emailAddress: string;
@@ -165,5 +166,22 @@ export class AccountService {
     }
 
     return account;
+  }
+
+  /**
+   * Récupère le quota IMAP (RFC 2087) d'un compte avec mise en cache TTL 15 min.
+   * AppError 404 si le compte n'appartient pas à l'utilisateur.
+   */
+  static async getAccountQuota(
+    userId: string,
+    accountId: string,
+    forceRefresh = false,
+  ): Promise<IStorageQuota> {
+    const account = await AccountModel.findOne({ _id: accountId, userId });
+    if (!account) {
+      throw AppError.notFound('Compte introuvable');
+    }
+
+    return getAccountQuota(account, forceRefresh);
   }
 }

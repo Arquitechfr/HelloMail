@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import type { Account, AccountAlias, CreateImapAccountInput, SignatureVariables } from "@/lib/api-types";
+import type { Account, AccountAlias, CreateImapAccountInput, SignatureVariables, StorageQuota } from "@/lib/api-types";
 
 export const accountKeys = {
   all: ["accounts"] as const,
@@ -112,5 +112,29 @@ export function useUpdateAccount() {
         body: JSON.stringify(body),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: accountKeys.all }),
+  });
+}
+
+/** GET /api/accounts/:id/quota — récupère le quota IMAP (RFC 2087) du compte. */
+export function useAccountQuota(accountId: string | null) {
+  return useQuery({
+    queryKey: ["account-quota", accountId],
+    queryFn: () => apiFetch<StorageQuota>(`/api/accounts/${accountId}/quota`),
+    enabled: Boolean(accountId),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** GET /api/accounts/:id/quota?refresh=true — force le rafraîchissement du quota IMAP. */
+export function useRefreshAccountQuota() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) =>
+      apiFetch<StorageQuota>(`/api/accounts/${accountId}/quota?refresh=true`),
+    onSuccess: (data, accountId) => {
+      qc.setQueryData(["account-quota", accountId], data);
+      qc.invalidateQueries({ queryKey: accountKeys.all });
+    },
   });
 }

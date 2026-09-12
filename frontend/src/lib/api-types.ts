@@ -119,6 +119,16 @@ export interface AccountAlias {
   createdAt?: string;
 }
 
+export interface StorageQuota {
+  supported: boolean;
+  usedBytes?: number;
+  totalBytes?: number;
+  percentage?: number;
+  usedMessages?: number;
+  totalMessages?: number;
+  updatedAt: string;
+}
+
 export interface Account {
   _id: string;
   provider: AccountProvider;
@@ -128,6 +138,7 @@ export interface Account {
   signature?: SignatureConfig;
   color?: string;
   isActive: boolean;
+  storageQuota?: StorageQuota;
   lastSyncedAt?: string;
   lastSyncError?: string;
   createdAt: string;
