@@ -221,6 +221,8 @@ export function useSSE(enabled: boolean) {
       es.addEventListener("message:deleted", (e) => forwardAndHandle("message:deleted", e.data));
       es.addEventListener("message:flags", (e) => forwardAndHandle("message:flags", e.data));
       es.addEventListener("account:syncError", (e) => forwardAndHandle("account:syncError", e.data));
+      es.addEventListener("reminder:triggered", (e) => forwardAndHandle("reminder:triggered", e.data));
+      es.addEventListener("reminder:resolved", (e) => forwardAndHandle("reminder:resolved", e.data));
 
       es.onerror = () => {
         setConnected(false);

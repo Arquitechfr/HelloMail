@@ -15,7 +15,8 @@ export type TabSyncMessageType =
   | "offline:mutation_added"
   | "offline:sync_completed"
   | "action:message_updated"
-  | "action:message_deleted";
+  | "action:message_deleted"
+  | "action:reminder_updated";
 
 export interface TabSyncEnvelope<T = unknown> {
   type: TabSyncMessageType;
@@ -72,4 +73,11 @@ export interface ActionMessageDeletedPayload {
   accountId: string;
   folder: string;
   uid: number;
+}
+
+export interface ActionReminderUpdatedPayload {
+  accountId: string;
+  folder: string;
+  uid: number;
+  status: "pending" | "triggered" | "replied" | "dismissed" | "cancelled";
 }

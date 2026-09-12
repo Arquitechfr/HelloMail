@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (916 tests, 132 fichiers — 654 backend + 262 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (945 tests, 138 fichiers — 675 backend + 270 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-25 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-25 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-26 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-26 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -173,3 +173,11 @@ Mailora/
   - **Lot 25.4 : Lightbox d'aperçu universelle (`AttachmentPreviewModal`)** : Overlay plein écran avec flou d'arrière-plan glassmorphism, en-tête avec métadonnées, pagination `X sur Y`, navigation au clic et raccourcis clavier (`Échap`, `Flèche Gauche`, `Flèche Droite`), téléchargement direct, et gestion anti-fuite mémoire stricte via `URL.revokeObjectURL` systématique au démontage, 5 tests unitaires.
   - **Lot 25.5 : Cartes interactives & Actions dans `AttachmentList`** : Refonte de la liste de pièces jointes avec cartes thématiques colorées, bouton "Aperçu" (icône `Eye`), bouton "Télécharger" individuel, action globale "Tout télécharger" avec barre de statut, et orchestration de la lightbox d'aperçu, 5 tests unitaires.
   - Couverture globale : **654 tests Vitest backend (75 fichiers), 262 tests Vitest frontend (57 fichiers) — 916 tests au total, 0 `as any`**.
+- **Phase 26 : Rappels de Suivi & Détection de Relances ("Follow-Up Reminders") (Intégralité livrée)** ✅ :
+  - **Lot 26.1 : Modèle FollowUpReminder, Indexes & Cycle de vie Mongoose** : Modèle `FollowUpReminder.ts` avec statuts (`pending`, `triggered`, `replied`, `dismissed`, `cancelled`), index composés optimisés pour le runner (`{ status: 1, remindAt: 1 }`), le listing paginé et le lookup direct par message (`{ accountId: 1, folder: 1, uid: 1 }`), champs `followUpStatus` et `followUpRemindAt` indexés sur `MessageModel`.
+  - **Lot 26.2 : Détection automatique des réponses entrantes & Service métier** : Moteur `followUpReplyDetector.ts` analysant en temps réel les réponses entrantes (`inReplyTo`, `references`, et heuristique normalisée sujet/expéditeur), résolution instantanée atomique du rappel en `replied` avec émission de l'événement SSE `reminder:resolved` et suppression du flag sur le message initial ; service transactionnel `followUpReminderService.ts` assurant la création, le report (snooze +2j, +7j), l'acquittement (`dismissed`) et l'annulation (`cancelled`), 13 tests unitaires.
+  - **Lot 26.3 : Runner périodique dans le worker & API REST** : Exécuteur d'arrière-plan `followUpReminderRunner.ts` cadencé toutes les 30s dans `worker.ts` avec verrouillage atomique concurrent (`findOneAndUpdate({ returnDocument: 'after' })`), diffusion SSE `reminder:triggered` ; routes REST complètes sous `/api/accounts/:accountId/reminders` (`reminderRoutes.ts`, `reminderController.ts`), support du dossier virtuel `__reminders__` (« À relancer ») dans `messagesController.list` et programmation directe à l'envoi (`sendEmail`), 8 tests d'intégration.
+  - **Lot 26.4 : Intégration frontend, Store, Requêtes TanStack & Écoute SSE** : Schémas et types TypeScript stricts (`reminders.ts`), hooks TanStack Query (`useMessageReminder`, `useCreateReminder`, `useSnoozeReminder`, `useDismissReminder`, `useCancelReminder`), gestionnaire d'événements SSE dans `useSSE.ts` avec toasts interactifs pour les rappels échus et résolus.
+  - **Lot 26.5 : Interface utilisateur, Dialogues, Bannière et Navigation** : Dialogue modal complet `FollowUpDialog.tsx` avec presets intelligents (+2j, +4j, +1sem, +2sem), sélection personnalisée et gestion de note ; composant `FollowUpBanner.tsx` réactif dans `MessageReader` (état `triggered` avec bouton « Relancer », reports rapides « +2j », « +1 sem », acquittement « Traiter » ; état `pending` avec modification/annulation ; état `replied` informatif) ; bouton dédié dans `MessageToolbar` (`BellRing`) ; programmation à l'envoi dans `ComposeForm` et `ComposeActions` ; entrée dédiée au dossier virtuel `__reminders__` dans `AccountSidebar` ; titre dynamique lisible dans `MessageListHeader` et badges d'état visuels dans `MessageListItem`, 8 tests unitaires.
+  - Couverture globale : **675 tests Vitest backend (79 fichiers), 270 tests Vitest frontend (59 fichiers) — 945 tests au total, 0 `as any`**.
+

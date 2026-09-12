@@ -38,8 +38,10 @@ import {
   Pencil,
   Pin,
   ShieldAlert,
+  BellRing,
 } from "lucide-react";
 import { BlockSenderDialog } from "./BlockSenderDialog";
+import { FollowUpDialog } from "./reminders/FollowUpDialog";
 
 interface MessageContextMenuProps {
   accountId: string;
@@ -55,6 +57,7 @@ export function MessageContextMenu({
   children,
 }: MessageContextMenuProps) {
   const [blockSenderOpen, setBlockSenderOpen] = React.useState(false);
+  const [followUpOpen, setFollowUpOpen] = React.useState(false);
   const actions = useMessageActions({ accountId, folder, message });
   const { data: folders } = useFolders(accountId);
   const { data: tagsData } = useTags();
@@ -108,45 +111,20 @@ export function MessageContextMenu({
 
         {/* Groupe 2 : Statut & Tri */}
         <ContextMenuItem onClick={actions.toggleSeen}>
-          {isUnread ? (
-            <>
-              <MailOpen className="size-4 mr-2" />
-              <span>Marquer comme lu</span>
-            </>
-          ) : (
-            <>
-              <Mail className="size-4 mr-2" />
-              <span>Marquer comme non lu</span>
-            </>
-          )}
+          {isUnread ? <MailOpen className="size-4 mr-2" /> : <Mail className="size-4 mr-2" />}
+          <span>{isUnread ? "Marquer comme lu" : "Marquer comme non lu"}</span>
           <ContextMenuShortcut>U</ContextMenuShortcut>
         </ContextMenuItem>
 
         <ContextMenuItem onClick={actions.toggleFlagged}>
-          <Star
-            className={
-              isFlagged
-                ? "size-4 mr-2 fill-amber-400 text-amber-400"
-                : "size-4 mr-2"
-            }
-          />
-          <span>
-            {isFlagged ? "Retirer l'étoile" : "Marquer comme important"}
-          </span>
+          <Star className={isFlagged ? "size-4 mr-2 fill-amber-400 text-amber-400" : "size-4 mr-2"} />
+          <span>{isFlagged ? "Retirer l'étoile" : "Marquer comme important"}</span>
           <ContextMenuShortcut>S</ContextMenuShortcut>
         </ContextMenuItem>
 
         <ContextMenuItem onClick={actions.togglePin}>
-          <Pin
-            className={
-              actions.isPinned
-                ? "size-4 mr-2 fill-primary text-primary"
-                : "size-4 mr-2 text-muted-foreground"
-            }
-          />
-          <span>
-            {actions.isPinned ? "Retirer la mise en avant" : "Mettre en avant"}
-          </span>
+          <Pin className={actions.isPinned ? "size-4 mr-2 fill-primary text-primary" : "size-4 mr-2 text-muted-foreground"} />
+          <span>{actions.isPinned ? "Retirer la mise en avant" : "Mettre en avant"}</span>
           <ContextMenuShortcut>H</ContextMenuShortcut>
         </ContextMenuItem>
 
@@ -184,6 +162,11 @@ export function MessageContextMenu({
                 ))}
               </ContextMenuSubContent>
             </ContextMenuSub>
+
+            <ContextMenuItem onClick={() => setFollowUpOpen(true)}>
+              <BellRing className="size-4 mr-2" />
+              <span>Rappel de relance…</span>
+            </ContextMenuItem>
 
             <ContextMenuItem onClick={actions.archiveMessage}>
               <Archive className="size-4 mr-2" />
@@ -288,6 +271,13 @@ export function MessageContextMenu({
         folder={folder}
         uid={message.uid}
         senderEmail={message.from.address}
+      />
+      <FollowUpDialog
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        accountId={accountId}
+        folder={folder}
+        uid={message.uid}
       />
     </ContextMenu>
   );

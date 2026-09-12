@@ -36,6 +36,8 @@ export function useReminders(
   });
 }
 
+export const useAccountReminders = useReminders;
+
 /**
  * Récupère le rappel actif ou le plus récent pour un message spécifique.
  */

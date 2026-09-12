@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccounts } from "@/lib/queries/accounts";
 import { useTags } from "@/lib/queries/tags";
+import { useAccountReminders } from "@/lib/queries/reminders";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { AccountItem } from "@/components/accounts/AccountItem";
 import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
@@ -145,19 +146,12 @@ export function AccountSidebar() {
                       <Clock className={cn("size-4 shrink-0", selectedFolder === "__snoozed__" ? "text-primary" : "text-muted-foreground")} />
                       <span className="flex-1 truncate">En sommeil</span>
                     </div>
-                    {/* Dossier virtuel À relancer (Follow-up Reminders) */}
-                    <div
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer mt-0.5",
-                        selectedFolder === "__reminders__"
-                          ? "bg-primary/15 text-primary font-medium"
-                          : "hover:bg-muted/50 text-foreground/80",
-                      )}
+                    {/* Dossier virtuel À relancer (Follow-up Reminders avec badge) */}
+                    <RemindersSidebarItem
+                      accountId={account._id}
+                      isSelected={selectedFolder === "__reminders__"}
                       onClick={() => handleSelectFolder("__reminders__", account._id)}
-                    >
-                      <BellRing className={cn("size-4 shrink-0", selectedFolder === "__reminders__" ? "text-primary" : "text-muted-foreground")} />
-                      <span className="flex-1 truncate">À relancer</span>
-                    </div>
+                    />
                   </div>
                 )}
               </div>
@@ -245,5 +239,40 @@ export function AccountSidebar() {
         {content}
       </aside>
     </>
+  );
+}
+
+function RemindersSidebarItem({
+  accountId,
+  isSelected,
+  onClick,
+}: {
+  accountId: string;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const { data } = useAccountReminders(accountId, "triggered");
+  const count = data?.total ?? 0;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer mt-0.5",
+        isSelected
+          ? "bg-primary/15 text-primary font-medium"
+          : "hover:bg-muted/50 text-foreground/80",
+      )}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <BellRing className={cn("size-4 shrink-0", isSelected ? "text-primary" : "text-muted-foreground")} />
+        <span className="truncate">À relancer</span>
+      </div>
+      {count > 0 && (
+        <span className="rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono text-[10px] px-1.5 py-0.2 font-semibold shrink-0">
+          {count}
+        </span>
+      )}
+    </div>
   );
 }
