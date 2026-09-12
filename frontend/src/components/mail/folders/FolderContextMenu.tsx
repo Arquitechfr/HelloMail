@@ -11,7 +11,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { FolderPlus, Pencil, Trash2, Shield, Upload } from "lucide-react";
+import { FolderPlus, Pencil, Trash2, Shield, Upload, Download } from "lucide-react";
 
 export interface FolderContextMenuProps {
   folder: FolderInfo;
@@ -19,6 +19,7 @@ export interface FolderContextMenuProps {
   onRename: (folder: FolderInfo) => void;
   onDelete: (folder: FolderInfo) => void;
   onImportEml: (folder: FolderInfo) => void;
+  onExportMbox?: (folder: FolderInfo) => void;
   children: React.ReactNode;
 }
 
@@ -28,6 +29,7 @@ export function FolderContextMenu({
   onRename,
   onDelete,
   onImportEml,
+  onExportMbox,
   children,
 }: FolderContextMenuProps) {
   const protectedFolder = isProtectedFolder(folder);
@@ -47,6 +49,13 @@ export function FolderContextMenu({
           <Upload className="size-4 mr-2 text-muted-foreground" />
           <span>Importer (.eml)</span>
         </ContextMenuItem>
+
+        {onExportMbox && (
+          <ContextMenuItem onClick={() => onExportMbox(folder)}>
+            <Download className="size-4 mr-2 text-muted-foreground" />
+            <span>Exporter (.mbox)</span>
+          </ContextMenuItem>
+        )}
 
         <ContextMenuSeparator />
 

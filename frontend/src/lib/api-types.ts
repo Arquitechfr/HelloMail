@@ -442,7 +442,8 @@ export type RealtimeEventType =
   | "account:syncError"
   | "scheduled:sent"
   | "reminder:triggered"
-  | "reminder:resolved";
+  | "reminder:resolved"
+  | "export:progress";
 
 export interface RealtimeEvent {
   type: RealtimeEventType;

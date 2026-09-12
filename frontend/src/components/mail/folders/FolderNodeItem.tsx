@@ -24,6 +24,7 @@ interface FolderNodeItemProps {
   onRename: (folder: FolderInfo) => void;
   onDelete: (folder: FolderInfo) => void;
   onImportEml: (folder: FolderInfo) => void;
+  onExportMbox?: (folder: FolderInfo) => void;
 }
 
 function FolderIcon({ specialUse, accountColor }: { specialUse?: string; accountColor?: string }) {
@@ -58,6 +59,7 @@ export function FolderNodeItem({
   onRename,
   onDelete,
   onImportEml,
+  onExportMbox,
 }: FolderNodeItemProps) {
   const [expanded, setExpanded] = useState(depth === 0);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -102,6 +104,7 @@ export function FolderNodeItem({
         onRename={onRename}
         onDelete={onDelete}
         onImportEml={onImportEml}
+        onExportMbox={onExportMbox}
       >
         <div
           className={cn(
@@ -160,6 +163,7 @@ export function FolderNodeItem({
             onRename={onRename}
             onDelete={onDelete}
             onImportEml={onImportEml}
+            onExportMbox={onExportMbox}
           />
         </div>
       </FolderContextMenu>
@@ -179,6 +183,7 @@ export function FolderNodeItem({
               onRename={onRename}
               onDelete={onDelete}
               onImportEml={onImportEml}
+              onExportMbox={onExportMbox}
             />
           ))}
         </div>

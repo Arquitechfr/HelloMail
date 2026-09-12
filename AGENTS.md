@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (974 tests, 144 fichiers — 678 backend + 296 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (991 tests, 147 fichiers — 691 backend + 300 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-28 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-28 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-29 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-29 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -193,4 +193,11 @@ Mailora/
   - **Lot 28.3 : Frontend — Composants UI & Panneau de réglages** : Composant `MissingAttachmentDialog.tsx` (dialogue accessible de prévention avant soumission), composant `SmartRepliesChips.tsx` (chips arrondis avec icône `Sparkles`), composant `SmartAssistanceSettings.tsx` (interrupteurs d'activation/désactivation avec badges de statut et mise à jour optimiste via TanStack Mutation) intégré dans `/mail/settings?section=appearance`.
   - **Lot 28.4 : Intégration Compose & Lecteur d'emails** : Hook découplé `useAttachmentReminder.ts` maintenant `ComposeForm.tsx` strictement sous 350 lignes (345 lignes), dialogue d'interception avec options « Ajouter une pièce jointe » ou « Envoyer quand même », suggestions Smart Replies réactives intégrées au-dessus de `QuickReplyBar.tsx` et passage de réponse pré-remplie au clic vers le formulaire de réponse dans `MessageReader.tsx`.
   - Couverture globale : **678 tests Vitest backend (79 fichiers), 296 tests Vitest frontend (65 fichiers) — 974 tests au total, 0 `as any`**.
+- **Phase 29 : Export & Archivage Complet de Boîte (MBOX / ZIP Streaming) (Intégralité livrée)** ✅ :
+  - **Lot 29.1 : Backend — Dépendance `archiver` & Transformateur RFC 4155 (`MboxTransformStream`)** : Ajout de la bibliothèque standard `archiver` (pur ESM v8), classe `MboxTransformStream` assurant l'injection de la ligne standard `From <sender> <asctime>\n`, le quoting mboxrd (`>From ` et `>>From `) et la séparation finale `\n\n`, 5 tests unitaires validés.
+  - **Lot 29.2 : Backend — Moteurs de Streaming MBOX & ZIP** : Service `mboxExportService.ts` assurant le streaming direct depuis IMAP sans chargement mémoire (< 20 Mo RAM), service `zipExportService.ts` avec `ZipArchive` compressant chaque dossier sous forme de fichier `.mbox` dans le ZIP, événement temps réel `export:progress` dans `eventPublisher.ts`.
+  - **Lot 29.3 : Backend — Validation Zod, Contrôleur & Routes REST** : Schémas `exportSchemas.ts` (anti-path-traversal), contrôleur `exportController.ts` avec headers `chunked` et neutralisation des timeouts (`req.setTimeout(0)`), écoute `req.on('close')` libérant immédiatement les connexions IMAP, routes `/api/accounts/:accountId/export/mbox` et `/api/accounts/:accountId/export/zip`, 8 tests d'intégration Supertest.
+  - **Lot 29.4 : Frontend — Types, Utilitaire de flux & Dialogue d'exportation** : Types `export.ts`, utilitaire `export-utils.ts` déclenchant le téléchargement du blob sans pop-up de blocage, dialogue accessible `ExportAccountDialog.tsx` (237 lignes) avec sélection du format (Archive ZIP ou Dossier MBOX), sélection des dossiers avec compte de messages, jauge de progression animée et bouton d'annulation, 4 tests unitaires.
+  - **Lot 29.5 : Frontend — Intégrations UI (Menus & Réglages)** : Entrée « Exporter la boîte... » dans le menu de compte `AccountItem.tsx` (256 lignes), entrée « Exporter (.mbox) » dans le clic droit `FolderContextMenu.tsx` et le menu 3 points `FolderActionsMenu.tsx`, montage dans `FolderTree.tsx` (257 lignes), gestion de l'événement dans `useSSE.ts`.
+  - Couverture globale : **691 tests Vitest backend (81 fichiers), 300 tests Vitest frontend (66 fichiers) — 991 tests au total, 0 `as any`**.
 

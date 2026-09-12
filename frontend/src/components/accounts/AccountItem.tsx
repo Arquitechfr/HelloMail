@@ -16,8 +16,14 @@ import type { Account } from "@/lib/api-types";
 import { EmailAvatar } from "@/components/mail/EmailAvatar";
 import { AccountColorPicker } from "./AccountColorPicker";
 import { AccountAliasesDialog } from "./AccountAliasesDialog";
-import { MoreVertical, Trash2, AlertCircle, Palette, AtSign } from "lucide-react";
+import { MoreVertical, Trash2, AlertCircle, Palette, AtSign, Download } from "lucide-react";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
+
+const ExportAccountDialog = dynamic(
+  () => import("@/components/mail/export/ExportAccountDialog").then((m) => m.ExportAccountDialog),
+  { ssr: false },
+);
 
 interface AccountItemProps {
   account: Account;
@@ -33,6 +39,7 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [aliasesDialogOpen, setAliasesDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   const accountColor = account.color || "#3b82f6";
 
@@ -119,6 +126,15 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
           >
             <AtSign className="size-4 mr-1.5" />
             Alias d'expédition...
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setExportDialogOpen(true);
+            }}
+          >
+            <Download className="size-4 mr-1.5" />
+            Exporter la boîte...
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -226,6 +242,13 @@ export function AccountItem({ account, isSelected, onSelect }: AccountItemProps)
           account={account}
           open={aliasesDialogOpen}
           onOpenChange={setAliasesDialogOpen}
+        />
+      )}
+      {exportDialogOpen && (
+        <ExportAccountDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          accountId={account._id}
         />
       )}
     </div>

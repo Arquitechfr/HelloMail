@@ -17,6 +17,11 @@ const ImportEmlDialog = dynamic(
   { ssr: false },
 );
 
+const ExportAccountDialog = dynamic(
+  () => import("./export/ExportAccountDialog").then((mod) => mod.ExportAccountDialog),
+  { ssr: false },
+);
+
 interface FolderTreeProps {
   accountId: string;
   accountColor?: string;
@@ -77,6 +82,13 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
   }>({
     open: false,
     folder: null,
+  });
+
+  const [exportDialog, setExportDialog] = useState<{
+    open: boolean;
+    folder?: string;
+  }>({
+    open: false,
   });
 
   const activeFolderObj = folders?.find((f) => f.path === selectedFolder);
@@ -193,6 +205,7 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
           }
           onDelete={(folder) => setDeleteDialog({ open: true, folder })}
           onImportEml={(folder) => setImportDialog({ open: true, folder })}
+          onExportMbox={(folder) => setExportDialog({ open: true, folder: folder.path })}
         />
       ))}
 
@@ -229,6 +242,14 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
         onOpenChange={(open) => setImportDialog((s) => ({ ...s, open }))}
         accountId={accountId}
         folder={importDialog.folder}
+      />
+
+      {/* Modale d'exportation de messages (.mbox / .zip) */}
+      <ExportAccountDialog
+        open={exportDialog.open}
+        onOpenChange={(open) => setExportDialog((s) => ({ ...s, open }))}
+        accountId={accountId}
+        initialFolder={exportDialog.folder}
       />
     </div>
   );

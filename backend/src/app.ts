@@ -13,6 +13,7 @@ import { accountsRoutes } from './routes/accountsRoutes.js';
 import { messagesRoutes } from './routes/messagesRoutes.js';
 import { foldersRoutes } from './routes/foldersRoutes.js';
 import { draftsRoutes } from './routes/draftsRoutes.js';
+import { exportRoutes } from './routes/exportRoutes.js';
 import { eventsRoutes } from './routes/eventsRoutes.js';
 import { oauthRoutes } from './routes/oauthRoutes.js';
 import { twoFactorRoutes } from './routes/twoFactorRoutes.js';
@@ -73,6 +74,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/accounts', messagesRoutes);
   app.use('/api/accounts', foldersRoutes);
   app.use('/api/accounts', draftsRoutes);
+  app.use('/api/accounts', exportRoutes);
   app.use('/api/accounts', scheduledMessagesRoutes);
   app.use('/api/accounts', reminderRoutes);
   app.use('/api/accounts/oauth', oauthRoutes);

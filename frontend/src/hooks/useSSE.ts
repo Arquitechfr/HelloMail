@@ -148,6 +148,11 @@ export function useSSE(enabled: boolean) {
         break;
       }
 
+      case "export:progress": {
+        // Avancement d'exportation (sans invalidation de cache)
+        break;
+      }
+
       default: {
         qc.invalidateQueries({ queryKey: ["messages"] });
         qc.invalidateQueries({ queryKey: ["folders"] });
