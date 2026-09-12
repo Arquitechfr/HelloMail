@@ -97,6 +97,16 @@ describe('parseSearchQuery', () => {
     expect(result.filters.flagged).toBe(false);
   });
 
+  it('extrait is:pinned et is:unpinned', () => {
+    expect(parseSearchQuery('is:pinned').filters.isPinned).toBe(true);
+    expect(parseSearchQuery('is:unpinned').filters.isPinned).toBe(false);
+  });
+
+  it('extrait tag:nom_tag', () => {
+    const result = parseSearchQuery('tag:Factures');
+    expect(result.filters.tag).toBe('Factures');
+  });
+
   it('extrait has:attachment', () => {
     const result = parseSearchQuery('has:attachment');
     expect(result.filters.hasAttachments).toBe(true);

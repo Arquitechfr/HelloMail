@@ -18,6 +18,8 @@ const csp = isDev
       "font-src 'self' data:",
       "frame-src 'self' srcdoc",
       "connect-src 'self'",
+      "worker-src 'self' blob:",
+      "manifest-src 'self'",
       "base-uri 'self'",
       "form-action 'self'",
     ].join("; ")
@@ -29,6 +31,8 @@ const csp = isDev
       "font-src 'self' data:",
       "frame-src 'self' srcdoc",
       "connect-src 'self'",
+      "worker-src 'self' blob:",
+      "manifest-src 'self'",
       "base-uri 'self'",
       "form-action 'self'",
     ].join("; ");

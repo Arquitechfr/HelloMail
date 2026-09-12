@@ -170,3 +170,13 @@ export const Edit2 = makeIcon();
 export const KeyRound = makeIcon();
 export const MailCheck = makeIcon();
 export const CheckCircle2 = makeIcon();
+export const ShieldX = makeIcon();
+export const XCircle = makeIcon();
+export const Bookmark = makeIcon();
+export const Receipt = makeIcon();
+export const AlertCircle = makeIcon();
+export const Flame = makeIcon();
+export const ImagePlus = makeIcon();
+export const Briefcase = makeIcon();
+export const Building2 = makeIcon();
+

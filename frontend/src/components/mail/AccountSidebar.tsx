@@ -9,6 +9,7 @@ import { AccountItem } from "@/components/accounts/AccountItem";
 import { AddAccountDialog } from "@/components/accounts/AddAccountDialog";
 import { FolderTree } from "@/components/mail/FolderTree";
 import { UnifiedFolderList } from "@/components/mail/unified/UnifiedFolderList";
+import { SmartFolderList } from "@/components/mail/smart/SmartFolderList";
 import { Button } from "@/components/ui/button";
 import { Plus, Mail, Loader2, X, FolderKanban, Tag as TagIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,9 @@ export function AccountSidebar() {
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {/* Section Boîtes et Dossiers unifiés */}
         <UnifiedFolderList />
+
+        {/* Section Dossiers Virtuels Intelligents */}
+        <SmartFolderList />
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">

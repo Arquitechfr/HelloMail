@@ -4,12 +4,14 @@ import { AppError } from '../../utils/AppError.js';
 import { logger } from '../../config/logger.js';
 import { imapPool } from './imapPool.js';
 import { findDraftsFolder } from './specialFolders.js';
+import { extractInlineImages } from './inlineImageService.js';
 
 export interface DraftAttachmentInput {
   filename: string;
   content: string; // base64
   contentType?: string;
   size?: number;
+  cid?: string;
 }
 
 export interface DraftInput {
@@ -55,6 +57,7 @@ function buildDraftMime(input: DraftInput, fromAddress: string): Promise<Buffer>
       filename: a.filename,
       content: Buffer.from(a.content, 'base64'),
       contentType: a.contentType,
+      ...(a.cid && { cid: a.cid }),
     }));
   }
 
@@ -91,8 +94,25 @@ export async function saveDraft(
     throw AppError.badRequest('Configuration IMAP/SMTP manquante pour ce compte');
   }
 
+  // Traitement transparent des images inline Data URI vers CID
+  let effectiveHtml = input.html;
+  let effectiveAttachments = input.attachments ? [...input.attachments] : [];
+  if (input.html) {
+    const { html: processedHtml, inlineAttachments } = extractInlineImages(input.html);
+    effectiveHtml = processedHtml;
+    if (inlineAttachments.length > 0) {
+      effectiveAttachments = [...effectiveAttachments, ...inlineAttachments];
+    }
+  }
+
+  const effectiveInput: DraftInput = {
+    ...input,
+    html: effectiveHtml,
+    attachments: effectiveAttachments.length > 0 ? effectiveAttachments : undefined,
+  };
+
   // Construit le raw MIME du brouillon.
-  const rawMime = await buildDraftMime(input, account.emailAddress);
+  const rawMime = await buildDraftMime(effectiveInput, account.emailAddress);
 
   // Détecte le dossier Drafts.
   const draftsPath = (await findDraftsFolder(account)) ?? 'Drafts';

@@ -28,11 +28,7 @@ export interface IAccountDocument extends Document {
     accessTokenExpiresAt?: Date;
     scope: string[];
   };
-  signature?: {
-    enabled: boolean;
-    text: string;
-    html?: string;
-  };
+  signature?: ISignatureConfig;
   color?: string;
   isActive: boolean;
   lastSyncedAt?: Date;
@@ -42,11 +38,23 @@ export interface IAccountDocument extends Document {
   updatedAt: Date;
 }
 
+export interface ISignatureConfig {
+  enabled: boolean;
+  text: string;
+  html?: string;
+  variables?: {
+    phone?: string;
+    jobTitle?: string;
+    company?: string;
+  };
+}
+
 export interface IAccountAlias {
   _id?: mongoose.Types.ObjectId;
   name?: string;
   email: string;
   isDefault?: boolean;
+  signature?: ISignatureConfig;
 }
 
 const encryptedFieldSchema = new Schema<EncryptedField>(
@@ -58,11 +66,26 @@ const encryptedFieldSchema = new Schema<EncryptedField>(
   { _id: false },
 );
 
+const signatureConfigSchema = new Schema<ISignatureConfig>(
+  {
+    enabled: { type: Boolean, default: false },
+    text: { type: String, default: '' },
+    html: { type: String, required: false },
+    variables: {
+      phone: { type: String, required: false },
+      jobTitle: { type: String, required: false },
+      company: { type: String, required: false },
+    },
+  },
+  { _id: false },
+);
+
 const accountAliasSchema = new Schema<IAccountAlias>(
   {
     name: { type: String, trim: true },
     email: { type: String, required: true, lowercase: true, trim: true },
     isDefault: { type: Boolean, default: false },
+    signature: { type: signatureConfigSchema, required: false },
   },
   { _id: true },
 );
@@ -106,9 +129,8 @@ const accountSchema = new Schema<IAccountDocument>(
       scope: { type: [String], default: [] },
     },
     signature: {
-      enabled: { type: Boolean, default: false },
-      text: { type: String, default: '' },
-      html: { type: String, required: false },
+      type: signatureConfigSchema,
+      default: () => ({ enabled: false, text: '' }),
     },
     color: {
       type: String,

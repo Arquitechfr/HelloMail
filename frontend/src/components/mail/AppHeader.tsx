@@ -14,8 +14,10 @@ import {
   Keyboard,
   Menu,
   Command,
+  WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNetworkStatus } from "@/lib/offline/useNetworkStatus";
 
 export function AppHeader() {
   const queryClient = useQueryClient();
@@ -27,6 +29,7 @@ export function AppHeader() {
     toggleMobileSidebar,
     setShortcutsDialogOpen,
   } = useUIStore();
+  const { isOnline, pendingCount, isSyncing: isOfflineSyncing } = useNetworkStatus();
   const [manualSyncing, setManualSyncing] = useState(false);
 
   const handleRefresh = async () => {
@@ -124,14 +127,45 @@ export function AppHeader() {
 
       {/* Côté droit : Statut SSE direct, Thème, Guide raccourcis & Menu Profil */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {/* Pastille SSE temps réel */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-          <span className="relative flex size-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
-          </span>
-          <span className="hidden md:inline">En direct</span>
-        </div>
+        {/* Statut réseau & SSE */}
+        {!isOnline ? (
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-medium text-amber-600 dark:text-amber-400"
+            title={
+              pendingCount > 0
+                ? `${pendingCount} action(s) en attente de synchronisation`
+                : "Mode hors-ligne actif"
+            }
+            data-testid="network-status-offline"
+          >
+            <WifiOff className="size-3 text-amber-600 dark:text-amber-400" />
+            <span className="hidden md:inline">Hors-ligne</span>
+            {pendingCount > 0 && (
+              <span className="rounded-full bg-amber-500/20 px-1 text-[10px] font-semibold">
+                {pendingCount}
+              </span>
+            )}
+          </div>
+        ) : isOfflineSyncing ? (
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[11px] font-medium text-blue-600 dark:text-blue-400"
+            data-testid="network-status-syncing"
+          >
+            <RefreshCw className="size-3 animate-spin text-blue-600 dark:text-blue-400" />
+            <span className="hidden md:inline">Synchronisation...</span>
+          </div>
+        ) : (
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
+            data-testid="network-status-online"
+          >
+            <span className="relative flex size-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
+            </span>
+            <span className="hidden md:inline">En direct</span>
+          </div>
+        )}
 
         {/* Aide raccourcis clavier */}
         <Button

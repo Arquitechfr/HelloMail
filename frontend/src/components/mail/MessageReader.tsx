@@ -23,6 +23,7 @@ import { MessageMetadataHeader } from "@/components/mail/MessageMetadataHeader";
 import { ReadReceiptBanner } from "@/components/mail/ReadReceiptBanner";
 import { CalendarInviteBanner } from "@/components/mail/CalendarInviteBanner";
 import { PgpMessageBanner } from "@/components/mail/PgpMessageBanner";
+import { EmailSecurityBanner } from "@/components/mail/EmailSecurityBanner";
 import { MessageToolbar } from "@/components/mail/MessageToolbar";
 import { useEmailShortcuts } from "@/lib/hooks/useEmailShortcuts";
 import { Mail, Loader2, FileEdit, Pencil } from "lucide-react";
@@ -269,6 +270,9 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
 
       {/* En-tête des métadonnées du message */}
       <MessageMetadataHeader message={message} accountId={accountId} folder={folder} uid={uid!} />
+
+      {/* Bannière d'alerte de sécurité de l'expéditeur */}
+      <EmailSecurityBanner summary={message.securitySummary} senderEmail={message.from.address} />
 
       {/* Bannière d'accusé de réception (MDN RFC 3798) */}
       {message.readReceiptRequestedTo && (

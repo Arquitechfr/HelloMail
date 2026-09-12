@@ -22,3 +22,8 @@ export const remove = asyncHandler(async (req: AuthenticatedRequest, res: Respon
   await AliasService.deleteAlias(req.user.id, req.params.id, req.params.aliasId);
   res.status(204).send();
 });
+
+export const updateSignature = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const signature = await AliasService.updateAliasSignature(req.user.id, req.params.id, req.params.aliasId, req.body);
+  res.status(200).json(signature);
+});

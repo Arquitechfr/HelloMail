@@ -33,6 +33,8 @@ export interface ParsedSearch {
     subject?: string;
     seen?: boolean;
     flagged?: boolean;
+    isPinned?: boolean;
+    tag?: string;
     hasAttachments?: boolean;
     since?: Date;
     before?: Date;
@@ -92,7 +94,12 @@ export function parseSearchQuery(q: string | undefined): ParsedSearch {
         else if (value === 'read') result.filters.seen = true;
         else if (value === 'flagged') result.filters.flagged = true;
         else if (value === 'unflagged') result.filters.flagged = false;
+        else if (value === 'pinned') result.filters.isPinned = true;
+        else if (value === 'unpinned') result.filters.isPinned = false;
         else tokens.push(part);
+        break;
+      case 'tag':
+        result.filters.tag = value;
         break;
       case 'has':
         if (value === 'attachment' || value === 'attachments') {
@@ -183,6 +190,12 @@ export async function searchMessages(
   }
   if (filters.flagged !== undefined) {
     mongoQuery['flags.flagged'] = filters.flagged;
+  }
+  if (filters.isPinned !== undefined) {
+    mongoQuery.isPinned = filters.isPinned;
+  }
+  if (filters.tag) {
+    mongoQuery.tags = filters.tag;
   }
   if (filters.hasAttachments !== undefined) {
     mongoQuery.hasAttachments = filters.hasAttachments;

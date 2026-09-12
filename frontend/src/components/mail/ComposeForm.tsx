@@ -82,6 +82,7 @@ export function ComposeForm({
 
   const { handleInsertSignature } = useComposeSignature({
     currentAccount,
+    activeSender: from,
     mode,
     body,
     setBody,

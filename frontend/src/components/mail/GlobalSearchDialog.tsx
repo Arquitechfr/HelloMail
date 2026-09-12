@@ -12,8 +12,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, X, Mail, Paperclip, Star, Tag, Folder } from "lucide-react";
+import { Search, Loader2, X, Mail, Paperclip, Star, Tag, Folder, Sparkles } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { SmartFolderDialog } from "./smart/SmartFolderDialog";
 import type { Message } from "@/lib/api-types";
 
 const QUICK_FILTERS = [
@@ -41,6 +42,8 @@ export function GlobalSearchDialog() {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [smartFolderDialogOpen, setSmartFolderDialogOpen] = useState(false);
+  const [savedQuery, setSavedQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus automatique du champ de recherche à l'ouverture
@@ -100,8 +103,9 @@ export function GlobalSearchDialog() {
   };
 
   return (
-    <Dialog
-      open={searchDialogOpen}
+    <>
+      <Dialog
+        open={searchDialogOpen}
       onOpenChange={(open) => {
         setSearchDialogOpen(open);
         if (open) {
@@ -169,6 +173,22 @@ export function GlobalSearchDialog() {
                 </button>
               );
             })}
+
+            {debounced.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSavedQuery(debounced);
+                  closeSearch();
+                  setSmartFolderDialogOpen(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1 text-[11px] font-medium border border-primary/20 transition-colors cursor-pointer"
+                title="Enregistrer cette recherche comme dossier intelligent"
+              >
+                <Sparkles className="size-3 text-amber-500" />
+                Dossier intelligent
+              </button>
+            )}
           </div>
 
           {/* Sélecteur de compte si multiple */}
@@ -292,5 +312,12 @@ export function GlobalSearchDialog() {
         </div>
       </DialogContent>
     </Dialog>
-  );
+
+    <SmartFolderDialog
+      open={smartFolderDialogOpen}
+      onOpenChange={setSmartFolderDialogOpen}
+      initialQuery={savedQuery}
+    />
+  </>
+);
 }

@@ -8,6 +8,7 @@ import {
   updateAliasSchema,
   accountAliasParamsSchema,
 } from '../schemas/aliasSchemas.js';
+import { updateSignatureSchema } from '../schemas/accountSchemas.js';
 
 const router = Router({ mergeParams: true });
 
@@ -30,6 +31,13 @@ router.patch(
   requireAuth,
   validate({ params: accountAliasParamsSchema, body: updateAliasSchema }),
   accountAliasesController.update,
+);
+
+router.patch(
+  '/:aliasId/signature',
+  requireAuth,
+  validate({ params: accountAliasParamsSchema, body: updateSignatureSchema }),
+  accountAliasesController.updateSignature,
 );
 
 router.delete(

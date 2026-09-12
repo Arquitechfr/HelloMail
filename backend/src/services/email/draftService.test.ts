@@ -120,6 +120,22 @@ describe('draftService', () => {
 
       expect(imapPool.release).toHaveBeenCalled();
     });
+
+    it('gère les images inline Data URI en les convertissant lors du saveDraft', async () => {
+      const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const result = await saveDraft(makeAccount(), {
+        subject: 'Brouillon avec logo',
+        text: 'Logo :',
+        html: `<p>Logo :</p><img src="data:image/png;base64,${b64}" alt="Logo" />`,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(mockClient.append).toHaveBeenCalledWith(
+        'Drafts',
+        expect.any(Buffer),
+        ['\\Draft'],
+      );
+    });
   });
 
   describe('deleteDraft', () => {

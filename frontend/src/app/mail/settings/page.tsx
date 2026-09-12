@@ -21,6 +21,7 @@ import { RulesList } from "@/components/mail/rules/RulesList";
 import { TwoFactorSettings } from "@/components/auth/TwoFactorSettings";
 import { ContactsManager } from "@/components/auth/ContactsManager";
 import { PgpKeyManager } from "@/components/security/PgpKeyManager";
+import { SenderListsSettings } from "@/components/settings/SenderListsSettings";
 import type { SettingsSectionId } from "@/lib/types/settings";
 import { PenLine, ShieldCheck, Lock, Users, Loader2 } from "lucide-react";
 
@@ -118,6 +119,8 @@ function SettingsContent() {
             </div>
 
             <PgpKeyManager />
+
+            <SenderListsSettings />
 
             <div className="rounded-lg border border-border bg-card/60 p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-3">

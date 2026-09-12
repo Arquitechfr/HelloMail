@@ -9,6 +9,7 @@ import { TagSelectPopover } from "./TagSelectPopover";
 import { EmailAvatar } from "./EmailAvatar";
 import { UnsubscribeButton } from "./UnsubscribeButton";
 import { BlockSenderDialog } from "./BlockSenderDialog";
+import { EmailSecurityBadge } from "./EmailSecurityBadge";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -90,11 +91,15 @@ export function MessageMetadataHeader({
         />
         <div className="flex flex-col gap-1 text-xs flex-1 min-w-0">
           <div className="flex gap-2 items-center justify-between">
-            <div className="flex gap-2 min-w-0">
+            <div className="flex gap-2 min-w-0 items-center flex-wrap">
               <span className="w-12 shrink-0 font-medium text-muted-foreground">De :</span>
               <span className="text-foreground font-medium truncate">
                 {message.from.name ? `${message.from.name} <${message.from.address}>` : message.from.address}
               </span>
+              <EmailSecurityBadge
+                summary={message.securitySummary}
+                senderEmail={message.from.address}
+              />
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {message.unsubscribeInfo && (

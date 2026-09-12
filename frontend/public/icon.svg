@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="mailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#38bdf8" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <!-- Background rounded squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bg)" />
+  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="#334155" stroke-width="4" stroke-opacity="0.5" />
+  
+  <!-- Envelope icon -->
+  <g transform="translate(96, 128)" filter="url(#glow)">
+    <!-- Envelope body -->
+    <rect x="0" y="32" width="320" height="216" rx="24" fill="#1e293b" stroke="#475569" stroke-width="8" />
+    <!-- Flap fill / accent -->
+    <path d="M 12 44 L 160 160 L 308 44" fill="none" stroke="url(#mailGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Front lines -->
+    <path d="M 16 236 L 120 136" stroke="#475569" stroke-width="8" stroke-linecap="round" />
+    <path d="M 304 236 L 200 136" stroke="#475569" stroke-width="8" stroke-linecap="round" />
+  </g>
+</svg>

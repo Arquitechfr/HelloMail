@@ -14,6 +14,7 @@ import {
 } from './ruleService.js';
 import { RuleModel } from '../../models/Rule.js';
 import { MessageModel } from '../../models/Message.js';
+import { SenderListModel } from '../../models/SenderList.js';
 
 describe('ruleService', () => {
   beforeAll(async () => {
@@ -265,6 +266,44 @@ describe('ruleService', () => {
       const updated = await MessageModel.findById(messageDoc._id);
       expect(updated?.isPinned).toBe(true);
       expect(updated?.pinnedAt).toBeDefined();
+    });
+
+    it('redirige automatiquement en Spam un message dont l\'expéditeur est dans la denylist', async () => {
+      await clearDb();
+
+      await SenderListModel.create({
+        userId,
+        type: 'deny',
+        target: 'spammer@evil.com',
+      });
+
+      const messageDoc = await MessageModel.create({
+        accountId,
+        folder: 'INBOX',
+        uid: 1001,
+        subject: 'Promotion suspecte',
+        from: { name: 'Spammer', address: 'spammer@evil.com' },
+        to: [{ name: 'Moi', address: 'moi@site.com' }],
+        date: new Date(),
+        flags: { seen: false, flagged: false, answered: false },
+        size: 256,
+        hasAttachments: false,
+      });
+
+      const mockImapClient = {
+        messageMove: vi.fn().mockResolvedValue(true),
+        messageFlagsAdd: vi.fn().mockResolvedValue(true),
+      } as unknown as ImapFlow;
+
+      await applyRulesToIncomingMessage(
+        { _id: accountId, userId },
+        messageDoc,
+        mockImapClient,
+      );
+
+      const updated = await MessageModel.findById(messageDoc._id);
+      expect(updated?.folder).toBe('Junk');
+      expect(mockImapClient.messageMove).toHaveBeenCalledWith(1001, 'Junk', { uid: true });
     });
   });
 });

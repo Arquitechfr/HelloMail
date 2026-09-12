@@ -52,6 +52,14 @@ export class AliasService {
       name: input.name?.trim(),
       email: normalizedEmail,
       isDefault: !!input.isDefault,
+      signature: input.signature
+        ? {
+            enabled: input.signature.enabled,
+            text: input.signature.text || '',
+            html: input.signature.html,
+            variables: input.signature.variables,
+          }
+        : undefined,
     };
 
     account.aliases = [...existingAliases, newAlias];
@@ -108,10 +116,33 @@ export class AliasService {
       }
     }
 
+    if (input.signature !== undefined) {
+      aliases[aliasIndex].signature = input.signature
+        ? {
+            enabled: input.signature.enabled,
+            text: input.signature.text || '',
+            html: input.signature.html,
+            variables: input.signature.variables,
+          }
+        : undefined;
+    }
+
     account.markModified('aliases');
     await account.save();
 
     return aliases[aliasIndex];
+  }
+
+  /**
+   * Met à jour la signature d'un alias.
+   */
+  static async updateAliasSignature(
+    userId: string,
+    accountId: string,
+    aliasId: string,
+    signature: { enabled: boolean; text: string; html?: string; variables?: { phone?: string; jobTitle?: string; company?: string } },
+  ): Promise<IAccountAlias> {
+    return this.updateAlias(userId, accountId, aliasId, { signature });
   }
 
   /**

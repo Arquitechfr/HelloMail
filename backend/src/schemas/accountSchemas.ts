@@ -29,10 +29,17 @@ export const autoconfigQuerySchema = z.object({
   email: emailSchema,
 });
 
+export const signatureVariablesSchema = z.object({
+  phone: z.string().max(50, 'Le numéro de téléphone ne peut pas dépasser 50 caractères').optional(),
+  jobTitle: z.string().max(100, 'Le poste ne peut pas dépasser 100 caractères').optional(),
+  company: z.string().max(100, 'Le nom d\'entreprise ne peut pas dépasser 100 caractères').optional(),
+});
+
 export const updateSignatureSchema = z.object({
   enabled: z.boolean(),
   text: z.string().max(4000, 'La signature texte ne peut pas dépasser 4000 caractères'),
   html: z.string().max(10000, 'La signature HTML ne peut pas dépasser 10000 caractères').optional(),
+  variables: signatureVariablesSchema.optional(),
 });
 
 export const updateAccountSchema = z.object({

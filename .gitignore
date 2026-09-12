@@ -6,3 +6,6 @@ deploy/
 .env
 .env.*
 vhost-nginx/*
+audits_implemented/*
+AUDITV3.md
+audits_implemented/AUDITV2.md

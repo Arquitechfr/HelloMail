@@ -1,51 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { useAccounts, useUpdateSignature } from "@/lib/queries/accounts";
-import { type Account } from "@/lib/api-types";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Loader2, Save } from "lucide-react";
+import { useAccounts, useUpdateSignature, useUpdateAliasSignature } from "@/lib/queries/accounts";
+import { type Account, type SignatureConfig } from "@/lib/api-types";
+import { AccountSignatureIdentityEditor } from "./AccountSignatureIdentityEditor";
+import { Loader2, Mail, Users } from "lucide-react";
 import { toast } from "sonner";
 
 interface SingleAccountSignatureProps {
   account: Account;
 }
 
-function getDefaultSignature(account: Account): string {
-  const name = account.displayName?.trim() || account.emailAddress.split("@")[0];
-  return `-- \nBien cordialement,\n${name}\n${account.emailAddress}`;
-}
-
 function SingleAccountSignature({ account }: SingleAccountSignatureProps) {
   const updateSignature = useUpdateSignature();
-  const [enabled, setEnabled] = useState(account.signature?.enabled ?? false);
-  const [text, setText] = useState(
-    account.signature?.text || (account.signature?.enabled ? getDefaultSignature(account) : "")
-  );
+  const updateAliasSignature = useUpdateAliasSignature();
 
-  const handleToggle = (checked: boolean) => {
-    setEnabled(checked);
-    if (checked && !text.trim()) {
-      setText(getDefaultSignature(account));
-    }
-  };
+  // "main" ou l'identifiant de l'alias sélectionné
+  const [selectedIdentityId, setSelectedIdentityId] = useState<string>("main");
 
-  const handleResetToDefault = () => {
-    setText(getDefaultSignature(account));
-    toast.info("Modèle de signature appliqué");
-  };
+  const aliases = account.aliases || [];
+  const selectedAlias = selectedIdentityId !== "main" ? aliases.find((a) => a._id === selectedIdentityId) : undefined;
 
-  const handleSave = () => {
-    const finalText = enabled && !text.trim() ? getDefaultSignature(account) : text;
-    if (enabled && !text.trim()) {
-      setText(finalText);
-    }
-
+  const handleSaveMain = (config: SignatureConfig) => {
     updateSignature.mutate(
       {
         id: account._id,
-        signature: { enabled, text: finalText },
+        signature: config,
       },
       {
         onSuccess: () => {
@@ -58,85 +38,105 @@ function SingleAccountSignature({ account }: SingleAccountSignatureProps) {
     );
   };
 
+  const handleSaveAlias = (aliasId: string, aliasEmail: string, config: SignatureConfig) => {
+    updateAliasSignature.mutate(
+      {
+        accountId: account._id,
+        aliasId,
+        signature: config,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Signature mise à jour pour l'alias ${aliasEmail}`);
+        },
+        onError: () => {
+          toast.error("Erreur lors de la sauvegarde de la signature de l'alias");
+        },
+      },
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card/40 p-4 transition-colors">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <span className="text-xs font-semibold text-foreground">{account.emailAddress}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-foreground">{account.emailAddress}</span>
+            {account.color && (
+              <span
+                className="size-2 rounded-full inline-block"
+                style={{ backgroundColor: account.color }}
+              />
+            )}
+          </div>
           <span className="text-[11px] text-muted-foreground">
             {account.displayName ? account.displayName : "Compte de messagerie"}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor={`sig-toggle-${account._id}`}
-            className="flex items-center gap-2 cursor-pointer text-xs font-medium text-muted-foreground select-none"
-          >
-            <input
-              id={`sig-toggle-${account._id}`}
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => handleToggle(e.target.checked)}
-              className="size-4 accent-primary rounded cursor-pointer"
-            />
-            <span>Activer la signature</span>
-          </label>
-        </div>
+
+        {aliases.length > 0 && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Users className="size-3.5 text-primary" />
+            <span>{aliases.length} alias configuré{aliases.length > 1 ? "s" : ""}</span>
+          </div>
+        )}
       </div>
 
-      {enabled && (
-        <div className="flex flex-col gap-3 pt-2 border-t border-border/50">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor={`sig-text-${account._id}`} className="text-xs text-muted-foreground">
-                Texte de signature
-              </Label>
-              <button
-                type="button"
-                onClick={handleResetToDefault}
-                className="text-[11px] text-primary/80 hover:text-primary underline cursor-pointer"
-              >
-                Appliquer le modèle par défaut
-              </button>
-            </div>
-            <textarea
-              id={`sig-text-${account._id}`}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={`--\nBien cordialement,\n${account.displayName || account.emailAddress}`}
-              rows={4}
-              className="w-full rounded-md border border-input bg-background/80 px-3 py-2 text-xs font-sans placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
+      {/* Sélecteur d'identité si le compte possède des alias */}
+      {aliases.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/40">
+          <button
+            type="button"
+            onClick={() => setSelectedIdentityId("main")}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer select-none ${
+              selectedIdentityId === "main"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <Mail className="size-3" />
+            <span>Principal ({account.emailAddress})</span>
+          </button>
 
-          {text && (
-            <div className="rounded border border-border/40 bg-muted/20 p-2.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                Aperçu de la signature
-              </span>
-              <pre className="text-xs font-sans whitespace-pre-wrap text-muted-foreground">
-                {text}
-              </pre>
-            </div>
-          )}
+          {aliases.map((alias) => (
+            <button
+              key={alias._id}
+              type="button"
+              onClick={() => setSelectedIdentityId(alias._id)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer select-none ${
+                selectedIdentityId === alias._id
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <span>{alias.email}</span>
+              {alias.name && <span className="opacity-70 text-[10px]">({alias.name})</span>}
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="flex justify-end pt-1">
-        <Button
-          size="sm"
-          onClick={handleSave}
-          disabled={updateSignature.isPending}
-          className="h-7 text-xs gap-1.5"
-        >
-          {updateSignature.isPending ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Save className="size-3.5" />
-          )}
-          Enregistrer
-        </Button>
-      </div>
+      {/* Éditeur de la signature pour l'identité active */}
+      {selectedIdentityId === "main" ? (
+        <AccountSignatureIdentityEditor
+          key={`main-${account._id}`}
+          emailAddress={account.emailAddress}
+          displayName={account.displayName}
+          signature={account.signature}
+          onSave={handleSaveMain}
+          isSaving={updateSignature.isPending}
+        />
+      ) : selectedAlias ? (
+        <AccountSignatureIdentityEditor
+          key={`alias-${selectedAlias._id}`}
+          emailAddress={selectedAlias.email}
+          displayName={selectedAlias.name || account.displayName}
+          signature={selectedAlias.signature || account.signature}
+          isAlias
+          onSave={(cfg) => handleSaveAlias(selectedAlias._id, selectedAlias.email, cfg)}
+          isSaving={updateAliasSignature.isPending}
+        />
+      ) : null}
     </div>
   );
 }

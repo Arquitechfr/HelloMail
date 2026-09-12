@@ -329,5 +329,23 @@ describe('sendEmail', () => {
         }),
       );
     });
+
+    it('extrait les images inline Data URI en pièces jointes CID', async () => {
+      const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const input = {
+        ...baseInput,
+        html: `<p>Signature :</p><img src="data:image/png;base64,${b64}" alt="Logo" />`,
+      };
+
+      await sendEmail(makeAccount(), input);
+
+      const sendArgs = mockSendMail.mock.calls[0][0];
+      expect(sendArgs.html).toMatch(/<img src="cid:sig-img-[^"]+" alt="Logo" \/>/);
+      expect(sendArgs.attachments).toHaveLength(1);
+      expect(sendArgs.attachments[0].filename).toBe('signature-logo-1.png');
+      expect(sendArgs.attachments[0].contentType).toBe('image/png');
+      expect(sendArgs.attachments[0].cid).toMatch(/^sig-img-/);
+      expect(sendArgs.attachments[0].content).toEqual(Buffer.from(b64, 'base64'));
+    });
   });
 });

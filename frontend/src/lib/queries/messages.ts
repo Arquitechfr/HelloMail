@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiFetchBlob } from "@/lib/api";
+import {
+  fetchMessagesWithOfflineFallback,
+  fetchDetailWithOfflineFallback,
+  executeOrQueueOffline,
+} from "@/lib/offline/offlineSyncHelpers";
 import type {
   Message,
   MessageDetail,
@@ -41,7 +46,7 @@ export function useMessages(
 
   return useQuery({
     queryKey: messageKeys.list(accountId ?? "", folder, page, limit, tag),
-    queryFn: () => apiFetch<PaginatedResponse<Message>>(url),
+    queryFn: () => fetchMessagesWithOfflineFallback(accountId!, folder, url),
     enabled: !!accountId,
     // Polling de fallback (30s) — l'IDLE IMAP peut avoir des timeouts,
     // le SSE peut manquer des événements. Le polling garantit la fraîcheur.
@@ -81,7 +86,10 @@ export function fetchMessageDetail(
 export function useMessageDetail(accountId: string | null, folder: string, uid: number | null) {
   return useQuery({
     queryKey: messageKeys.detail(accountId ?? "", folder, uid ?? 0),
-    queryFn: () => fetchMessageDetail(accountId!, folder, uid!),
+    queryFn: () =>
+      fetchDetailWithOfflineFallback(accountId!, folder, uid!, () =>
+        fetchMessageDetail(accountId!, folder, uid!),
+      ),
     enabled: !!accountId && uid !== null,
   });
 }
@@ -103,9 +111,17 @@ export function useUpdateFlags(accountId: string, folder: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ uid, flags }: { uid: number; flags: FlagsUpdate }) =>
-      apiFetch<void>(
-        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/flags`,
-        { method: "PATCH", body: JSON.stringify(flags) },
+      executeOrQueueOffline(
+        "UPDATE_FLAGS",
+        accountId,
+        folder,
+        uid,
+        { flags: flags as unknown as Record<string, unknown> },
+        () =>
+          apiFetch<void>(
+            `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/flags`,
+            { method: "PATCH", body: JSON.stringify(flags) },
+          ),
       ),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["messages", accountId, folder] });
@@ -122,9 +138,17 @@ export function useDeleteMessage(accountId: string, folder: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ uid, permanent }: { uid: number; permanent?: boolean }) =>
-      apiFetch<void>(
-        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}${permanent ? "?permanent=true" : ""}`,
-        { method: "DELETE" },
+      executeOrQueueOffline(
+        "DELETE_MESSAGE",
+        accountId,
+        folder,
+        uid,
+        { permanent },
+        () =>
+          apiFetch<void>(
+            `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}${permanent ? "?permanent=true" : ""}`,
+            { method: "DELETE" },
+          ),
       ),
     onSuccess: () => {
       // Invalide toutes les listes du compte : le message déplacé doit
@@ -141,9 +165,17 @@ export function useMoveMessage(accountId: string, folder: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ uid, destination }: { uid: number; destination: string }) =>
-      apiFetch<void>(
-        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/move`,
-        { method: "POST", body: JSON.stringify({ destination }) },
+      executeOrQueueOffline(
+        "MOVE_MESSAGE",
+        accountId,
+        folder,
+        uid,
+        { destination },
+        () =>
+          apiFetch<void>(
+            `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/move`,
+            { method: "POST", body: JSON.stringify({ destination }) },
+          ),
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["messages", accountId] });
@@ -158,9 +190,17 @@ export function useMarkAsJunk(accountId: string, folder: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (uid: number) =>
-      apiFetch<void>(
-        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/junk`,
-        { method: "POST" },
+      executeOrQueueOffline(
+        "MARK_JUNK",
+        accountId,
+        folder,
+        uid,
+        undefined,
+        () =>
+          apiFetch<void>(
+            `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}/junk`,
+            { method: "POST" },
+          ),
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["messages", accountId] });
@@ -295,5 +335,3 @@ export function usePinMessage(accountId: string, folder: string) {
     },
   });
 }
-
-

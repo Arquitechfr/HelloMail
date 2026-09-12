@@ -92,11 +92,25 @@ export interface ContactImportResult {
 
 export type AccountProvider = "imap" | "google_oauth" | "microsoft_oauth";
 
+export interface SignatureVariables {
+  phone?: string;
+  jobTitle?: string;
+  company?: string;
+}
+
+export interface SignatureConfig {
+  enabled: boolean;
+  text: string;
+  html?: string;
+  variables?: SignatureVariables;
+}
+
 export interface AccountAlias {
   _id: string;
   name?: string;
   email: string;
   isDefault: boolean;
+  signature?: SignatureConfig;
   createdAt?: string;
 }
 
@@ -106,11 +120,7 @@ export interface Account {
   emailAddress: string;
   displayName?: string;
   aliases?: AccountAlias[];
-  signature?: {
-    enabled: boolean;
-    text: string;
-    html?: string;
-  };
+  signature?: SignatureConfig;
   color?: string;
   isActive: boolean;
   lastSyncedAt?: string;
@@ -248,6 +258,25 @@ export interface MessageDetail {
   pinnedAt?: string | null;
   calendarEvent?: CalendarEventInfo;
   unsubscribeInfo?: UnsubscribeInfo;
+  securitySummary?: EmailSecuritySummary;
+}
+
+export type SecurityVerdict = 'pass' | 'fail' | 'neutral' | 'unknown';
+
+export interface EmailSecuritySummary {
+  spf: SecurityVerdict;
+  dkim: SecurityVerdict;
+  dmarc: SecurityVerdict;
+  isTrusted: boolean;
+  warningMessage?: string;
+  spamScore?: number;
+  isSpam?: boolean;
+  details?: {
+    authResultsRaw?: string;
+    spfDetails?: string;
+    dkimDetails?: string;
+    dmarcDetails?: string;
+  };
 }
 
 export interface UnsubscribeInfo {
@@ -446,3 +475,62 @@ export interface ContactPublicKeyInfo {
   fingerprint: string;
   keyId: string;
 }
+
+// --- Listes Blanches & Noires (Allowlist / Denylist) ---
+export type SenderListType = 'allow' | 'deny';
+
+export interface SenderListEntry {
+  _id: string;
+  userId: string;
+  type: SenderListType;
+  target: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Dossiers Virtuels Intelligents (Smart Folders) ---
+export interface SmartFolder {
+  _id: string;
+  userId: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  query: string;
+  accountId?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SmartFolderCount {
+  total: number;
+  unread: number;
+}
+
+export interface SmartFolderMessagesResponse {
+  data: Message[];
+  page: number;
+  limit: number;
+  total: number;
+  smartFolder: SmartFolder;
+}
+
+export interface CreateSmartFolderInput {
+  name: string;
+  icon?: string;
+  color?: string;
+  query: string;
+  accountId?: string;
+  order?: number;
+}
+
+export interface UpdateSmartFolderInput {
+  name?: string;
+  icon?: string;
+  color?: string;
+  query?: string;
+  accountId?: string | null;
+  order?: number;
+}
+

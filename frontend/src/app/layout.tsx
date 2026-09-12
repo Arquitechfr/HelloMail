@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { AuroraBackground } from "@/providers/aurora-background";
 import { Toaster } from "@/components/ui/sonner";
+import { PwaRegister } from "@/components/pwa/PwaRegister";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -27,6 +28,20 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "HelloMail — Webmail moderne",
   description: "Client webmail auto-hébergé, façon Thunderbird mais web.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "HelloMail",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon-192.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#090d16",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <QueryProvider>
             <AuroraBackground>{children}</AuroraBackground>
+            <PwaRegister />
             <Toaster richColors position="bottom-right" />
           </QueryProvider>
         </ThemeProvider>

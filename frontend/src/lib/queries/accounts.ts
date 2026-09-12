@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import type { Account, CreateImapAccountInput } from "@/lib/api-types";
+import type { Account, AccountAlias, CreateImapAccountInput, SignatureVariables } from "@/lib/api-types";
 
 export const accountKeys = {
   all: ["accounts"] as const,
@@ -55,6 +55,7 @@ export interface UpdateSignatureInput {
     enabled: boolean;
     text: string;
     html?: string;
+    variables?: SignatureVariables;
   };
 }
 
@@ -64,6 +65,30 @@ export function useUpdateSignature() {
   return useMutation({
     mutationFn: ({ id, signature }: UpdateSignatureInput) =>
       apiFetch<Account>(`/api/accounts/${id}/signature`, {
+        method: "PATCH",
+        body: JSON.stringify(signature),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: accountKeys.all }),
+  });
+}
+
+export interface UpdateAliasSignatureInput {
+  accountId: string;
+  aliasId: string;
+  signature: {
+    enabled: boolean;
+    text: string;
+    html?: string;
+    variables?: SignatureVariables;
+  };
+}
+
+/** PATCH /api/accounts/:id/aliases/:aliasId/signature — met à jour la signature d'un alias. */
+export function useUpdateAliasSignature() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, aliasId, signature }: UpdateAliasSignatureInput) =>
+      apiFetch<AccountAlias>(`/api/accounts/${accountId}/aliases/${aliasId}/signature`, {
         method: "PATCH",
         body: JSON.stringify(signature),
       }),

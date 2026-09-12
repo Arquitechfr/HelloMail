@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import type { AccountAlias } from "@/lib/api-types";
+import type { AccountAlias, SignatureConfig } from "@/lib/api-types";
 import { accountKeys } from "./accounts";
 
 export const aliasKeys = {
@@ -12,12 +12,14 @@ export interface CreateAccountAliasInput {
   name?: string;
   email: string;
   isDefault?: boolean;
+  signature?: SignatureConfig;
 }
 
 export interface UpdateAccountAliasInput {
   name?: string;
   email?: string;
   isDefault?: boolean;
+  signature?: SignatureConfig;
 }
 
 /** GET /api/accounts/:accountId/aliases — liste les alias d'un compte. */

@@ -68,6 +68,7 @@ export const sendEmailSchema = z.object({
         filename: z.string().min(1, 'Nom de fichier requis').max(255),
         content: z.string(),
         contentType: z.string().optional(),
+        cid: z.string().optional(),
       }),
     )
     .max(20, 'Maximum 20 pièces jointes')

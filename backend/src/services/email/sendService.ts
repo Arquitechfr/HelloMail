@@ -11,6 +11,7 @@ import { mapFetchResultToMessage } from '../sync/messageMapper.js';
 import { SMTP_TIMEOUT_MS } from '../../config/constants.js';
 import { getSmtpAuth } from '../auth/oauthService.js';
 import { AliasService } from '../accounts/aliasService.js';
+import { extractInlineImages } from './inlineImageService.js';
 
 export interface SendEmailInput {
   from?: {
@@ -24,7 +25,7 @@ export interface SendEmailInput {
   subject: string;
   text: string;
   html?: string;
-  attachments?: { filename: string; content: string; contentType?: string }[];
+  attachments?: { filename: string; content: string; contentType?: string; cid?: string }[];
   inReplyTo?: string;
   references?: string[];
   requestReadReceipt?: boolean;
@@ -80,6 +81,7 @@ function buildRawMime(
       filename: a.filename,
       content: Buffer.from(a.content, 'base64'),
       ...(a.contentType && { contentType: a.contentType }),
+      ...(a.cid && { cid: a.cid }),
     }));
   }
 
@@ -131,9 +133,26 @@ export async function sendEmail(
   // Résout l'authentification SMTP (password ou XOAUTH2 Google).
   const auth = await getSmtpAuth(account);
 
+  // Traitement transparent des images inline Data URI vers CID
+  let effectiveHtml = input.html;
+  let effectiveAttachments = input.attachments ? [...input.attachments] : [];
+  if (input.html) {
+    const { html: processedHtml, inlineAttachments } = extractInlineImages(input.html);
+    effectiveHtml = processedHtml;
+    if (inlineAttachments.length > 0) {
+      effectiveAttachments = [...effectiveAttachments, ...inlineAttachments];
+    }
+  }
+
+  const effectiveInput: SendEmailInput = {
+    ...input,
+    html: effectiveHtml,
+    attachments: effectiveAttachments.length > 0 ? effectiveAttachments : undefined,
+  };
+
   // Construit le raw MIME pour la sauvegarde Sent (avant l'envoi).
   const rawMime = await buildRawMime(
-    input,
+    effectiveInput,
     formattedFrom,
     senderIdentity.address,
     senderIdentity.name,
@@ -156,21 +175,22 @@ export async function sendEmail(
     const info = await transport.sendMail({
       from: formattedFrom,
       sender: senderHeader,
-      to: input.to.join(', '),
-      cc: input.cc?.join(', '),
-      bcc: input.bcc?.join(', '),
-      replyTo: input.replyTo || (senderIdentity.isAlias ? senderIdentity.address : undefined),
-      subject: input.subject,
-      text: input.text,
-      html: input.html,
-      attachments: input.attachments?.map((a) => ({
+      to: effectiveInput.to.join(', '),
+      cc: effectiveInput.cc?.join(', '),
+      bcc: effectiveInput.bcc?.join(', '),
+      replyTo: effectiveInput.replyTo || (senderIdentity.isAlias ? senderIdentity.address : undefined),
+      subject: effectiveInput.subject,
+      text: effectiveInput.text,
+      html: effectiveInput.html,
+      attachments: effectiveInput.attachments?.map((a) => ({
         filename: a.filename,
         content: Buffer.from(a.content, 'base64'),
         ...(a.contentType && { contentType: a.contentType }),
+        ...(a.cid && { cid: a.cid }),
       })),
-      inReplyTo: input.inReplyTo,
-      references: input.references?.join(' '),
-      headers: input.requestReadReceipt
+      inReplyTo: effectiveInput.inReplyTo,
+      references: effectiveInput.references?.join(' '),
+      headers: effectiveInput.requestReadReceipt
         ? getReadReceiptHeaders(senderIdentity.address, senderIdentity.name)
         : undefined,
     });

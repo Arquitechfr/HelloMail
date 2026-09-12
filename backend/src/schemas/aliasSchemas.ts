@@ -1,16 +1,20 @@
 import { z } from 'zod';
 import { emailSchema } from './commonSchemas.js';
 
+import { updateSignatureSchema } from './accountSchemas.js';
+
 export const createAliasSchema = z.object({
   name: z.string().trim().max(120, "Le nom d'affichage ne peut pas dépasser 120 caractères").optional(),
   email: emailSchema,
   isDefault: z.boolean().optional(),
+  signature: updateSignatureSchema.optional(),
 });
 
 export const updateAliasSchema = z.object({
   name: z.string().trim().max(120, "Le nom d'affichage ne peut pas dépasser 120 caractères").optional(),
   email: emailSchema.optional(),
   isDefault: z.boolean().optional(),
+  signature: updateSignatureSchema.optional(),
 });
 
 export const accountAliasParamsSchema = z.object({

@@ -10,6 +10,7 @@ import { logger } from '../../config/logger.js';
 import { parseICalendar, type CalendarEventInfo } from './calendarService.js';
 import { addSenderContactIfEnabled } from '../contacts/contactService.js';
 import { parseUnsubscribeHeaders, type UnsubscribeInfo } from './unsubscribeService.js';
+import { parseEmailSecurityHeaders, type EmailSecuritySummary } from '../security/emailSecurityService.js';
 
 /** Taille max cumulée (texte + html) stockée en cache — ~2 Mo. */
 const MAX_CACHED_BODY_BYTES = 2 * 1024 * 1024;
@@ -41,6 +42,7 @@ export interface MessageDetail {
   readReceiptSentAt?: string;
   calendarEvent?: CalendarEventInfo;
   unsubscribeInfo?: UnsubscribeInfo;
+  securitySummary?: EmailSecuritySummary;
 }
 
 interface ParsedParts {
@@ -284,6 +286,7 @@ export async function fetchMessageDetail(
       readReceiptSentAt: dbMsg?.readReceiptSentAt ? dbMsg.readReceiptSentAt.toISOString() : undefined,
       calendarEvent,
       unsubscribeInfo: parseUnsubscribeHeaders(headers),
+      securitySummary: parseEmailSecurityHeaders(headers, fromAddress.address),
     };
   } finally {
     imapPool.release(accountId);

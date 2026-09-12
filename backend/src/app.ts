@@ -24,6 +24,8 @@ import logoRoutes from './routes/logoRoutes.js';
 import { unifiedRoutes } from './routes/unifiedRoutes.js';
 import { scheduledMessagesRoutes } from './routes/scheduledMessagesRoutes.js';
 import pgpRoutes from './routes/pgpRoutes.js';
+import { senderListRoutes } from './routes/senderListRoutes.js';
+import smartFoldersRoutes from './routes/smartFoldersRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
@@ -79,6 +81,8 @@ async function bootstrap(): Promise<void> {
   app.use('/api/logos', logoRoutes);
   app.use('/api/unified', unifiedRoutes);
   app.use('/api/pgp', pgpRoutes);
+  app.use('/api/sender-lists', senderListRoutes);
+  app.use('/api/smart-folders', smartFoldersRoutes);
   app.use('/api', eventsRoutes);
 
   app.use(notFound);

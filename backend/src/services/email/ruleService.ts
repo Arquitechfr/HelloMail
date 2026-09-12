@@ -13,6 +13,7 @@ import {
   resolveDestinationUids,
   relocateLocalMessage,
 } from './messageRelocation.js';
+import { SenderListService } from '../security/senderListService.js';
 
 export interface MessageRuleEvaluatorInput {
   subject?: string;
@@ -177,6 +178,45 @@ export function evaluateRule(rule: IRule, message: MessageRuleEvaluatorInput): b
 /**
  * Applique les règles actives d'un utilisateur sur un nouveau message reçu.
  */
+async function moveToJunkFolder(
+  account: { _id: Types.ObjectId },
+  message: { _id: Types.ObjectId; folder: string; uid: number; flags?: { seen?: boolean } },
+  imapClient: ImapFlow,
+): Promise<void> {
+  let target = 'Junk';
+  const fullAccount = await AccountModel.findById(account._id);
+  if (fullAccount) {
+    const junkFolder = await findJunkFolder(fullAccount);
+    if (junkFolder) target = junkFolder;
+  }
+  const accountId = String(account._id);
+  const sourceFolder = message.folder;
+  const messageSeen = message.flags?.seen === true;
+  const moveResult = await safeMoveMessages(
+    imapClient,
+    message.uid,
+    target,
+    'Action de règle échouée',
+  );
+  const targetMessages = [message as unknown as Parameters<typeof resolveDestinationUids>[2][number]];
+  const uidMap = await resolveDestinationUids(imapClient, target, targetMessages, moveResult, { fetchFallback: false });
+  const destUid = uidMap.get(message.uid);
+  if (destUid) {
+    await relocateLocalMessage(accountId, sourceFolder, targetMessages[0], target, destUid);
+  } else {
+    await MessageModel.updateOne({ _id: message._id }, { $set: { folder: target } });
+  }
+  adjustFolderCounters(accountId, sourceFolder, {
+    messagesDelta: -1,
+    unseenDelta: messageSeen ? 0 : -1,
+  }).catch(() => {});
+  adjustFolderCounters(accountId, target, {
+    messagesDelta: 1,
+    unseenDelta: messageSeen ? 0 : 1,
+  }).catch(() => {});
+  message.folder = target;
+}
+
 export async function applyRulesToIncomingMessage(
   account: { _id: Types.ObjectId; userId: Types.ObjectId },
   message: {
@@ -191,6 +231,18 @@ export async function applyRulesToIncomingMessage(
   },
   imapClient: ImapFlow,
 ): Promise<void> {
+  // 1. Contrôle prioritaire de la liste blanche / noire d'expéditeurs (Phase 19)
+  const senderStatus = await SenderListService.checkSenderStatus(
+    String(account.userId),
+    message.from?.address,
+  ).catch(() => null);
+
+  if (senderStatus === 'deny') {
+    logger.info({ uid: message.uid, from: message.from?.address }, 'Expéditeur bloqué (denylist) : message déplacé en Spam');
+    await moveToJunkFolder(account, message, imapClient);
+    return;
+  }
+
   const rules = await RuleModel.find({
     userId: account.userId,
     isActive: true,
@@ -258,41 +310,11 @@ export async function applyRulesToIncomingMessage(
           await imapClient.messageFlagsAdd(message.uid, ['\\Flagged'], { uid: true });
           await MessageModel.updateOne({ _id: message._id }, { $set: { 'flags.flagged': true } });
         } else if (action.type === 'markAsJunk') {
-          let target = 'Junk';
-          const fullAccount = await AccountModel.findById(account._id);
-          if (fullAccount) {
-            const junkFolder = await findJunkFolder(fullAccount);
-            if (junkFolder) target = junkFolder;
+          if (senderStatus === 'allow') {
+            logger.info({ uid: message.uid, from: message.from?.address }, 'Expéditeur sur liste blanche : action markAsJunk ignorée');
+            continue;
           }
-          const sourceFolder = message.folder;
-          const moveResult = await safeMoveMessages(
-            imapClient,
-            message.uid,
-            target,
-            'Action de règle échouée',
-          );
-          const uidMap = await resolveDestinationUids(
-            imapClient,
-            target,
-            [message],
-            moveResult,
-            { fetchFallback: false },
-          );
-          const destUid = uidMap.get(message.uid);
-          if (destUid) {
-            await relocateLocalMessage(accountId, sourceFolder, message, target, destUid);
-          } else {
-            await MessageModel.updateOne({ _id: message._id }, { $set: { folder: target } });
-          }
-          adjustFolderCounters(accountId, sourceFolder, {
-            messagesDelta: -1,
-            unseenDelta: messageSeen ? 0 : -1,
-          }).catch(() => {});
-          adjustFolderCounters(accountId, target, {
-            messagesDelta: 1,
-            unseenDelta: messageSeen ? 0 : 1,
-          }).catch(() => {});
-          message.folder = target;
+          await moveToJunkFolder(account, message, imapClient);
         } else if (action.type === 'delete') {
           const deleted = await imapClient.messageDelete(message.uid, { uid: true });
           if (deleted === false) {
