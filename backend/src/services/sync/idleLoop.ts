@@ -72,32 +72,49 @@ export async function runIdleLoop(
               unseenDelta: messageInput.flags?.seen ? 0 : 1,
             }).catch(() => {});
           }
-          // Notifie le frontend du nouveau message.
-          publishEvent({
-            type: 'message:new',
-            accountId,
-            userId,
-            payload: { folder: messageInput.folder, uid: messageInput.uid },
-          }).catch(() => {});
 
-          // Évaluation et application des règles de tri automatique
+          // Évaluation et application des règles de tri automatique AVANT notification
+          let finalFolder = messageInput.folder;
+          let finalUid = messageInput.uid;
+          let isDeleted = false;
+
           const savedMsg = await MessageModel.findOne({
             accountId,
             folder: messageInput.folder,
             uid: messageInput.uid,
           });
           if (savedMsg) {
-            applyRulesToIncomingMessage(
-              { _id: new Types.ObjectId(accountId), userId: new Types.ObjectId(userId) },
-              savedMsg,
-              client,
-            ).catch((ruleErr) => {
+            try {
+              await applyRulesToIncomingMessage(
+                { _id: new Types.ObjectId(accountId), userId: new Types.ObjectId(userId) },
+                savedMsg,
+                client,
+              );
+              const currentMsg = await MessageModel.findById(savedMsg._id);
+              if (!currentMsg) {
+                isDeleted = true;
+              } else {
+                finalFolder = currentMsg.folder;
+                finalUid = currentMsg.uid;
+              }
+            } catch (ruleErr) {
               logger.error(
                 { error: ruleErr instanceof Error ? ruleErr.message : 'inconnu' },
                 'Erreur exécution règles de tri',
               );
-            });
+            }
           }
+
+          // Notifie le frontend du nouveau message avec son dossier réel définitif
+          if (!isDeleted) {
+            publishEvent({
+              type: 'message:new',
+              accountId,
+              userId,
+              payload: { folder: finalFolder, uid: finalUid },
+            }).catch(() => {});
+          }
+
 
           // Ajout auto de l'expéditeur au carnet d'adresses (opt-in utilisateur,
           // best-effort — aucune erreur ne doit interrompre la sync).

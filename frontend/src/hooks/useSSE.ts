@@ -65,9 +65,12 @@ export function useSSE(enabled: boolean) {
   const handleRealtimeEvent = (event: RealtimeEvent) => {
     switch (event.type) {
       case "message:new": {
-        qc.invalidateQueries({ queryKey: ["messages", event.accountId], refetchType: "active" });
-        qc.invalidateQueries({ queryKey: ["folders", event.accountId], refetchType: "active" });
-        qc.invalidateQueries({ queryKey: ["unified"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["messages"], refetchType: "all" });
+        qc.refetchQueries({ queryKey: ["messages"], type: "active" });
+        qc.invalidateQueries({ queryKey: ["folders"] });
+        qc.invalidateQueries({ queryKey: ["unified"], refetchType: "all" });
+        qc.invalidateQueries({ queryKey: ["smart-folders"] });
+        qc.invalidateQueries({ queryKey: ["smart-folder-messages"], refetchType: "all" });
 
         const uiState = useUIStore.getState();
         if (uiState.notificationSoundEnabled) {
@@ -86,6 +89,8 @@ export function useSSE(enabled: boolean) {
               uiState.setSelectedAccount(event.accountId);
               uiState.setSelectedFolder(targetFolder);
               if (targetUid) uiState.setSelectedUid(targetUid);
+              qc.invalidateQueries({ queryKey: ["messages"], refetchType: "all" });
+              qc.refetchQueries({ queryKey: ["messages"], type: "active" });
             },
           });
         }
@@ -94,11 +99,15 @@ export function useSSE(enabled: boolean) {
 
       case "message:deleted":
       case "message:flags": {
-        qc.invalidateQueries({ queryKey: ["messages", event.accountId] });
-        qc.invalidateQueries({ queryKey: ["folders", event.accountId] });
-        qc.invalidateQueries({ queryKey: ["unified"] });
+        qc.invalidateQueries({ queryKey: ["messages"], refetchType: "all" });
+        qc.refetchQueries({ queryKey: ["messages"], type: "active" });
+        qc.invalidateQueries({ queryKey: ["folders"] });
+        qc.invalidateQueries({ queryKey: ["unified"], refetchType: "all" });
+        qc.invalidateQueries({ queryKey: ["smart-folders"] });
+        qc.invalidateQueries({ queryKey: ["smart-folder-messages"], refetchType: "all" });
         break;
       }
+
 
       case "account:syncError": {
         qc.invalidateQueries({ queryKey: ["accounts"] });

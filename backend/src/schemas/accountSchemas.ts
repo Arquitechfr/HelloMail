@@ -46,3 +46,8 @@ export const updateAccountSchema = z.object({
   displayName: z.string().max(120, 'Le nom d\'affichage ne peut pas dépasser 120 caractères').optional(),
   color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Format de couleur hexadécimal invalide').optional(),
 });
+
+export const syncFolderQuerySchema = z.object({
+  folder: z.string().max(255).optional(),
+});
+

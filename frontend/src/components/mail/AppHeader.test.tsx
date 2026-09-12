@@ -85,4 +85,19 @@ describe("AppHeader - Statut Réseau", () => {
     expect(screen.getByTestId("network-status-syncing")).toBeInTheDocument();
     expect(screen.getByText("Synchronisation...")).toBeInTheDocument();
   });
+
+  it("affiche le bouton Sync et permet de déclencher une synchronisation", async () => {
+    mockNetworkStatus = {
+      isOnline: true,
+      pendingCount: 0,
+      isSyncing: false,
+    };
+
+    renderWithProviders();
+
+    const syncButton = screen.getByTitle("Synchroniser les emails (Cmd+R)");
+    expect(syncButton).toBeInTheDocument();
+    expect(syncButton).not.toBeDisabled();
+  });
 });
+

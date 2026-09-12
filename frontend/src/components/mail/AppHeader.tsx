@@ -18,13 +18,17 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNetworkStatus } from "@/lib/offline/useNetworkStatus";
+import { useAccounts, useSyncAccount } from "@/lib/queries/accounts";
 
 export function AppHeader() {
   const queryClient = useQueryClient();
   const isFetchingMessages = useIsFetching({ queryKey: ["messages"] }) > 0;
+  const { data: accounts } = useAccounts();
+  const syncAccountMutation = useSyncAccount();
   const {
     openCompose,
     openSearch,
+    selectedAccountId,
     selectedFolder,
     toggleMobileSidebar,
     setShortcutsDialogOpen,
@@ -33,22 +37,39 @@ export function AppHeader() {
   const [manualSyncing, setManualSyncing] = useState(false);
 
   const handleRefresh = async () => {
-    try {
-      setManualSyncing(true);
+    const targetAccountId = selectedAccountId || accounts?.[0]?._id;
+    if (!targetAccountId) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["messages"] }),
         queryClient.invalidateQueries({ queryKey: ["folders"] }),
         queryClient.invalidateQueries({ queryKey: ["accounts"] }),
       ]);
-      toast.success("Synchronisation effectuée");
-    } catch {
-      toast.error("Échec de la synchronisation");
+      toast.info("Boîte de réception à jour");
+      return;
+    }
+
+    try {
+      setManualSyncing(true);
+      const res = await syncAccountMutation.mutateAsync({
+        accountId: targetAccountId,
+        folder: selectedFolder || "INBOX",
+      });
+      if (res.syncedCount > 0) {
+        toast.success(
+          `Synchronisation terminée (${res.syncedCount} nouveau${res.syncedCount > 1 ? "x" : ""} message${res.syncedCount > 1 ? "s" : ""})`,
+        );
+      } else {
+        toast.info("Boîte de réception à jour");
+      }
+    } catch (err) {
+      await queryClient.invalidateQueries({ queryKey: ["messages"] }).catch(() => {});
+      toast.error(err instanceof Error ? err.message : "Échec de la synchronisation");
     } finally {
       setTimeout(() => setManualSyncing(false), 500);
     }
   };
 
-  const isSyncing = isFetchingMessages || manualSyncing;
+  const isSyncing = isFetchingMessages || manualSyncing || syncAccountMutation.isPending;
 
   return (
     <header className="fixed top-0 inset-x-0 h-13 z-40 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur-md px-3 sm:px-4 select-none">

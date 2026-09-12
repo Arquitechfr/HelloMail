@@ -138,3 +138,39 @@ export function useRefreshAccountQuota() {
     },
   });
 }
+
+export interface SyncAccountResult {
+  success: boolean;
+  syncedCount: number;
+  deletedCount: number;
+  folder: string;
+  syncedAt: string;
+}
+
+export interface SyncAccountInput {
+  accountId: string;
+  folder?: string;
+}
+
+/** POST /api/accounts/:id/sync — déclenche une synchronisation IMAP à la demande. */
+export function useSyncAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, folder }: SyncAccountInput) => {
+      const url = folder
+        ? `/api/accounts/${accountId}/sync?folder=${encodeURIComponent(folder)}`
+        : `/api/accounts/${accountId}/sync`;
+      return apiFetch<SyncAccountResult>(url, { method: "POST" });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["messages"], refetchType: "all" });
+      qc.refetchQueries({ queryKey: ["messages"], type: "active" });
+      qc.invalidateQueries({ queryKey: ["folders"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["unified"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["smart-folders"] });
+      qc.invalidateQueries({ queryKey: ["smart-folder-messages"], refetchType: "all" });
+    },
+  });
+}
+

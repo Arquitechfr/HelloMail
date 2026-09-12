@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AccountService } from '../services/accounts/accountService.js';
 import { detectEmailConfig } from '../services/accounts/autoconfigService.js';
+import { syncAccountOnDemand } from '../services/email/onDemandSyncService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -71,3 +72,12 @@ export const getQuota = asyncHandler(
     res.status(200).json(quota);
   },
 );
+
+export const syncOnDemand = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+    const folder = req.query.folder ? String(req.query.folder) : undefined;
+    const result = await syncAccountOnDemand(req.params.id, req.user.id, folder);
+    res.status(200).json(result);
+  },
+);
+

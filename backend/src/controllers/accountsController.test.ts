@@ -12,6 +12,16 @@ vi.mock('../services/email/connectionTest.js', () => ({
   testSmtpConnection: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../services/email/onDemandSyncService.js', () => ({
+  syncAccountOnDemand: vi.fn().mockResolvedValue({
+    success: true,
+    syncedCount: 2,
+    deletedCount: 0,
+    folder: 'INBOX',
+    syncedAt: new Date().toISOString(),
+  }),
+}));
+
 vi.mock('../services/email/imapQuotaService.js', () => ({
   getAccountQuota: vi.fn().mockResolvedValue({
     supported: true,
@@ -219,5 +229,25 @@ describe('Accounts routes (intégration)', () => {
     expect(res.body.supported).toBe(true);
     expect(res.body.percentage).toBe(10);
     expect(res.body.usedBytes).toBe(1048576);
+  });
+
+  it('POST /api/accounts/:id/sync → 200 synchronise le compte à la demande', async () => {
+    const token = await registerAndLogin(app, 'sync-api@test.com');
+
+    const createRes = await request(app)
+      .post('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validAccountBody);
+
+    const accountId = createRes.body._id;
+
+    const res = await request(app)
+      .post(`/api/accounts/${accountId}/sync?folder=INBOX`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.syncedCount).toBe(2);
+    expect(res.body.folder).toBe('INBOX');
   });
 });

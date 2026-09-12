@@ -9,6 +9,7 @@ import {
   autoconfigQuerySchema,
   updateSignatureSchema,
   updateAccountSchema,
+  syncFolderQuerySchema,
 } from '../schemas/accountSchemas.js';
 import { accountAliasesRoutes } from './accountAliasesRoutes.js';
 
@@ -19,6 +20,12 @@ router.use('/:id/aliases', accountAliasesRoutes);
 router.get('/autoconfig', requireAuth, validate({ query: autoconfigQuerySchema }), accountsController.autoconfig);
 router.post('/', requireAuth, validate({ body: createImapAccountSchema }), accountsController.create);
 router.get('/', requireAuth, accountsController.list);
+router.post(
+  '/:id/sync',
+  requireAuth,
+  validate({ params: accountIdParamSchema, query: syncFolderQuerySchema }),
+  accountsController.syncOnDemand,
+);
 router.patch(
   '/:id',
   requireAuth,
