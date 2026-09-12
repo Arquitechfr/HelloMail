@@ -33,6 +33,9 @@ export interface UserPreferences {
   autoAddContacts?: boolean; // ajout auto des expéditeurs au carnet d'adresses
   unifiedFoldersEnabled?: boolean;
   unifiedFolders?: UnifiedFolderConfig[];
+  displayDensity?: "compact" | "comfortable" | "spacious";
+  swipeRightAction?: "toggle_read" | "archive" | "star" | "trash" | "junk" | "none";
+  swipeLeftAction?: "toggle_read" | "archive" | "star" | "trash" | "junk" | "none";
 }
 
 export interface User {

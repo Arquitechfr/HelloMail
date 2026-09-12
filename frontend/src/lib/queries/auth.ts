@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import type { AuthResponse, User, LoginResponse, TwoFAStatus, TOTPSetupResponse, EnableTOTPResponse, UserPreferences } from "@/lib/api-types";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { useUIStore } from "@/lib/stores/uiStore";
 
 export const authKeys = {
   me: ["auth", "me"] as const,
@@ -132,6 +133,19 @@ export function useUpdatePreferences() {
     onSuccess: (data) => {
       if (accessToken && data.user) {
         setAuth(accessToken, data.user);
+      }
+      if (data.user?.preferences) {
+        const { displayDensity, swipeRightAction, swipeLeftAction } = data.user.preferences;
+        const ui = useUIStore.getState();
+        if (displayDensity && displayDensity !== ui.displayDensity) {
+          ui.setDisplayDensity(displayDensity);
+        }
+        if (swipeRightAction && swipeRightAction !== ui.swipeRightAction) {
+          ui.setSwipeRightAction(swipeRightAction);
+        }
+        if (swipeLeftAction && swipeLeftAction !== ui.swipeLeftAction) {
+          ui.setSwipeLeftAction(swipeLeftAction);
+        }
       }
       qc.invalidateQueries({ queryKey: authKeys.me });
     },

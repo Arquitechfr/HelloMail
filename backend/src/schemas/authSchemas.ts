@@ -51,6 +51,9 @@ export const updatePreferencesSchema = z.object({
   autoAddContacts: z.boolean().optional(),
   unifiedFoldersEnabled: z.boolean().optional(),
   unifiedFolders: z.array(unifiedFolderConfigSchema).optional(),
+  displayDensity: z.enum(['compact', 'comfortable', 'spacious']).optional(),
+  swipeRightAction: z.enum(['toggle_read', 'archive', 'star', 'trash', 'junk', 'none']).optional(),
+  swipeLeftAction: z.enum(['toggle_read', 'archive', 'star', 'trash', 'junk', 'none']).optional(),
 });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 

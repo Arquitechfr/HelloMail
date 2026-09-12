@@ -36,12 +36,17 @@ const mockSelectRangeUids = vi.fn();
 let mockSelectedUids: number[] = [];
 
 vi.mock("@/lib/stores/uiStore", () => ({
-  useUIStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
+  useUIStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+    const state = {
       selectedUids: mockSelectedUids,
       toggleSelectUid: mockToggleSelectUid,
       selectRangeUids: mockSelectRangeUids,
-    }),
+      displayDensity: "comfortable",
+      swipeRightAction: "toggle_read",
+      swipeLeftAction: "trash",
+    };
+    return typeof selector === "function" ? selector(state) : state;
+  },
 }));
 
 describe("MessageListItem prefetching", () => {

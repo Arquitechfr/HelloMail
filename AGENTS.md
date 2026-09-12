@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (945 tests, 138 fichiers — 675 backend + 270 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (954 tests, 140 fichiers — 677 backend + 277 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-26 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-26 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-27 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-27 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -180,4 +180,11 @@ Mailora/
   - **Lot 26.4 : Intégration frontend, Store, Requêtes TanStack & Écoute SSE** : Schémas et types TypeScript stricts (`reminders.ts`), hooks TanStack Query (`useMessageReminder`, `useCreateReminder`, `useSnoozeReminder`, `useDismissReminder`, `useCancelReminder`), gestionnaire d'événements SSE dans `useSSE.ts` avec toasts interactifs pour les rappels échus et résolus.
   - **Lot 26.5 : Interface utilisateur, Dialogues, Bannière et Navigation** : Dialogue modal complet `FollowUpDialog.tsx` avec presets intelligents (+2j, +4j, +1sem, +2sem), sélection personnalisée et gestion de note ; composant `FollowUpBanner.tsx` réactif dans `MessageReader` (état `triggered` avec bouton « Relancer », reports rapides « +2j », « +1 sem », acquittement « Traiter » ; état `pending` avec modification/annulation ; état `replied` informatif) ; bouton dédié dans `MessageToolbar` (`BellRing`) ; programmation à l'envoi dans `ComposeForm` et `ComposeActions` ; entrée dédiée au dossier virtuel `__reminders__` dans `AccountSidebar` ; titre dynamique lisible dans `MessageListHeader` et badges d'état visuels dans `MessageListItem`, 8 tests unitaires.
   - Couverture globale : **675 tests Vitest backend (79 fichiers), 270 tests Vitest frontend (59 fichiers) — 945 tests au total, 0 `as any`**.
+- **Phase 27 : Actions Rapides Tactiles (Swipe Gestures) & Densité d'Affichage (Intégralité livrée)** ✅ :
+  - **Lot 27.1 : Backend — Persistance des préférences de densité & gestes** : Champs `displayDensity` (`compact`, `comfortable`, `spacious`), `swipeRightAction` et `swipeLeftAction` (`toggle_read`, `archive`, `star`, `trash`, `junk`, `none`) sur `IUserPreferences` et `userSchema.preferences` dans `User.ts`, validation Zod stricte `updatePreferencesSchema`, contrôleur `authController.updatePreferences`, 9 tests unitaires validés.
+  - **Lot 27.2 : Frontend — Typage, Store UI & Hydratation réactive** : Module `display.ts` avec constantes d'options et hauteurs associées (44px, 72px, 92px), extension de `uiStore.ts` avec setters et persistance locale `mailora-ui`, synchronisation automatique dans `useUpdatePreferences` (`auth.ts`).
+  - **Lot 27.3 : Sélecteur de Densité & Réglages d'Apparence** : Sélecteur compact `DensitySelector.tsx` intégré dans `MessageListHeader.tsx` avec menu déroulant et mise à jour instantanée, cartes dédiées `DisplayDensitySettings.tsx` (prévisualisation interactive) et `SwipeActionsSettings.tsx` (configuration visuelle des actions gauche/droite) intégrées dans `/mail/settings?section=appearance`.
+  - **Lot 27.4 : Adaptabilité graphique & Virtualisation de `MessageListItem`** : `estimateSize` dynamique dans `MessageList.tsx` (44px / 72px / 92px) avec remesure automatique TanStack Virtual `virtualizer.measure()`, adaptation des espacements, de la taille des avatars et des badges dans `MessageListItem.tsx` garantissant la tenue stricte du layout sous 300 lignes (289 lignes).
+  - **Lot 27.5 : Gestes tactiles de balayage (`SwipeableMessageItem`)** : Wrapper `SwipeableMessageItem.tsx` sous `framer-motion` avec détection tactile exclusive (immunité totale du Drag & Drop natif HTML5 vers les dossiers sur desktop), verrouillage directionnel `pan-y` et seuil d'activation 80px avec micro-vibration haptique (`navigator.vibrate`), révélation d'arrières-plans colorés et icônes animées, déclenchement immédiat de `useMessageActions` au relâchement.
+  - Couverture globale : **677 tests Vitest backend (79 fichiers), 277 tests Vitest frontend (61 fichiers) — 954 tests au total, 0 `as any`**.
 

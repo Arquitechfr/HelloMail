@@ -2,10 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { RestoredComposeData } from "./undoSendStore";
+import type { DisplayDensity, SwipeAction } from "@/lib/types/display";
 
 /**
  * Store UI — état de l'interface (compte/dossier/message sélectionnés, compose).
- * Persisté partiellement (compte/dossier sélectionnés) via localStorage.
+ * Persisté partiellement (compte/dossier sélectionnés, densité, swipe) via localStorage.
  * Aucun secret/token stocké ici.
  */
 type ComposeMode = "new" | "reply" | "forward";
@@ -26,6 +27,9 @@ interface UIState {
   lastSelectedUid: number | null;
   desktopNotificationsEnabled: boolean;
   notificationSoundEnabled: boolean;
+  displayDensity: DisplayDensity;
+  swipeRightAction: SwipeAction;
+  swipeLeftAction: SwipeAction;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedFolder: (folder: string) => void;
   setSelectedTag: (tag: string | null) => void;
@@ -49,6 +53,10 @@ interface UIState {
   closeSearch: () => void;
   setDesktopNotificationsEnabled: (enabled: boolean) => void;
   setNotificationSoundEnabled: (enabled: boolean) => void;
+  setDisplayDensity: (density: DisplayDensity) => void;
+  setSwipeRightAction: (action: SwipeAction) => void;
+  setSwipeLeftAction: (action: SwipeAction) => void;
+  setSwipeActions: (actions: { swipeRightAction?: SwipeAction; swipeLeftAction?: SwipeAction }) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -69,6 +77,9 @@ export const useUIStore = create<UIState>()(
       searchDialogOpen: false,
       desktopNotificationsEnabled: true,
       notificationSoundEnabled: true,
+      displayDensity: "comfortable",
+      swipeRightAction: "toggle_read",
+      swipeLeftAction: "trash",
       setSelectedAccount: (accountId) =>
         set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
       setSelectedFolder: (folder) =>
@@ -131,6 +142,10 @@ export const useUIStore = create<UIState>()(
       closeSearch: () => set({ searchDialogOpen: false }),
       setDesktopNotificationsEnabled: (enabled) => set({ desktopNotificationsEnabled: enabled }),
       setNotificationSoundEnabled: (enabled) => set({ notificationSoundEnabled: enabled }),
+      setDisplayDensity: (density) => set({ displayDensity: density }),
+      setSwipeRightAction: (action) => set({ swipeRightAction: action }),
+      setSwipeLeftAction: (action) => set({ swipeLeftAction: action }),
+      setSwipeActions: (actions) => set((state) => ({ ...state, ...actions })),
     }),
     {
       name: "mailora-ui",
@@ -139,6 +154,9 @@ export const useUIStore = create<UIState>()(
         selectedFolder: state.selectedFolder,
         desktopNotificationsEnabled: state.desktopNotificationsEnabled,
         notificationSoundEnabled: state.notificationSoundEnabled,
+        displayDensity: state.displayDensity,
+        swipeRightAction: state.swipeRightAction,
+        swipeLeftAction: state.swipeLeftAction,
       }),
     },
   ),

@@ -90,6 +90,9 @@ export const updatePreferences = asyncHandler(async (req: AuthenticatedRequest, 
   if (req.body.autoAddContacts !== undefined) update['preferences.autoAddContacts'] = req.body.autoAddContacts;
   if (req.body.unifiedFoldersEnabled !== undefined) update['preferences.unifiedFoldersEnabled'] = req.body.unifiedFoldersEnabled;
   if (req.body.unifiedFolders !== undefined) update['preferences.unifiedFolders'] = req.body.unifiedFolders;
+  if (req.body.displayDensity !== undefined) update['preferences.displayDensity'] = req.body.displayDensity;
+  if (req.body.swipeRightAction !== undefined) update['preferences.swipeRightAction'] = req.body.swipeRightAction;
+  if (req.body.swipeLeftAction !== undefined) update['preferences.swipeLeftAction'] = req.body.swipeLeftAction;
 
   const user = await UserModel.findByIdAndUpdate(
     req.user.id,

@@ -195,3 +195,9 @@ export const ChevronLeft = makeIcon();
 export const ChevronRight = makeIcon();
 export const Video = makeIcon();
 export const Volume2 = makeIcon();
+export const Rows3 = makeIcon();
+export const StretchHorizontal = makeIcon();
+export const AlignJustify = makeIcon();
+export const Hand = makeIcon();
+export const AlertOctagon = makeIcon();
+

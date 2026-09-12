@@ -120,4 +120,38 @@ describe('User Preferences API (Lot 9.2)', () => {
     expect(meRes.status).toBe(200);
     expect(meRes.body.user.preferences?.undoSendDelay).toBe(15);
   });
+
+  it('PATCH /preferences met à jour displayDensity et swipeActions → 200', async () => {
+    const token = await registerAndGetToken();
+
+    const res = await request(app)
+      .patch('/api/auth/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        displayDensity: 'compact',
+        swipeRightAction: 'archive',
+        swipeLeftAction: 'junk',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.preferences.displayDensity).toBe('compact');
+    expect(res.body.user.preferences.swipeRightAction).toBe('archive');
+    expect(res.body.user.preferences.swipeLeftAction).toBe('junk');
+  });
+
+  it('PATCH /preferences rejette des options de densité ou swipe invalides → 400', async () => {
+    const token = await registerAndGetToken();
+
+    const resDensity = await request(app)
+      .patch('/api/auth/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ displayDensity: 'ultra-wide' });
+    expect(resDensity.status).toBe(400);
+
+    const resSwipe = await request(app)
+      .patch('/api/auth/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ swipeRightAction: 'explode' });
+    expect(resSwipe.status).toBe(400);
+  });
 });

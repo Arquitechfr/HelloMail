@@ -15,11 +15,17 @@ export interface IUnifiedFolderConfig {
   order: number;
 }
 
+export type DisplayDensity = 'compact' | 'comfortable' | 'spacious';
+export type SwipeAction = 'toggle_read' | 'archive' | 'star' | 'trash' | 'junk' | 'none';
+
 export interface IUserPreferences {
   undoSendDelay?: number; // 0, 5, 10, 15, 30 secondes (défaut: 5)
   autoAddContacts?: boolean; // ajout auto des expéditeurs au carnet (défaut: false)
   unifiedFoldersEnabled?: boolean; // activation globale des dossiers unifiés (défaut: true)
   unifiedFolders?: IUnifiedFolderConfig[]; // liste ordonnée et filtrée des boîtes unifiées
+  displayDensity?: DisplayDensity; // compact, comfortable, spacious (défaut: comfortable)
+  swipeRightAction?: SwipeAction; // toggle_read, archive, star, none (défaut: toggle_read)
+  swipeLeftAction?: SwipeAction; // trash, junk, archive, none (défaut: trash)
 }
 
 export interface IUserDocument extends Document {
@@ -109,6 +115,21 @@ const userSchema = new Schema<IUserDocument>(
           },
         ],
         default: undefined,
+      },
+      displayDensity: {
+        type: String,
+        enum: ['compact', 'comfortable', 'spacious'],
+        default: 'comfortable',
+      },
+      swipeRightAction: {
+        type: String,
+        enum: ['toggle_read', 'archive', 'star', 'trash', 'junk', 'none'],
+        default: 'toggle_read',
+      },
+      swipeLeftAction: {
+        type: String,
+        enum: ['toggle_read', 'archive', 'star', 'trash', 'junk', 'none'],
+        default: 'trash',
       },
     },
     defaultsSeededAt: {

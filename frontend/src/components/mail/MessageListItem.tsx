@@ -13,7 +13,9 @@ import { TagBadge } from "./TagBadge";
 import { EmailAvatar } from "./EmailAvatar";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageQuickActions } from "./MessageQuickActions";
+import { SwipeableMessageItem } from "./SwipeableMessageItem";
 import { useUIStore } from "@/lib/stores/uiStore";
+import type { SwipeAction } from "@/lib/types/display";
 import { Paperclip, Star, Clock, Pin, Check, BellRing } from "lucide-react";
 
 interface MessageListItemProps {
@@ -38,11 +40,18 @@ export function MessageListItem({
   const isUnread = !message.flags.seen;
   const isFlagged = message.flags.flagged;
   const isPinned = Boolean(message.isPinned);
-  const selectedUids = useUIStore((s) => s.selectedUids);
+
+  const selectedUids = useUIStore((s) => s.selectedUids) ?? [];
   const toggleSelectUid = useUIStore((s) => s.toggleSelectUid);
   const selectRangeUids = useUIStore((s) => s.selectRangeUids);
+  const displayDensity = useUIStore((s) => s.displayDensity) ?? "comfortable";
+  const swipeRightAction = useUIStore((s) => s.swipeRightAction) ?? "none";
+  const swipeLeftAction = useUIStore((s) => s.swipeLeftAction) ?? "none";
+
   const isBatchSelected = selectedUids.includes(message.uid);
   const hasBatchSelection = selectedUids.length > 0;
+  const isCompact = displayDensity === "compact";
+  const isSpacious = displayDensity === "spacious";
 
   const { data: tagsData } = useTags();
   const { data: folders } = useFolders(accountId);
@@ -61,9 +70,7 @@ export function MessageListItem({
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = useCallback(() => {
-    if (prefetchTimerRef.current) {
-      clearTimeout(prefetchTimerRef.current);
-    }
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
     prefetchTimerRef.current = setTimeout(() => {
       queryClient.prefetchQuery({
         queryKey: messageKeys.detail(accountId, folder, message.uid),
@@ -82,17 +89,9 @@ export function MessageListItem({
 
   useEffect(() => {
     return () => {
-      if (prefetchTimerRef.current) {
-        clearTimeout(prefetchTimerRef.current);
-      }
+      if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
     };
   }, []);
-
-  const handleDoubleClick = () => {
-    if (isDraft) {
-      actions.editDraft();
-    }
-  };
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey && allVisibleUids && allVisibleUids.length > 0) {
@@ -122,155 +121,169 @@ export function MessageListItem({
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData(
       "application/json",
-      JSON.stringify({
-        accountId,
-        folder,
-        uid: message.uid,
-      }),
+      JSON.stringify({ accountId, folder, uid: message.uid }),
     );
     e.dataTransfer.effectAllowed = "move";
   };
 
+  const handleSwipeTrigger = useCallback((action: SwipeAction) => {
+    switch (action) {
+      case "toggle_read":
+        actions.toggleSeen();
+        break;
+      case "archive":
+        actions.archiveMessage();
+        break;
+      case "star":
+        actions.toggleFlagged();
+        break;
+      case "trash":
+        actions.deleteMsg();
+        break;
+      case "junk":
+        actions.markJunkMsg();
+        break;
+    }
+  }, [actions]);
+
   return (
     <MessageContextMenu accountId={accountId} folder={folder} message={message}>
-      <div
-        draggable={true}
-        onDragStart={handleDragStart}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className={cn(
-          "group relative flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors border-b border-border/40 select-none cursor-grab active:cursor-grabbing",
-          isBatchSelected
-            ? "bg-primary/10 text-foreground border-l-2 border-l-primary"
-            : isSelected
-              ? "bg-accent/80 text-accent-foreground border-l-2 border-l-primary"
-              : isPinned
-                ? "bg-primary/[0.04] hover:bg-primary/[0.07] border-l-2 border-l-primary/70"
-                : "hover:bg-muted/40 border-l-2 border-l-transparent",
-        )}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
+      <SwipeableMessageItem
+        swipeRightAction={swipeRightAction}
+        swipeLeftAction={swipeLeftAction}
+        onTriggerAction={handleSwipeTrigger}
       >
-        {/* Avatar / logo / initiales + bouton de sélection multiple */}
-        <div className="relative shrink-0 mt-0.5">
-          <EmailAvatar
-            email={message.from.address}
-            name={message.from.name}
-            className="size-7"
-            fallbackClassName="text-[11px]"
-          />
-          {accountColor && (
-            <span
-              className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-1.5 ring-background"
-              style={{ backgroundColor: accountColor }}
-              title="Compte associé"
-            />
+        <div
+          draggable={true}
+          onDragStart={handleDragStart}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className={cn(
+            "group relative flex cursor-pointer transition-colors border-b border-border/40 select-none cursor-grab active:cursor-grabbing",
+            isCompact ? "px-3 py-1.5 gap-2 items-center" : isSpacious ? "px-4 py-3 gap-3 items-start" : "px-3.5 py-2.5 gap-2.5 items-start",
+            isBatchSelected
+              ? "bg-primary/10 text-foreground border-l-2 border-l-primary"
+              : isSelected
+                ? "bg-accent/80 text-accent-foreground border-l-2 border-l-primary"
+                : isPinned
+                  ? "bg-primary/[0.04] hover:bg-primary/[0.07] border-l-2 border-l-primary/70"
+                  : "hover:bg-muted/40 border-l-2 border-l-transparent",
           )}
-
-          {/* Bouton de sélection multiple au survol ou actif */}
-          <button
-            type="button"
-            onClick={handleSelectButtonClick}
-            className={cn(
-              "absolute inset-0 z-10 flex items-center justify-center rounded-full border transition-all cursor-pointer",
-              isBatchSelected
-                ? "opacity-100 border-primary bg-primary text-primary-foreground shadow-2xs"
-                : hasBatchSelection
-                  ? "opacity-100 border-border bg-card hover:border-primary/60 text-muted-foreground"
-                  : "opacity-0 group-hover:opacity-100 border-border bg-card/95 hover:border-primary/60 text-muted-foreground",
+          onClick={handleClick}
+          onDoubleClick={() => isDraft && actions.editDraft()}
+        >
+          {/* Avatar / logo / initiales + bouton de sélection multiple */}
+          <div className={cn("relative shrink-0", !isCompact && "mt-0.5")}>
+            <EmailAvatar
+              email={message.from.address}
+              name={message.from.name}
+              className={isCompact ? "size-5" : isSpacious ? "size-8" : "size-7"}
+              fallbackClassName={isCompact ? "text-[9px]" : "text-[11px]"}
+            />
+            {accountColor && (
+              <span
+                className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-1.5 ring-background"
+                style={{ backgroundColor: accountColor }}
+                title="Compte associé"
+              />
             )}
-            title={isBatchSelected ? "Désélectionner" : "Sélectionner"}
-            aria-label={isBatchSelected ? "Désélectionner le message" : "Sélectionner le message"}
-          >
-            {isBatchSelected ? (
-              <Check className="size-3.5 stroke-[3]" />
-            ) : (
-              <div className="size-2 rounded-full border border-muted-foreground/50" />
-            )}
-          </button>
-        </div>
 
-        {/* Contenu */}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-center justify-between gap-2">
-            <span
+            <button
+              type="button"
+              onClick={handleSelectButtonClick}
               className={cn(
-                "truncate text-xs",
-                isUnread ? "font-bold text-foreground" : "font-medium text-foreground/80",
+                "absolute inset-0 z-10 flex items-center justify-center rounded-full border transition-all cursor-pointer",
+                isBatchSelected
+                  ? "opacity-100 border-primary bg-primary text-primary-foreground shadow-2xs"
+                  : hasBatchSelection
+                    ? "opacity-100 border-border bg-card hover:border-primary/60 text-muted-foreground"
+                    : "opacity-0 group-hover:opacity-100 border-border bg-card/95 hover:border-primary/60 text-muted-foreground",
               )}
+              title={isBatchSelected ? "Désélectionner" : "Sélectionner"}
+              aria-label={isBatchSelected ? "Désélectionner le message" : "Sélectionner le message"}
             >
-              {message.from.name ?? message.from.address}
-            </span>
-            <div className="flex items-center shrink-0">
-              <span className="text-[11px] text-muted-foreground font-mono group-hover:hidden">
-                {formatRelativeDate(message.date)}
+              {isBatchSelected ? (
+                <Check className="size-3 stroke-[3]" />
+              ) : (
+                <div className="size-1.5 rounded-full border border-muted-foreground/50" />
+              )}
+            </button>
+          </div>
+
+          {/* Contenu */}
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className={cn(
+                  "truncate text-xs",
+                  isUnread ? "font-bold text-foreground" : "font-medium text-foreground/80",
+                )}
+              >
+                {message.from.name ?? message.from.address}
               </span>
-              <div className="hidden group-hover:flex items-center">
-                <MessageQuickActions
-                  accountId={accountId}
-                  folder={folder}
-                  message={message}
-                />
+              <div className="flex items-center shrink-0">
+                <span className="text-[11px] text-muted-foreground font-mono group-hover:hidden">
+                  {formatRelativeDate(message.date)}
+                </span>
+                <div className="hidden group-hover:flex items-center">
+                  <MessageQuickActions accountId={accountId} folder={folder} message={message} />
+                </div>
               </div>
             </div>
-          </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={cn(
-              "truncate text-xs",
-              isUnread ? "font-medium text-foreground" : "text-muted-foreground",
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className={cn(
+                  "truncate text-xs",
+                  isUnread ? "font-medium text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {message.subject || "(Sans objet)"}
+              </span>
+
+              <div className="flex shrink-0 items-center gap-1.5 ml-1">
+                {isPinned && <Pin className="size-3 fill-primary text-primary" />}
+                {isFlagged && <Star className="size-3 fill-amber-400 text-amber-400" />}
+                {message.followUpStatus === "triggered" && <BellRing className="size-3 text-amber-500 animate-pulse" />}
+                {message.hasAttachments && <Paperclip className="size-3 text-muted-foreground" />}
+                {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
+              </div>
+            </div>
+
+            {/* Badges / Relance / Sommeil (masqués en mode compact pour respecter les 44px) */}
+            {!isCompact && (message.tags?.length || message.snoozedUntil || message.followUpStatus) && (
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                {message.snoozedUntil && (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                    <Clock className="size-2.5" />
+                    <span>Réveil {formatRelativeDate(message.snoozedUntil)}</span>
+                  </span>
+                )}
+                {message.followUpStatus === "triggered" && (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                    <BellRing className="size-2.5" />
+                    <span>À relancer</span>
+                  </span>
+                )}
+                {message.followUpStatus === "pending" && (
+                  <span className="flex items-center gap-1 text-[10px] text-primary/80 font-medium bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                    <BellRing className="size-2.5" />
+                    <span>Relance prévue</span>
+                  </span>
+                )}
+                {message.tags?.slice(0, 2).map((tag) => (
+                  <TagBadge key={tag} name={tag} color={tagColorMap[tag] || "#3b82f6"} size="sm" />
+                ))}
+                {message.tags && message.tags.length > 2 && (
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    +{message.tags.length - 2}
+                  </span>
+                )}
+              </div>
             )}
-          >
-            {message.subject || "(Sans objet)"}
-          </span>
-
-          <div className="flex shrink-0 items-center gap-1.5 ml-1">
-            {isPinned && <Pin className="size-3 fill-primary text-primary" />}
-            {isFlagged && <Star className="size-3 fill-amber-400 text-amber-400" />}
-            {message.followUpStatus === "triggered" && <BellRing className="size-3 text-amber-500 animate-pulse" />}
-            {message.hasAttachments && <Paperclip className="size-3 text-muted-foreground" />}
-            {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
           </div>
         </div>
-
-        {(message.tags && message.tags.length > 0 || message.snoozedUntil || message.followUpStatus) && (
-          <div className="flex items-center gap-1 flex-wrap mt-0.5">
-            {message.snoozedUntil && (
-              <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
-                <Clock className="size-2.5" />
-                <span>Réveil {formatRelativeDate(message.snoozedUntil)}</span>
-              </span>
-            )}
-            {message.followUpStatus === "triggered" && (
-              <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
-                <BellRing className="size-2.5" />
-                <span>À relancer</span>
-              </span>
-            )}
-            {message.followUpStatus === "pending" && (
-              <span className="flex items-center gap-1 text-[10px] text-primary/80 font-medium bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
-                <BellRing className="size-2.5" />
-                <span>Relance prévue</span>
-              </span>
-            )}
-            {message.tags?.slice(0, 2).map((tag) => (
-              <TagBadge
-                key={tag}
-                name={tag}
-                color={tagColorMap[tag] || "#3b82f6"}
-                size="sm"
-              />
-            ))}
-            {message.tags && message.tags.length > 2 && (
-              <span className="text-[10px] text-muted-foreground font-medium">
-                +{message.tags.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  </MessageContextMenu>
-);
+      </SwipeableMessageItem>
+    </MessageContextMenu>
+  );
 }

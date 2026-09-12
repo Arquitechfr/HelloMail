@@ -2,6 +2,7 @@
 
 import { Tag as TagIcon, X, Loader2 } from "lucide-react";
 import { SearchBar } from "./SearchBar";
+import { DensitySelector } from "./DensitySelector";
 
 interface MessageListHeaderProps {
   folder: string;
@@ -55,12 +56,15 @@ export function MessageListHeader({
             {total}
           </span>
         </div>
-        {isFetching && (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 ml-2">
-            <Loader2 className="size-3 animate-spin text-primary" />
-            <span>sync…</span>
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isFetching && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+              <Loader2 className="size-3 animate-spin text-primary" />
+              <span>sync…</span>
+            </span>
+          )}
+          <DensitySelector />
+        </div>
       </div>
       <div className="px-3 pb-2.5">
         <SearchBar accountId={accountId} onResults={onResults} />

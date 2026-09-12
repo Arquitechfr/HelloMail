@@ -3,6 +3,8 @@
 import { ThemeToggle } from "@/components/mail/ThemeToggle";
 import { UndoSendSettings } from "@/components/mail/UndoSendSettings";
 import { AutoContactsSettings } from "@/components/mail/AutoContactsSettings";
+import { DisplayDensitySettings } from "@/components/mail/settings/DisplayDensitySettings";
+import { SwipeActionsSettings } from "@/components/mail/settings/SwipeActionsSettings";
 import { Sliders, SunMoon, Radio } from "lucide-react";
 
 export function SettingsAppearanceSection() {
@@ -69,6 +71,14 @@ export function SettingsAppearanceSection() {
         <UndoSendSettings />
         <div className="border-t border-border/40">
           <AutoContactsSettings />
+        </div>
+      </div>
+
+      {/* Carte 4 : Densité & Gestes tactiles (Phase 27) */}
+      <div className="rounded-lg border border-border bg-card/60 shadow-xs overflow-hidden">
+        <DisplayDensitySettings />
+        <div className="border-t border-border/40">
+          <SwipeActionsSettings />
         </div>
       </div>
     </div>

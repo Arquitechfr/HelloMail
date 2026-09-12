@@ -79,12 +79,29 @@ export function MessageList({ accountId, folder }: MessageListProps) {
     attachments: messages.filter((m) => m.hasAttachments).length,
   }), [messages]);
 
+  const displayDensity = useUIStore((s) => s.displayDensity);
+  const estimateItemSize = useCallback(() => {
+    switch (displayDensity) {
+      case "compact":
+        return 44;
+      case "spacious":
+        return 92;
+      case "comfortable":
+      default:
+        return 72;
+    }
+  }, [displayDensity]);
+
   const virtualizer = useVirtualizer({
     count: filteredMessages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
+    estimateSize: estimateItemSize,
     overscan: 10,
   });
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [displayDensity, virtualizer]);
 
   // Pagination arrière : déclenche fetchMore quand l'utilisateur scroll near the bottom.
   const virtualItems = virtualizer.getVirtualItems();
