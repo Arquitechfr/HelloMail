@@ -8,9 +8,14 @@ import type { FolderInfo } from "@/lib/api-types";
 import { FolderNodeItem, type FolderNode } from "./folders/FolderNodeItem";
 import { FolderFormDialog, type FolderFormDialogProps } from "./folders/FolderFormDialog";
 import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
-import { ImportEmlDialog } from "./folders/ImportEmlDialog";
+import dynamic from "next/dynamic";
 import { FolderPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const ImportEmlDialog = dynamic(
+  () => import("./folders/ImportEmlDialog").then((mod) => mod.ImportEmlDialog),
+  { ssr: false },
+);
 
 interface FolderTreeProps {
   accountId: string;

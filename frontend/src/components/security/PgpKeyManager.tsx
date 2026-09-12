@@ -21,9 +21,18 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
 import type { PgpKeyInfo } from "@/lib/api-types";
-import { PgpGenerateKeyDialog } from "./PgpGenerateKeyDialog";
-import { PgpImportKeyDialog } from "./PgpImportKeyDialog";
+
+const PgpGenerateKeyDialog = dynamic(
+  () => import("./PgpGenerateKeyDialog").then((mod) => mod.PgpGenerateKeyDialog),
+  { ssr: false },
+);
+
+const PgpImportKeyDialog = dynamic(
+  () => import("./PgpImportKeyDialog").then((mod) => mod.PgpImportKeyDialog),
+  { ssr: false },
+);
 
 export function PgpKeyManager() {
   const { data: myKeys = [], isLoading: loadingMyKeys } = usePgpUserKeys();

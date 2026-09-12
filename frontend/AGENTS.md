@@ -34,7 +34,7 @@ pnpm --filter frontend dev        # Démarre le frontend (port 3001)
 pnpm --filter frontend build      # Build production Next.js
 pnpm --filter frontend lint       # ESLint
 pnpm --filter frontend typecheck  # tsc --noEmit
-pnpm --filter frontend test       # Vitest + Testing Library (jsdom)
+pnpm --filter frontend test       # Vitest + Testing Library (140 tests, 36 fichiers)
 pnpm --filter frontend start      # Démarre en production
 ```
 
@@ -57,21 +57,26 @@ frontend/src/
 │       └── contacts/       # Page dédiée carnet d'adresses (CRUD + recherche)
 ├── components/
 │   ├── ui/                 # composants shadcn (button, input, dialog, dropdown-menu stabilisé, etc.)
-│   ├── auth/               # LoginForm (2FA verify), RegisterForm, TwoFactorSettings, ContactsManager
-│   ├── accounts/           # AccountList, AddAccountDialog (Autoconfig + Google/MS OAuth), AccountSignatureManager
+│   ├── auth/               # LoginForm (2FA verify, WebAuthn Passkeys), RegisterForm, TwoFactorSettings, ContactsManager
+│   ├── accounts/           # AccountList, AddAccountDialog (Autoconfig + Google/MS OAuth), AccountSignatureManager, AccountColorPicker, AccountAliasesDialog (Phase 14)
+│   ├── security/           # PgpKeyManager, PgpGenerateKeyDialog, PgpImportKeyDialog (Phase 15)
 │   └── mail/               # AppHeader, UserDropdown, KeyboardShortcutsDialog, SettingsNav, AttachmentDropzone,
 │                           # MessageThreadView, QuickReplyBar, MessageMetadataHeader, GlassPanel, AccountSidebar,
 │                           # FolderTree, MessageList, MessageListItem, MessageReader, ReadReceiptBanner, NotificationSettings,
 │                           # TagBadge, TagSelectPopover, TagManager, UndoSendDock, UndoSendSettings,
-│                           # ComposeRecipients, ComposeActions, rules/ (RuleDialog, RuleForm, RulesList), EmailIframe, etc.
+│                           # ComposeRecipients, ComposeActions, rules/ (RuleDialog, RuleForm, RulesList), EmailIframe,
+│                           # folders/ (FolderNodeItem, FolderFormDialog, FolderDeleteDialog, FolderActionsMenu, FolderContextMenu, ImportEmlDialog),
+│                           # unified/ (UnifiedFolderList, ManageUnifiedFoldersDialog), BlockSenderDialog, UnsubscribeButton, UnsubscribeDialog,
+│                           # ScheduleSendDialog, ScheduledMessagesDialog, PgpMessageBanner
 ├── test/                # setup.ts (jest-dom) + lucide-stub.tsx (icônes → svg vides en test)
 ├── lib/
 │   ├── api.ts              # fetch wrapper + interceptor 401 → refresh (lock en vol)
 │   ├── api-types.ts        # types API globaux + ré-export types modulaires
 │   ├── compose-utils.ts    # utilitaires de rédaction (htmlToText, formatSignatureHtml)
+│   ├── pgp/                # pgpCrypto.ts (Web Crypto + openpgp Curve25519 & RSA 4096)
 │   ├── types/              # types modulaires découpés (tags.ts, rules.ts)
 │   ├── notifications.ts    # Web Notification API + Web Audio API carillon synthétisé
-│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts, rules, tags)
+│   ├── queries/            # hooks TanStack Query (auth, 2FA, accounts, autoconfig, folders, messages, drafts, contacts, rules, tags, pgp, scheduled)
 │   ├── stores/             # authStore (token), uiStore (sélection, compose), undoSendStore (annulation d'envoi)
 │   └── utils.ts            # cn(), formatDate, formatSize, downloadBlob, getInitials
 ├── hooks/
@@ -100,6 +105,7 @@ frontend/src/
 
 ## Patterns & Fonctionnalités (Phases 6, 7, 8 & 9)
 
+- **Performance Réseau, Prefetching & Dynamic Splitting (Phase 17)** : Prefetching prédictif TanStack Query dans `MessageListItem` au survol de la souris (debounce 65 ms, annulation `onMouseLeave`, cache local `staleTime: 60s`, affichage au clic < 5 ms) ; découpage du bundle via `next/dynamic` (`ssr: false`) pour les dialogues modaux lourds (`ImportEmlDialog`, `PgpGenerateKeyDialog`, `PgpImportKeyDialog`).
 - **Mise en sommeil d'emails ("Snooze" - Phase 9 Lot 9.4)** : mise en sommeil différée avec `SnoozeDropdown` dans `MessageToolbar` (4 presets : Plus tard aujourd'hui, Demain matin, Ce week-end, La semaine prochaine, ou sélecteur datetime-local sur mesure) ; toast de confirmation avec bouton "Annuler" immédiat ; exclusion automatique des boîtes standards et dossier virtuel dédié "En sommeil" dans `AccountSidebar` ; badge visuel d'échéance `snoozedUntil` dans `MessageListItem` ; réveil automatique temps réel par le sync worker (`message:new`).
 - **Modèles d'emails & Réponses types (Phase 9 Lot 9.3)** : composant `TemplateInsertDropdown` avec recherche en direct, raccourcis clavier et aperçu rapide, intégré directement dans `ComposeActions` (ComposeForm plein écran) et `QuickReplyBar` (réponse rapide fil de discussion) ; insertion fluide du sujet et du corps HTML/texte avec conservation du curseur ; gestionnaire d'administration complet `TemplateManager` dans `/mail/settings` (création, édition, suppression, affectation globale ou par compte IMAP, gestion des raccourcis).
 - **Annulation d'envoi ("Undo Send" - Phase 9 Lot 9.2)** : délai de grâce configurable (0s, 5s, 10s, 15s, 30s) avec sélecteur dans les réglages et persistance backend (`PATCH /api/auth/preferences`) ; dock flottant interactif `UndoSendDock` avec compte à rebours continu, jauge de progression, bouton "Annuler" et raccourci clavier `Z` ; restauration instantanée du formulaire de composition (`ComposeForm`) avec préservation de l'intégralité du sujet, destinataires, CC/BCC, HTML riche, pièces jointes et brouillon IMAP ; protection anti-perte `beforeunload` en cas de tentative de fermeture d'onglet.

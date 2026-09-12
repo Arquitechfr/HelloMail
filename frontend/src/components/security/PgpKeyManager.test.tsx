@@ -113,9 +113,9 @@ describe("PgpKeyManager", () => {
     await userEvent.click(generateBtn);
 
     expect(
-      screen.getByRole("heading", { name: /Générer une paire de clés OpenPGP/i }),
+      await screen.findByRole("heading", { name: /Générer une paire de clés OpenPGP/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/Adresse email/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Adresse email/i)).toBeInTheDocument();
   });
 
   it("permet de supprimer une clé personnelle", async () => {

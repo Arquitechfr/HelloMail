@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn, formatRelativeDate } from "@/lib/utils";
 import type { Message } from "@/lib/api-types";
 import { useTags } from "@/lib/queries/tags";
 import { useFolders } from "@/lib/queries/folders";
+import { messageKeys, fetchMessageDetail } from "@/lib/queries/messages";
 import { isDraftFolder } from "@/lib/folder-utils";
 import { useMessageActions } from "@/lib/hooks/useMessageActions";
 import { TagBadge } from "./TagBadge";
@@ -52,6 +54,37 @@ export function MessageListItem({
     return map;
   }, [tagsData]);
 
+  const queryClient = useQueryClient();
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current);
+    }
+    prefetchTimerRef.current = setTimeout(() => {
+      queryClient.prefetchQuery({
+        queryKey: messageKeys.detail(accountId, folder, message.uid),
+        queryFn: () => fetchMessageDetail(accountId, folder, message.uid),
+        staleTime: 60_000,
+      });
+    }, 65);
+  }, [queryClient, accountId, folder, message.uid]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current);
+      prefetchTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (prefetchTimerRef.current) {
+        clearTimeout(prefetchTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleDoubleClick = () => {
     if (isDraft) {
       actions.editDraft();
@@ -75,6 +108,8 @@ export function MessageListItem({
       <div
         draggable={true}
         onDragStart={handleDragStart}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={cn(
           "group relative flex cursor-pointer items-start gap-2.5 px-3.5 py-2.5 transition-colors border-b border-border/40 select-none cursor-grab active:cursor-grabbing",
           isBatchSelected

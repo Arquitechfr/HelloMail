@@ -13,7 +13,7 @@ pnpm --filter backend dev         # tsx watch src/app.ts
 pnpm --filter backend build       # tsc → dist/
 pnpm --filter backend typecheck   # tsc --noEmit
 pnpm --filter backend start       # node dist/app.js
-pnpm --filter backend test          # vitest run (543 tests, 65 fichiers)
+pnpm --filter backend test          # vitest run (593 tests, 69 fichiers)
 pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 ```
 
@@ -23,8 +23,8 @@ pnpm --filter backend test:coverage # vitest run --coverage (thresholds 80%/75%)
 src/
 ├── config/         env.ts (validation Zod fail-fast) + constants.ts (cookies, JWT, rate limit, SMTP timeout) + logger.ts (pino + redaction) + accountColors.ts (palette 12 teintes Phase 12)
 ├── utils/          AppError, asyncHandler, cookieHelpers, projections (ACCOUNT_SAFE_PROJECTION)
-├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit + RedisStore Phase 7), validate (Zod), requestLogger (pino-http), metricsMiddleware (Prometheus instrumentation, Phase 6), bodyParsers (30 Mo pour /send et /import, Phase 10 & 16)
-├── models/         User (2FA TOTP + WebAuthn, Phase 6+11, preferences Phase 9+10+12, defaultsSeededAt presets Phase 9), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7, aliases RFC 5322 Phase 14, color Phase 12), Message (inReplyTo, index textuel, indexes conversation, tags Phase 9, snoozedUntil Phase 9, isPinned/pinnedAt Phase 12, readReceiptSentAt Phase 15.1), ScheduledMessage (envoi programmé Send Later, Phase 13), Contact (index textuel + unique, Phase 6), Rule (moteur de tri, Phase 8, isPreset Phase 9), Tag (libellés colorés, Phase 9, isPreset), Template (modèles d'emails & réponses types, Phase 9, isPreset), PgpKey (trousseau clés OpenPGP perso & correspondants, Phase 15), Folder (cache liste dossiers IMAP, Phase 10), FolderSyncState (état CONDSTORE uidValidity+highestModseq, Phase 10), MessageBody (cache corps text/html, TTL 30 j, Phase 10)
+├── middleware/      errorHandler, notFound, auth (requireAuth JWT + requireAuthSse), rateLimit (global + auth + send via express-rate-limit + RedisStore Phase 7), validate (Zod), requestLogger (pino-http), metricsMiddleware (Prometheus instrumentation, Phase 6), bodyParsers (30 Mo pour /send et /import, Phase 10 & 16), compressionMiddleware (gzip/deflate seuil 1 Ko + exemption SSE, Phase 17)
+├── models/         User (2FA TOTP + WebAuthn, Phase 6+11, preferences Phase 9+10+12, defaultsSeededAt presets Phase 9), RefreshToken (rotation + TTL), Account (multi-provider, hook pre-validate, OAuth Google & Microsoft XOAUTH2, signatures Phase 7, aliases RFC 5322 Phase 14, color Phase 12), Message (inReplyTo, index textuel, indexes conversation, tags Phase 9, snoozedUntil Phase 9, isPinned/pinnedAt Phase 12, readReceiptSentAt Phase 15.1, index 4 champs {accountId, folder, isPinned, date} et {accountId, folder, snoozedUntil} Phase 17), ScheduledMessage (envoi programmé Send Later, Phase 13), Contact (index textuel + unique, Phase 6), Rule (moteur de tri, Phase 8, isPreset Phase 9), Tag (libellés colorés, Phase 9, isPreset), Template (modèles d'emails & réponses types, Phase 9, isPreset), PgpKey (trousseau clés OpenPGP perso & correspondants, Phase 15), Folder (cache liste dossiers IMAP, Phase 10), FolderSyncState (état CONDSTORE uidValidity+highestModseq, Phase 10), MessageBody (cache corps text/html, TTL 30 j, Phase 10)
 ├── schemas/        commonSchemas, authSchemas (register, login, verify2FA, preferences Phase 9+12), accountSchemas (+ signature, autoconfig Phase 7, aliasSchemas Phase 14), messageSchemas (list/send/flags/move/batch/search/fetchMore + receipt + snooze Phase 9 + pin Phase 12 + scheduleEmailSchema Phase 13 + importEmailSchema Phase 16), tagSchemas (Phase 9), templateSchemas (Phase 9), pgpSchemas (Phase 15), folderSchemas, draftSchemas, contactSchemas, ruleSchemas (Phase 8)
 ├── services/
 │   ├── security/   encryptionService (AES-256-GCM, fail-fast si clé invalide), pgpKeyService (trousseau et validation clés OpenPGP, Phase 15)
@@ -249,11 +249,11 @@ src/
 - Auth : Access token (15m) + Refresh token (30j en cookie). 2FA via token temporaire court si actif.
 - Account : support provider `custom`, `google`, `microsoft` (XOAUTH2) + champ `signature`.
 
-## Tests (Phases 3, 5, 6 & 7)
+## Tests (Phases 3 à 16)
 
 - **Vitest** 5.0.0 + `@vitest/coverage-v8` + `mongodb-memory-server` + `supertest`.
-- **422 tests** (45 fichiers). Thresholds : 80% lignes/fonctions/statements, 75% branches.
-- Nouveaux tests Phase 7 : `autoconfigService.test.ts`, `microsoftOAuthService.test.ts`, `accountSignature.test.ts`.
+- **543 tests** (65 fichiers). Thresholds : 80% lignes/fonctions/statements, 75% branches.
+- Tests complets couvrant l'auth, 2FA/WebAuthn, IMAP, SMTP, IDLE loop, synchronisation multi-dossiers, tags, règles, modèles, snooze, pin, dossiers unifiés, envoi programmé, alias, OpenPGP, désabonnement 1-clic, blocage et import EML.
 - Mocks propres : `ImapFlow`, `ioredis`, `otplib`, `rate-limit-redis` mockable / fallback.
 - `fileParallelism: false` + `maxWorkers: 2` pour MongoMemoryServer.
 

@@ -28,6 +28,7 @@ import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
 import { mountBodyParsers } from './middleware/bodyParsers.js';
+import { compressionMiddleware } from './middleware/compressionMiddleware.js';
 import { imapPool } from './services/email/imapPool.js';
 
 async function bootstrap(): Promise<void> {
@@ -53,6 +54,7 @@ async function bootstrap(): Promise<void> {
   mountBodyParsers(app);
   app.use(cookieParser());
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+  app.use(compressionMiddleware);
 
   // Rate limit global sur l'API (300 req/min/IP par défaut, configurable via
   // RATE_LIMIT_GLOBAL_*). Exempte /api/health, /api/metrics et /api/events.

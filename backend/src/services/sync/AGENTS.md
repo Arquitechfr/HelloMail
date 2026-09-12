@@ -56,6 +56,7 @@ Une classe/fonction par responsabilité, pas de logique éparpillée :
 - `reconcileFolder` — reconciliation bornée sur expunge sans UID
 - `reconcileAllFolders` — reconciliation multi-dossiers au démarrage (INBOX + dossiers spéciaux)
 - `messageMapper` — transformation pure FetchMessageObject → MessageInput (inclut `inReplyTo` pour le threading Phase 8)
+- `scheduledEmailRunner` — exécuteur périodique sécurisé (15s) d'envois programmés ("Send Later") avec verrou atomique MongoDB, retry exponentiel et diffusion SSE (Phase 13)
 
 Garder cette séparation pour faciliter l'extraction future (Redis/BullMQ,
 change streams, multi-dossiers, sharding multi-worker).

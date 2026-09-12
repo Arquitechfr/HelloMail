@@ -144,8 +144,14 @@ messageSchema.index({ accountId: 1, isPinned: -1, date: -1 });
 // Index pour le tri de la liste par date décroissante.
 messageSchema.index({ accountId: 1, date: -1 });
 
+// Index pour la liste paginée par dossier avec tri épinglé puis date (optimise find({accountId, folder}).sort({isPinned: -1, date: -1})).
+messageSchema.index({ accountId: 1, folder: 1, isPinned: -1, date: -1 });
+
 // Index pour la liste paginée par dossier (optimise find({accountId, folder}).sort({date: -1})).
 messageSchema.index({ accountId: 1, folder: 1, date: -1 });
+
+// Index pour le filtrage par dossier et statut de mise en sommeil (snooze)
+messageSchema.index({ accountId: 1, folder: 1, snoozedUntil: 1 });
 
 // Index pour le regroupement de conversation / threading.
 messageSchema.index({ accountId: 1, messageId: 1 });

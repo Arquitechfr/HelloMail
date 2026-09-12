@@ -66,14 +66,22 @@ export function useSearch(
   });
 }
 
+/** Récupère le détail d'un message (utilisé par useMessageDetail et pour le prefetch). */
+export function fetchMessageDetail(
+  accountId: string,
+  folder: string,
+  uid: number,
+): Promise<MessageDetail> {
+  return apiFetch<MessageDetail>(
+    `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}`,
+  );
+}
+
 /** GET /api/accounts/:accountId/messages/:folder/:uid — détail d'un message. */
 export function useMessageDetail(accountId: string | null, folder: string, uid: number | null) {
   return useQuery({
     queryKey: messageKeys.detail(accountId ?? "", folder, uid ?? 0),
-    queryFn: () =>
-      apiFetch<MessageDetail>(
-        `/api/accounts/${accountId}/messages/${encodeURIComponent(folder)}/${uid}`,
-      ),
+    queryFn: () => fetchMessageDetail(accountId!, folder, uid!),
     enabled: !!accountId && uid !== null,
   });
 }
