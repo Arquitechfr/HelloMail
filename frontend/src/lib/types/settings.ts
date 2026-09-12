@@ -10,6 +10,7 @@ import {
   Bell,
   Sliders,
   Layers,
+  ArchiveRestore,
 } from "lucide-react";
 
 export type SettingsSectionId =
@@ -22,6 +23,7 @@ export type SettingsSectionId =
   | "contacts"
   | "notifications"
   | "appearance"
+  | "backup"
   | "all";
 
 export interface SettingsItemConfig {
@@ -115,6 +117,12 @@ export const SETTINGS_GROUPS: SettingsGroupConfig[] = [
         label: "Affichage & Envoi",
         description: "Thème, temps réel et délai d'annulation",
         icon: Sliders,
+      },
+      {
+        id: "backup",
+        label: "Sauvegarde & Restauration",
+        description: "Export et import complet du profil et des réglages",
+        icon: ArchiveRestore,
       },
       {
         id: "all",

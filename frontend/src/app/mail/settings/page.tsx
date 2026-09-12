@@ -22,6 +22,7 @@ import { TwoFactorSettings } from "@/components/auth/TwoFactorSettings";
 import { ContactsManager } from "@/components/auth/ContactsManager";
 import { PgpKeyManager } from "@/components/security/PgpKeyManager";
 import { SenderListsSettings } from "@/components/settings/SenderListsSettings";
+import { ProfileBackupSection } from "@/components/mail/settings/ProfileBackupSection";
 import type { SettingsSectionId } from "@/lib/types/settings";
 import { PenLine, ShieldCheck, Lock, Users, Loader2 } from "lucide-react";
 
@@ -162,6 +163,9 @@ function SettingsContent() {
       case "appearance":
         return <SettingsAppearanceSection />;
 
+      case "backup":
+        return <ProfileBackupSection />;
+
       case "all":
         return (
           <div className="space-y-8">
@@ -200,6 +204,10 @@ function SettingsContent() {
             <section id="sec-appearance" className="space-y-3">
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground font-mono">8. Affichage & Envoi</h3>
               <SettingsAppearanceSection />
+            </section>
+            <section id="sec-backup" className="space-y-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground font-mono">9. Sauvegarde & Restauration</h3>
+              <ProfileBackupSection />
             </section>
           </div>
         );

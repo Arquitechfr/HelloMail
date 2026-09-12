@@ -28,6 +28,7 @@ import pgpRoutes from './routes/pgpRoutes.js';
 import { reminderRoutes } from './routes/reminderRoutes.js';
 import { senderListRoutes } from './routes/senderListRoutes.js';
 import smartFoldersRoutes from './routes/smartFoldersRoutes.js';
+import profileRoutes from './routes/profileRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { globalRateLimit } from './middleware/rateLimit.js';
@@ -87,6 +88,7 @@ async function bootstrap(): Promise<void> {
   app.use('/api/pgp', pgpRoutes);
   app.use('/api/sender-lists', senderListRoutes);
   app.use('/api/smart-folders', smartFoldersRoutes);
+  app.use('/api/profile', profileRoutes);
   app.use('/api', eventsRoutes);
 
   app.use(notFound);

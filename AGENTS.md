@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (991 tests, 147 fichiers — 691 backend + 300 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (1015 tests, 153 fichiers — 710 backend + 305 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-29 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-29 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-30 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-30 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -200,4 +200,13 @@ Mailora/
   - **Lot 29.4 : Frontend — Types, Utilitaire de flux & Dialogue d'exportation** : Types `export.ts`, utilitaire `export-utils.ts` déclenchant le téléchargement du blob sans pop-up de blocage, dialogue accessible `ExportAccountDialog.tsx` (237 lignes) avec sélection du format (Archive ZIP ou Dossier MBOX), sélection des dossiers avec compte de messages, jauge de progression animée et bouton d'annulation, 4 tests unitaires.
   - **Lot 29.5 : Frontend — Intégrations UI (Menus & Réglages)** : Entrée « Exporter la boîte... » dans le menu de compte `AccountItem.tsx` (256 lignes), entrée « Exporter (.mbox) » dans le clic droit `FolderContextMenu.tsx` et le menu 3 points `FolderActionsMenu.tsx`, montage dans `FolderTree.tsx` (257 lignes), gestion de l'événement dans `useSSE.ts`.
   - Couverture globale : **691 tests Vitest backend (81 fichiers), 300 tests Vitest frontend (66 fichiers) — 991 tests au total, 0 `as any`**.
+- **Phase 30 : Sauvegarde, Restauration & Migration de Profil Utilisateur (Backup & Restore) (Intégralité livrée)** ✅ :
+  - **Lot 30.1 : Backend — Chiffrement PBKDF2/AES-256-GCM (`profileCryptoService.ts`)** : Dérivation de clé PBKDF2 (100 000 itérations SHA-256, sel 16 octets), chiffrement symétrique AES-256-GCM avec IV 12 octets et authTag 16 octets, déchiffrement sécurisé avec rejet strict des mots de passe erronés ou altérations, 5 tests unitaires validés.
+  - **Lot 30.2 : Backend — Exportation complète & Filtrage anti-secrets (`profileExportService.ts`)** : Collecte des préférences, règles, modèles, tags, dossiers intelligents, contacts, listes de sécurité, signatures et clés PGP publiques ; exclusion formelle et absolue de tout secret (mots de passe IMAP/SMTP, tokens OAuth, secrets 2FA TOTP/WebAuthn, clés privées PGP), 2 tests unitaires validés.
+  - **Lot 30.3 : Backend — Schémas Zod & Restauration granulaire (`profileImportService.ts`, `profileSchemas.ts`)** : Validation de structure et conteneur chiffré, méthode `previewProfile` calculant les compteurs et doublons potentiels sans modifier la base, méthode `restoreProfile` avec sélection modulaire et stratégies de conflit `skip` (préserver l'existant) ou `overwrite` (mettre à jour), réconciliation automatique des signatures par adresse email de compte/alias, 4 tests unitaires validés.
+  - **Lot 30.4 : Backend — Contrôleur REST & Routes (`profileController.ts`, `profileRoutes.ts`)** : Endpoints `GET /api/profile/export` (supporte `?encrypt=true&password=...`), `POST /api/profile/preview` et `POST /api/profile/restore`, 8 tests d'intégration Supertest.
+  - **Lot 30.5 : Frontend — Types, Requêtes TanStack & Dialogue (`RestoreProfileDialog.tsx`)** : Types `profile.ts`, requêtes `usePreviewProfile` et `useRestoreProfile` avec invalidation des caches applicatifs, utilitaire `downloadProfileBackup`, dialogue modal interactif (293 lignes) avec déchiffrement, compteurs par badges, sélection par cases à cocher et stratégie de conflit, 2 tests unitaires.
+  - **Lot 30.6 : Frontend — Panneau de Réglages & Navigation (`ProfileBackupSection.tsx`)** : Carte de sauvegarde avec protection par mot de passe optionnelle, zone de glisser-déposer de fichier `.json`, nouvelle section « Sauvegarde & Restauration » (`backup`, `ArchiveRestore`) dans `SETTINGS_GROUPS` et `/mail/settings`, 3 tests unitaires.
+  - Couverture globale : **710 tests Vitest backend (85 fichiers), 305 tests Vitest frontend (68 fichiers) — 1015 tests au total, 0 `as any`**.
+
 

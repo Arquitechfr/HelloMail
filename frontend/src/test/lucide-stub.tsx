@@ -200,4 +200,7 @@ export const StretchHorizontal = makeIcon();
 export const AlignJustify = makeIcon();
 export const Hand = makeIcon();
 export const AlertOctagon = makeIcon();
+export const RefreshCcw = makeIcon();
+export const FileJson = makeIcon();
+export const ArchiveRestore = makeIcon();
 
