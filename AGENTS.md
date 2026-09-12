@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (1015 tests, 153 fichiers — 710 backend + 305 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (1037 tests, 158 fichiers — 721 backend + 316 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-30 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-30 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-32 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-32 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -214,8 +214,15 @@ Mailora/
   - **Lot 31.3 : Frontend — Types, Utilitaire de taille & Requêtes TanStack** : Interface `StorageQuota` dans `api-types.ts`, fonction `formatStorageSize` dans `utils.ts` supportant les Mo et Go, hooks `useAccountQuota` (staleTime 5 min) et mutation `useRefreshAccountQuota` dans `queries/accounts.ts`.
   - **Lot 31.4 : Frontend — Composant Jauge & Intégration Barre Latérale** : Composant `StorageQuotaBar.tsx` avec barre de progression dynamique, code couleur sémantique (vert normal, orange attention 75-89%, rouge pulsant saturation ≥90%), bouton de rafraîchissement rapide avec icône animée `RefreshCw`, infobulle détaillée, intégré au pied de la barre latérale `AccountSidebar.tsx` pour le compte actif, 4 tests unitaires validés.
   - Couverture globale : **716 tests Vitest backend (86 fichiers), 309 tests Vitest frontend (69 fichiers) — 1025 tests au total, 0 `as any`**.
+- **Phase 32 : Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic (Intégralité livrée)** ✅ :
+  - **Lot 32.1 : Backend — Préférences de rétention & Modèle Utilisateur** : Préférences `autoPurgeTrashDays` (défaut 30 jours) et `autoPurgeJunkDays` (défaut 30 jours) dans `IUserPreferences` et `userSchema.preferences` (`User.ts`), validation Zod stricte `updatePreferencesSchema` (`authSchemas.ts`).
+  - **Lot 32.2 : Backend — Service d'élagage atomique & Sécurité (`folderPurgeService.ts`)** : Helper `isPurgeableFolder` avec garde-fou strict interdisant formellement `INBOX`, `Sent`, `Archive`, `Drafts` (rejet 403 Forbidden), méthode `emptyFolder` vidant instantanément côté IMAP (`client.messageDelete('1:*')`) et MongoDB, méthode `purgeOldMessages` purgeant les emails antérieurs au seuil de rétention, 5 tests unitaires validés.
+  - **Lot 32.3 : Backend — Contrôleur REST, Routes & Runner Périodique Worker** : Endpoint `POST /api/accounts/:accountId/folders/:folder/empty`, runner d'arrière-plan `autoPurgeRunner.ts` exécuté au démarrage et cadencé toutes les heures dans `worker.ts` avec arrêt propre lors du shutdown.
+  - **Lot 32.4 : Frontend — Helpers & Mutation TanStack Query** : Fonctions `isJunkFolder` et `isPurgeableFolder` dans `folder-utils.ts`, mutation `useEmptyFolder` invalidant `folders`, `messages` et `account-quota` dans `queries/folders.ts`, types `UserPreferences` enrichis dans `api-types.ts`.
+  - **Lot 32.5 : Frontend — Dialogue modal accessible & Déclencheurs UI** : Dialogue de confirmation `EmptyFolderDialog.tsx` (avertissement destructif, compte de messages, spinner d'attente), bouton contextuel discret "Vider" dans `MessageListHeader.tsx` pour Corbeille et Spams, intégration dans le menu contextuel clic droit `FolderContextMenu.tsx` et le menu 3 points `FolderActionsMenu.tsx` (propagé via `FolderNodeItem.tsx` et `FolderTree.tsx`), 10 tests unitaires frontend validés.
+  - Couverture globale : **721 tests Vitest backend (87 fichiers), 316 tests Vitest frontend (71 fichiers) — 1037 tests au total, 0 `as any`**.
 - **Feuille de route V4 (En cours)** 📋 :
-  - **Phase 32 (À venir)** : Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic.
+  - **Phase 32** ✅ : Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic.
   - **Phase 33 (À venir)** : Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages.
   - **Phase 34 (À venir)** : Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée.
   - **Phase 35 (À venir)** : Impression & Export PDF Unifié de Fil de Discussion (Thread Print).

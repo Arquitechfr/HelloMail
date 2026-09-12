@@ -104,4 +104,37 @@ describe("FolderContextMenu", () => {
     await userEvent.click(deleteItem);
     expect(handleDelete).toHaveBeenCalledWith(customFolder);
   });
+
+  it("affiche l'action Vider le dossier pour la Corbeille au clic droit", async () => {
+    const handleEmpty = vi.fn();
+    const trashFolder: FolderInfo = {
+      path: "Trash",
+      name: "Trash",
+      delimiter: "/",
+      specialUse: "\\Trash",
+      flags: [],
+    };
+
+    render(
+      <FolderContextMenu
+        folder={trashFolder}
+        onCreateSubfolder={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onImportEml={vi.fn()}
+        onEmpty={handleEmpty}
+      >
+        <div data-testid="trash-row">Trash</div>
+      </FolderContextMenu>,
+    );
+
+    const trigger = screen.getByTestId("trash-row");
+    fireEvent.contextMenu(trigger);
+
+    const emptyItem = await screen.findByText("Vider le dossier");
+    expect(emptyItem).toBeInTheDocument();
+    await userEvent.click(emptyItem);
+    expect(handleEmpty).toHaveBeenCalledWith(trashFolder);
+  });
 });
+

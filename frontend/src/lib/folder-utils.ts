@@ -212,3 +212,58 @@ export function isDraftFolder(
   return false;
 }
 
+const JUNK_FOLDER_NAMES = new Set([
+  "junk",
+  "spam",
+  "junk mail",
+  "junk email",
+  "courrier indésirable",
+  "indésirables",
+  "[gmail]/spam",
+  "[gmail]/junk",
+]);
+
+/**
+ * Détermine si un dossier représente les courriers indésirables / Spams (Junk).
+ * Vérifie par flag RFC specialUse (\Junk), par chemin ou par nom de repli.
+ */
+export function isJunkFolder(
+  folder: string | { path: string; name?: string; specialUse?: string } | null | undefined,
+  folders?: { path: string; name?: string; specialUse?: string }[],
+): boolean {
+  if (!folder) return false;
+
+  const folderObj =
+    typeof folder === "object"
+      ? folder
+      : folders?.find((f) => f.path.toLowerCase() === folder.toLowerCase());
+
+  if (folderObj?.specialUse && folderObj.specialUse.toLowerCase().trim() === "\\junk") {
+    return true;
+  }
+
+  const rawPath = typeof folder === "string" ? folder : folder.path;
+  const normPath = rawPath.toLowerCase().trim();
+  if (JUNK_FOLDER_NAMES.has(normPath)) return true;
+
+  const baseName = getBaseFolderName(rawPath).toLowerCase().trim();
+  if (JUNK_FOLDER_NAMES.has(baseName)) return true;
+
+  if (folderObj?.name && JUNK_FOLDER_NAMES.has(folderObj.name.toLowerCase().trim())) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Détermine si un dossier est éligible au vidage en 1 clic (Trash ou Junk uniquement).
+ * Rejette strictement INBOX, Sent, Archive, Drafts et tout dossier personnalisé.
+ */
+export function isPurgeableFolder(
+  folder: string | { path: string; name?: string; specialUse?: string } | null | undefined,
+  folders?: { path: string; name?: string; specialUse?: string }[],
+): boolean {
+  if (!folder) return false;
+  return isTrashFolder(folder, folders) || isJunkFolder(folder, folders);
+}

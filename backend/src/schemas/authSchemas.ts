@@ -56,6 +56,8 @@ export const updatePreferencesSchema = z.object({
   swipeLeftAction: z.enum(['toggle_read', 'archive', 'star', 'trash', 'junk', 'none']).optional(),
   attachmentReminderEnabled: z.boolean().optional(),
   smartRepliesEnabled: z.boolean().optional(),
+  autoPurgeTrashDays: z.number().int().min(0).max(365).optional(),
+  autoPurgeJunkDays: z.number().int().min(0).max(365).optional(),
 });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 

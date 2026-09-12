@@ -52,3 +52,22 @@ export function useDeleteFolder(accountId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: folderKeys.list(accountId) }),
   });
 }
+
+/** POST /api/accounts/:accountId/folders/:path/empty — vide entièrement un dossier (Trash / Junk). */
+export function useEmptyFolder(accountId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) =>
+      apiFetch<{ message: string; deletedCount: number }>(
+        `/api/accounts/${accountId}/folders/${encodeURIComponent(path)}/empty`,
+        { method: "POST" }
+      ),
+    onSuccess: (_data, path) => {
+      qc.invalidateQueries({ queryKey: folderKeys.list(accountId) });
+      qc.invalidateQueries({ queryKey: ["messages", accountId, path] });
+      qc.invalidateQueries({ queryKey: ["messages", accountId] });
+      qc.invalidateQueries({ queryKey: ["account-quota", accountId] });
+    },
+  });
+}
+

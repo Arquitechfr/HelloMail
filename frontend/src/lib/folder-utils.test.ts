@@ -5,6 +5,8 @@ import {
   getBaseFolderName,
   buildSubFolderPath,
   validateFolderName,
+  isJunkFolder,
+  isPurgeableFolder,
 } from "./folder-utils";
 
 describe("folder-utils", () => {
@@ -86,4 +88,38 @@ describe("folder-utils", () => {
       expect(validateFolderName("inbox", "/")).toContain("réservé");
     });
   });
+
+  describe("isJunkFolder", () => {
+    it("détecte les dossiers Junk via specialUse ou nom", () => {
+      expect(isJunkFolder({ path: "Spam", specialUse: "\\Junk" })).toBe(true);
+      expect(isJunkFolder("Junk")).toBe(true);
+      expect(isJunkFolder("spam")).toBe(true);
+      expect(isJunkFolder("courrier indésirable")).toBe(true);
+    });
+
+    it("rejette les dossiers non-spam", () => {
+      expect(isJunkFolder("INBOX")).toBe(false);
+      expect(isJunkFolder("Trash")).toBe(false);
+      expect(isJunkFolder("Projets")).toBe(false);
+    });
+  });
+
+  describe("isPurgeableFolder", () => {
+    it("autorise les dossiers Corbeille et Spam", () => {
+      expect(isPurgeableFolder("Trash")).toBe(true);
+      expect(isPurgeableFolder("Corbeille")).toBe(true);
+      expect(isPurgeableFolder("Spam")).toBe(true);
+      expect(isPurgeableFolder("Junk")).toBe(true);
+      expect(isPurgeableFolder({ path: "Bin", specialUse: "\\Trash" })).toBe(true);
+    });
+
+    it("interdit formellement les dossiers normaux et vitaux", () => {
+      expect(isPurgeableFolder("INBOX")).toBe(false);
+      expect(isPurgeableFolder("Sent")).toBe(false);
+      expect(isPurgeableFolder("Archive")).toBe(false);
+      expect(isPurgeableFolder("Drafts")).toBe(false);
+      expect(isPurgeableFolder("Clients")).toBe(false);
+    });
+  });
 });
+

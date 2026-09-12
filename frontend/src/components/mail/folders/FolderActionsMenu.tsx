@@ -1,6 +1,6 @@
 "use client";
 
-import { isProtectedFolder } from "@/lib/folder-utils";
+import { isProtectedFolder, isPurgeableFolder } from "@/lib/folder-utils";
 import type { FolderInfo } from "@/lib/api-types";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ export interface FolderActionsMenuProps {
   onDelete: (folder: FolderInfo) => void;
   onImportEml: (folder: FolderInfo) => void;
   onExportMbox?: (folder: FolderInfo) => void;
+  onEmpty?: (folder: FolderInfo) => void;
 }
 
 export function FolderActionsMenu({
@@ -29,8 +30,11 @@ export function FolderActionsMenu({
   onDelete,
   onImportEml,
   onExportMbox,
+  onEmpty,
 }: FolderActionsMenuProps) {
   const protectedFolder = isProtectedFolder(folder);
+  const purgeable = isPurgeableFolder(folder);
+
 
   return (
     <DropdownMenu>
@@ -81,6 +85,19 @@ export function FolderActionsMenu({
         )}
 
         <DropdownMenuSeparator />
+
+        {purgeable && onEmpty && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onEmpty(folder);
+            }}
+            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+          >
+            <Trash2 className="size-3.5 mr-2 text-destructive" />
+            Vider le dossier
+          </DropdownMenuItem>
+        )}
 
         {protectedFolder ? (
           <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground select-none italic">

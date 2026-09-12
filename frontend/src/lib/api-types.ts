@@ -38,6 +38,8 @@ export interface UserPreferences {
   swipeLeftAction?: "toggle_read" | "archive" | "star" | "trash" | "junk" | "none";
   attachmentReminderEnabled?: boolean;
   smartRepliesEnabled?: boolean;
+  autoPurgeTrashDays?: number;
+  autoPurgeJunkDays?: number;
 }
 
 export interface User {

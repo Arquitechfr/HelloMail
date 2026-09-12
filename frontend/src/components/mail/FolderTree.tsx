@@ -8,6 +8,7 @@ import type { FolderInfo } from "@/lib/api-types";
 import { FolderNodeItem, type FolderNode } from "./folders/FolderNodeItem";
 import { FolderFormDialog, type FolderFormDialogProps } from "./folders/FolderFormDialog";
 import { FolderDeleteDialog } from "./folders/FolderDeleteDialog";
+import { EmptyFolderDialog } from "./folders/EmptyFolderDialog";
 import dynamic from "next/dynamic";
 import { FolderPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,6 +90,14 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
     folder?: string;
   }>({
     open: false,
+  });
+
+  const [emptyDialog, setEmptyDialog] = useState<{
+    open: boolean;
+    folder: FolderInfo | null;
+  }>({
+    open: false,
+    folder: null,
   });
 
   const activeFolderObj = folders?.find((f) => f.path === selectedFolder);
@@ -206,6 +215,7 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
           onDelete={(folder) => setDeleteDialog({ open: true, folder })}
           onImportEml={(folder) => setImportDialog({ open: true, folder })}
           onExportMbox={(folder) => setExportDialog({ open: true, folder: folder.path })}
+          onEmpty={(folder) => setEmptyDialog({ open: true, folder })}
         />
       ))}
 
@@ -250,6 +260,16 @@ export function FolderTree({ accountId, accountColor, selectedFolder, onSelectFo
         onOpenChange={(open) => setExportDialog((s) => ({ ...s, open }))}
         accountId={accountId}
         initialFolder={exportDialog.folder}
+      />
+
+      {/* Modale de confirmation de vidage de dossier (Trash / Junk) */}
+      <EmptyFolderDialog
+        open={emptyDialog.open}
+        onOpenChange={(open) => setEmptyDialog((s) => ({ ...s, open }))}
+        accountId={accountId}
+        folderPath={emptyDialog.folder?.path ?? ""}
+        folderName={emptyDialog.folder?.name ?? emptyDialog.folder?.path}
+        messageCount={emptyDialog.folder?.status?.messages}
       />
     </div>
   );

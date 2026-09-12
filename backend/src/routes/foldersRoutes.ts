@@ -51,4 +51,12 @@ router.delete(
   foldersController.remove,
 );
 
+// Vidage intégral d'un dossier (Trash / Junk).
+router.post(
+  '/:accountId/folders/:path/empty',
+  requireAuth,
+  validate({ params: folderPathParamSchema }),
+  foldersController.empty,
+);
+
 export const foldersRoutes = router;

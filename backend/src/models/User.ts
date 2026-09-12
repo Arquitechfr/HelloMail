@@ -28,6 +28,8 @@ export interface IUserPreferences {
   swipeLeftAction?: SwipeAction; // trash, junk, archive, none (défaut: trash)
   attachmentReminderEnabled?: boolean; // détection d'oubli de pièces jointes (défaut: true)
   smartRepliesEnabled?: boolean; // suggestions de réponses rapides (défaut: true)
+  autoPurgeTrashDays?: number; // rétention corbeille en jours (défaut: 30, 0 = désactivé)
+  autoPurgeJunkDays?: number; // rétention spam en jours (défaut: 30, 0 = désactivé)
 }
 
 export interface IUserDocument extends Document {
@@ -140,6 +142,14 @@ const userSchema = new Schema<IUserDocument>(
       smartRepliesEnabled: {
         type: Boolean,
         default: true,
+      },
+      autoPurgeTrashDays: {
+        type: Number,
+        default: 30,
+      },
+      autoPurgeJunkDays: {
+        type: Number,
+        default: 30,
       },
     },
     defaultsSeededAt: {

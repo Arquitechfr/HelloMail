@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { isProtectedFolder } from "@/lib/folder-utils";
+import { isProtectedFolder, isPurgeableFolder } from "@/lib/folder-utils";
 import type { FolderInfo } from "@/lib/api-types";
 import {
   ContextMenu,
@@ -20,6 +20,7 @@ export interface FolderContextMenuProps {
   onDelete: (folder: FolderInfo) => void;
   onImportEml: (folder: FolderInfo) => void;
   onExportMbox?: (folder: FolderInfo) => void;
+  onEmpty?: (folder: FolderInfo) => void;
   children: React.ReactNode;
 }
 
@@ -30,9 +31,11 @@ export function FolderContextMenu({
   onDelete,
   onImportEml,
   onExportMbox,
+  onEmpty,
   children,
 }: FolderContextMenuProps) {
   const protectedFolder = isProtectedFolder(folder);
+  const purgeable = isPurgeableFolder(folder);
 
   return (
     <ContextMenu>
@@ -59,12 +62,23 @@ export function FolderContextMenu({
 
         <ContextMenuSeparator />
 
+        {purgeable && onEmpty && (
+          <ContextMenuItem
+            variant="destructive"
+            onClick={() => onEmpty(folder)}
+          >
+            <Trash2 className="size-4 mr-2 text-destructive" />
+            <span>Vider le dossier</span>
+          </ContextMenuItem>
+        )}
+
         {protectedFolder ? (
           <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground select-none italic">
             <Shield className="size-3.5 text-muted-foreground/70" />
             <span>Dossier système protégé</span>
           </div>
         ) : (
+
           <>
             <ContextMenuItem onClick={() => onRename(folder)}>
               <Pencil className="size-4 mr-2 text-muted-foreground" />

@@ -112,5 +112,36 @@ describe("FolderActionsMenu", () => {
     await userEvent.click(deleteBtn);
     expect(handleDelete).toHaveBeenCalledWith(customFolder);
   });
+
+  it("propose de vider le dossier pour un dossier Corbeille", async () => {
+    const handleEmpty = vi.fn();
+    const trashFolder: FolderInfo = {
+      path: "Trash",
+      name: "Trash",
+      delimiter: "/",
+      specialUse: "\\Trash",
+      flags: [],
+    };
+
+    render(
+      <FolderActionsMenu
+        folder={trashFolder}
+        accountId="acc-1"
+        onCreateSubfolder={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onImportEml={vi.fn()}
+        onEmpty={handleEmpty}
+      />
+    );
+
+    const trigger = screen.getByRole("button", { name: /Actions pour le dossier Trash/i });
+    await userEvent.click(trigger);
+
+    const emptyBtn = await screen.findByText("Vider le dossier");
+    await userEvent.click(emptyBtn);
+    expect(handleEmpty).toHaveBeenCalledWith(trashFolder);
+  });
 });
+
 

@@ -10,6 +10,7 @@ import {
   deleteFolder,
   getFolderStatus,
 } from '../services/email/folderService.js';
+import { emptyFolder } from '../services/email/folderPurgeService.js';
 
 export const list = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
   const { accountId } = req.params;
@@ -68,5 +69,17 @@ export const status = asyncHandler(async (req: AuthenticatedRequest, res: Respon
   }
 
   const result = await getFolderStatus(account, path);
+  res.status(200).json(result);
+});
+
+export const empty = asyncHandler(async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+  const { accountId, path } = req.params;
+
+  const account = await AccountModel.findOne({ _id: accountId, userId: req.user.id });
+  if (!account) {
+    throw AppError.notFound('Compte introuvable');
+  }
+
+  const result = await emptyFolder(account, path);
   res.status(200).json(result);
 });

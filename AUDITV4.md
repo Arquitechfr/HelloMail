@@ -245,8 +245,8 @@ flowchart TD
 
 ---
 
-### Phase 32 — Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic
-**Priorité : 🔴 CRITIQUE | Risque : Faible | Effort : Moyen**
+### Phase 32 — Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic (LIVRÉE ✅)
+**Priorité : 🔴 CRITIQUE | Risque : Faible | Effort : Moyen | Statut : 100% LIVRÉE**
 1. **Action atomique de vidage de dossier (`emptyFolder`)** :
    - Méthode `emptyFolder(account, folderPath)` dans [`folderService.ts`](file:///mnt/Externe/Projets/HelloMail/backend/src/services/email/folderService.ts).
    - Envoi de la commande de suppression globale IMAP et appel `client.mailboxExpunge()`.
