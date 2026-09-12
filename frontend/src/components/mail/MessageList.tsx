@@ -123,6 +123,13 @@ export function MessageList({ accountId, folder }: MessageListProps) {
     }
   }, [isNearBottom, searchResults, messages.length, fetchMoreMutate, folder]);
 
+  const { visibleUids, handleSelectAll } = useListNavigationShortcuts({
+    items: filteredMessages,
+    selectedUid,
+    onSelectUid: setSelectedUid,
+    enabled: !isLoading && !error && messages.length > 0,
+  });
+
   if (isLoading) {
     return (
       <div
@@ -186,12 +193,6 @@ export function MessageList({ accountId, folder }: MessageListProps) {
       </div>
     );
   }
-
-  const { visibleUids, handleSelectAll } = useListNavigationShortcuts({
-    items: filteredMessages,
-    selectedUid,
-    onSelectUid: setSelectedUid,
-  });
 
   return (
     <div
