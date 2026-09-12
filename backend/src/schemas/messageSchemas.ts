@@ -176,6 +176,8 @@ export const searchQuerySchema = z.object({
   hasAttachments: z.coerce.boolean().optional(),
   since: z.coerce.date().optional(),
   before: z.coerce.date().optional(),
+  minSize: z.coerce.number().int().min(0).optional(),
+  maxSize: z.coerce.number().int().min(0).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

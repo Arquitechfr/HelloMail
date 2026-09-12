@@ -214,6 +214,31 @@ export interface Message {
   pinnedAt?: string | null;
   followUpStatus?: 'pending' | 'triggered' | 'replied' | 'dismissed' | null;
   followUpRemindAt?: string | null;
+  accountColor?: string;
+  accountEmail?: string;
+  accountName?: string;
+}
+
+export interface UnifiedSearchOptions {
+  q?: string;
+  folder?: string;
+  accountId?: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  seen?: boolean;
+  flagged?: boolean;
+  isPinned?: boolean;
+  tag?: string;
+  hasAttachments?: boolean;
+  since?: string;
+  before?: string;
+  minSize?: number;
+  maxSize?: number;
+  includeTrash?: boolean;
+  includeJunk?: boolean;
+  page?: number;
+  limit?: number;
 }
 
 export interface PaginatedResponse<T> {

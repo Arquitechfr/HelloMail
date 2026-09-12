@@ -9,6 +9,11 @@ vi.mock("@/lib/queries/messages", () => ({
   useSearch: (...args: unknown[]) => mockUseSearch(...args),
 }));
 
+vi.mock("./AdvancedSearchDialog", () => ({
+  AdvancedSearchDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="advanced-search-dialog">Dialogue recherche avancée</div> : null,
+}));
+
 function mockSearchResult(data: unknown = { data: [], source: "local" }, isFetching = false) {
   mockUseSearch.mockReturnValue({ data, isFetching });
 }
@@ -50,5 +55,15 @@ describe("SearchBar", () => {
     mockSearchResult({ data: [{ uid: 1 }], source: "local" });
     render(<SearchBar accountId="acc1" onResults={vi.fn()} />);
     expect(screen.queryByText("serveur")).not.toBeInTheDocument();
+  });
+
+  it("ouvre le dialogue de recherche avancée au clic sur le bouton", async () => {
+    render(<SearchBar accountId="acc1" onResults={vi.fn()} />);
+    expect(screen.queryByTestId("advanced-search-dialog")).not.toBeInTheDocument();
+
+    const advBtn = screen.getByRole("button", { name: "Recherche avancée" });
+    await userEvent.click(advBtn);
+
+    expect(screen.getByTestId("advanced-search-dialog")).toBeInTheDocument();
   });
 });

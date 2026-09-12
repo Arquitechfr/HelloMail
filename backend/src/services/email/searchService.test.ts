@@ -40,7 +40,7 @@ vi.mock('../../models/Message.js', () => ({
   },
 }));
 
-const { parseSearchQuery, searchMessages } = await import('./searchService.js');
+const { parseSearchQuery, searchMessages, parseSizeStringToBytes } = await import('./searchService.js');
 
 function makeAccount(): IAccountDocument {
   return {
@@ -228,5 +228,41 @@ describe('searchMessages', () => {
     expect(query['from.address']).toEqual({ $regex: 'support\\+alert@societe\\.com', $options: 'i' });
     expect(query['to.address']).toEqual({ $regex: 'team\\[finance\\]@societe\\.com', $options: 'i' });
     expect(query.subject).toEqual({ $regex: '\\[URGENT\\] \\(Important\\) Problème \\?', $options: 'i' });
+  });
+
+  it('applique le filtre par taille de message (minSize et maxSize)', async () => {
+    await searchMessages(makeAccount(), {
+      minSize: 1024,
+      maxSize: 1048576,
+      page: 1,
+      limit: 20,
+    });
+
+    const query = mockFind.mock.calls[0][0] as Record<string, unknown>;
+    expect(query.size).toEqual({ $gte: 1024, $lte: 1048576 });
+  });
+});
+
+describe('parseSizeStringToBytes', () => {
+  it('convertit les octets simples et avec unités', () => {
+    expect(parseSizeStringToBytes('1024')).toBe(1024);
+    expect(parseSizeStringToBytes('500K')).toBe(500 * 1024);
+    expect(parseSizeStringToBytes('5MB')).toBe(5 * 1024 * 1024);
+    expect(parseSizeStringToBytes('1G')).toBe(1024 * 1024 * 1024);
+    expect(parseSizeStringToBytes('invalid')).toBeUndefined();
+  });
+});
+
+describe('parseSearchQuery - opérateurs de taille', () => {
+  it('extrait larger:, smaller: et size:><', () => {
+    const r1 = parseSearchQuery('larger:5M');
+    expect(r1.filters.minSize).toBe(5 * 1024 * 1024);
+
+    const r2 = parseSearchQuery('smaller:2M');
+    expect(r2.filters.maxSize).toBe(2 * 1024 * 1024);
+
+    const r3 = parseSearchQuery('size:>10M size:<50M');
+    expect(r3.filters.minSize).toBe(10 * 1024 * 1024);
+    expect(r3.filters.maxSize).toBe(50 * 1024 * 1024);
   });
 });

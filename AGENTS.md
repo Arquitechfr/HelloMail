@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (1048 tests, 159 fichiers — 721 backend + 327 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (1066 tests, 163 fichiers — 728 backend + 338 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-33 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-33 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-34 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-34 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -227,11 +227,17 @@ Mailora/
   - **Lot 33.3 : Composant QuickFilterBar ergonomique & Accessible (`QuickFilterBar.tsx`)** : Barre de 5 chips pill stylisés avec icônes distinctives (`Mail`, `MailCheck`, `Star` avec remplissage dynamique, `Pin`, `Paperclip`), badges de comptage réactifs en typographie monospace, atténuation visuelle des filtres sans résultat, attributs ARIA complets (`role="toolbar"`, `aria-label`, `aria-pressed`), infobulles informatives incluant les raccourcis clavier, 4 tests unitaires validés.
   - **Lot 33.4 : Intégration MessageList & Vues Unifiées (`MessageList.tsx`, `UnifiedMessageList.tsx`)** : Déport de la logique de filtrage vers `quick-filters.ts` allégeant `MessageList.tsx` à 295 lignes (garantie de la règle ≤ 300 lignes), état vide contextualisé par type de filtre avec bouton interactif « Afficher tous les messages », répercussion identique dans `UnifiedMessageList.tsx` (229 lignes).
   - **Lot 33.5 : Raccourcis Clavier Power User & Aide (`useEmailShortcuts.ts`, `KeyboardShortcutsDialog.tsx`)** : Raccourcis directs `Alt+1` à `Alt+5` et cycle rapide `Alt+F`, immunité totale des zones de saisie et modales, documentation complète dans la modale d'aide des raccourcis sous le groupe dédié « Filtres rapides de messages » (6 groupes équilibrés 3x3), 12 tests validés.
-  - Couverture globale : **721 tests Vitest backend (87 fichiers), 327 tests Vitest frontend (72 fichiers) — 1048 tests au total, 0 `as any`**.
+- **Phase 34 : Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée (Intégralité livrée)** ✅ :
+  - **Lot 34.1 : Backend — Parsing Étendu & Tailles (`searchService.ts`, `messageSchemas.ts`, `unifiedSchemas.ts`)** : Opérateurs `larger:`, `smaller:`, `size:><` avec convertisseur en octets `parseSizeStringToBytes`, filtres `minSize` et `maxSize` dans `searchMessages` et validation Zod `unifiedSearchQuerySchema`, 26 tests backend validés.
+  - **Lot 34.2 : Backend — Service de Recherche Fédérée Multi-Comptes (`unifiedSearchService.ts`)** : Interrogation parallèle de tous les comptes actifs (ou ciblés), exclusion automatique par défaut des dossiers Corbeille (`\Trash`) et Spams (`\Junk`) sauf demande explicite (`includeTrash`, `includeJunk`), tri par pertinence textScore ou `{ isPinned: -1, date: -1 }`, enrichissement de chaque message avec `accountColor` et `accountEmail`, 4 tests unitaires validés.
+  - **Lot 34.3 : Backend — Contrôleur REST & Routes (`unifiedController.ts`, `unifiedRoutes.ts`)** : Endpoint `GET /api/unified/search` avec validation Zod et authentification JWT `requireAuth`.
+  - **Lot 34.4 : Frontend — Constructeur Visuel Multi-Critères & Utilitaires (`AdvancedSearchDialog.tsx`, `search-utils.ts`, `unified.ts`)** : Modale interactive en grille 2 colonnes (expéditeur, destinataire, objet, texte libre, dossier, plage de dates, taille > 1 Mo/5 Mo/10 Mo, filtres rapides booléens), sérialiseur propre `buildSearchQueryString`, passerelle vers les dossiers intelligents `SmartFolderDialog`, hook `useUnifiedSearch` React Query, 8 tests unitaires validés.
+  - **Lot 34.5 : Frontend — Spotlight Multi-Comptes & Intégration SearchBar (`GlobalSearchDialog.tsx`, `GlobalSearchResultItem.tsx`, `SearchBar.tsx`)** : Sélecteur de portée "Tous les comptes" dans Spotlight avec bascule automatique vers `useUnifiedSearch`, pastilles de couleur de compte dans les résultats de recherche, bouton d'ouverture du Query Builder (`SlidersHorizontal`) dans `SearchBar` et Spotlight, 7 tests unitaires validés.
+  - Couverture globale : **728 tests Vitest backend (88 fichiers), 338 tests Vitest frontend (75 fichiers) — 1066 tests au total, 0 `as any`**.
 - **Feuille de route V4 (En cours)** 📋 :
   - **Phase 32** ✅ : Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic.
   - **Phase 33** ✅ : Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages.
-  - **Phase 34 (À venir)** : Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée.
+  - **Phase 34** ✅ : Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée.
   - **Phase 35 (À venir)** : Impression & Export PDF Unifié de Fil de Discussion (Thread Print).
   - **Phase 36 (À venir)** : Optimiseur de Stockage & Nettoyeur Intelligent (« Mailbox Cleaner »).
   - **Phase 37 (À venir)** : Synchronisation des Contacts Externes via CardDAV (RFC 6352).

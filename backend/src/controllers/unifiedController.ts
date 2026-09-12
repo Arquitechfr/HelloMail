@@ -6,6 +6,7 @@ import {
   getUnifiedStatus,
   UnifiedFolderType,
 } from '../services/email/unifiedMessagesService.js';
+import { searchUnifiedMessages } from '../services/email/unifiedSearchService.js';
 
 export const listMessages = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
@@ -21,6 +22,13 @@ export const listMessages = asyncHandler(
       tag,
     });
 
+    res.status(200).json(result);
+  },
+);
+
+export const searchMessages = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, _next: NextFunction) => {
+    const result = await searchUnifiedMessages(req.user.id, req.query as never);
     res.status(200).json(result);
   },
 );

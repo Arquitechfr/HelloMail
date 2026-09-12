@@ -13,6 +13,8 @@ export interface SearchQuery {
   hasAttachments?: boolean;
   since?: Date;
   before?: Date;
+  minSize?: number;
+  maxSize?: number;
   page: number;
   limit: number;
 }
@@ -39,7 +41,24 @@ export interface ParsedSearch {
     hasAttachments?: boolean;
     since?: Date;
     before?: Date;
+    minSize?: number;
+    maxSize?: number;
   };
+}
+
+/**
+ * Convertit une chaîne de taille (ex: '5M', '500K', '1G', '1024') en nombre d'octets.
+ */
+export function parseSizeStringToBytes(value: string): number | undefined {
+  const match = value.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(b|k|kb|m|mb|g|gb)?$/);
+  if (!match) return undefined;
+  const num = parseFloat(match[1]);
+  if (isNaN(num)) return undefined;
+  const unit = match[2] || 'b';
+  if (unit.startsWith('g')) return Math.round(num * 1024 * 1024 * 1024);
+  if (unit.startsWith('m')) return Math.round(num * 1024 * 1024);
+  if (unit.startsWith('k')) return Math.round(num * 1024);
+  return Math.round(num);
 }
 
 /**
@@ -54,6 +73,8 @@ export interface ParsedSearch {
  * - `has:attachment` → filtre par hasAttachments
  * - `before:2026-01-01` → filtre par date (avant)
  * - `since:2026-01-01` → filtre par date (depuis)
+ * - `larger:5M` / `smaller:2M` → filtre par taille
+ * - `size:>5M` / `size:<2M` → filtre par taille
  *
  * Le texte restant (sans opérateurs) est utilisé comme recherche plein texte ($text).
  */
@@ -121,6 +142,32 @@ export function parseSearchQuery(q: string | undefined): ParsedSearch {
         else tokens.push(part);
         break;
       }
+      case 'larger': {
+        const bytes = parseSizeStringToBytes(value);
+        if (bytes !== undefined) result.filters.minSize = bytes;
+        else tokens.push(part);
+        break;
+      }
+      case 'smaller': {
+        const bytes = parseSizeStringToBytes(value);
+        if (bytes !== undefined) result.filters.maxSize = bytes;
+        else tokens.push(part);
+        break;
+      }
+      case 'size': {
+        if (value.startsWith('>')) {
+          const bytes = parseSizeStringToBytes(value.substring(1));
+          if (bytes !== undefined) result.filters.minSize = bytes;
+          else tokens.push(part);
+        } else if (value.startsWith('<')) {
+          const bytes = parseSizeStringToBytes(value.substring(1));
+          if (bytes !== undefined) result.filters.maxSize = bytes;
+          else tokens.push(part);
+        } else {
+          tokens.push(part);
+        }
+        break;
+      }
       default:
         tokens.push(part);
     }
@@ -160,6 +207,8 @@ export async function searchMessages(
   if (query.hasAttachments !== undefined) filters.hasAttachments = query.hasAttachments;
   if (query.since) filters.since = query.since;
   if (query.before) filters.before = query.before;
+  if (query.minSize !== undefined) filters.minSize = query.minSize;
+  if (query.maxSize !== undefined) filters.maxSize = query.maxSize;
 
   // Construit la query MongoDB.
   const mongoQuery: Record<string, unknown> = { accountId };
@@ -208,6 +257,14 @@ export async function searchMessages(
     if (filters.since) dateFilter.$gte = filters.since;
     if (filters.before) dateFilter.$lte = filters.before;
     mongoQuery.date = dateFilter;
+  }
+
+  // Filtre par taille de message.
+  if (filters.minSize !== undefined || filters.maxSize !== undefined) {
+    const sizeFilter: Record<string, number> = {};
+    if (filters.minSize !== undefined) sizeFilter.$gte = filters.minSize;
+    if (filters.maxSize !== undefined) sizeFilter.$lte = filters.maxSize;
+    mongoQuery.size = sizeFilter;
   }
 
   const skip = (query.page - 1) * query.limit;

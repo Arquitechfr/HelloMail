@@ -279,19 +279,22 @@ flowchart TD
 
 ---
 
-### Phase 34 — Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée
-**Priorité : 🟠 HAUTE | Risque : Faible | Effort : Moyen**
+### Phase 34 — Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée (LIVRÉE ✅)
+**Priorité : 🟠 HAUTE | Risque : Faible | Effort : Moyen | Statut : 100% LIVRÉE**
 1. **Moteur de recherche unifiée multi-comptes** :
-   - Endpoint `GET /api/unified/search` permettant d'interroger tous les comptes de l'utilisateur en une seule passe.
-   - Respect des critères d'exclusion (ne pas inclure Trash et Spam par défaut dans la recherche unifiée).
+   - Endpoint `GET /api/unified/search` interrogeant tous les comptes actifs (ou compte ciblé) de l'utilisateur en parallèle via [`unifiedSearchService.ts`](file:///mnt/Externe/Projets/HelloMail/backend/src/services/email/unifiedSearchService.ts).
+   - Exclusion automatique des Corbeilles (`\Trash`) et Spams (`\Junk`) par défaut sauf si explicitement inclus (`includeTrash`, `includeJunk`).
+   - Support des critères de taille (`minSize`, `maxSize`, opérateurs `larger:`, `smaller:`, `size:`) et enrichissement des messages avec `accountColor` et `accountEmail`.
 2. **Constructeur visuel de filtres (Query Builder)** :
-   - Volet dépliable `AdvancedSearchBuilder.tsx` accessible depuis [`GlobalSearchDialog.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/GlobalSearchDialog.tsx) et [`SearchBar.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/SearchBar.tsx).
-   - Formulaire dédié avec champs : Expéditeur (`from`), Destinataire (`to`), Objet (`subject`), Période (`since` / `before` avec calendrier DatePicker), Pièces jointes (oui/non), Taille supérieure à X Mo, et Dossier cible.
-3. **Passerelle vers les Dossiers Intelligents** :
-   - Bouton en 1 clic : "Enregistrer cette recherche sous forme de dossier intelligent" (`SmartFolder`).
+   - Dialogue complet [`AdvancedSearchDialog.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/AdvancedSearchDialog.tsx) accessible depuis [`SearchBar.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/SearchBar.tsx) et [`GlobalSearchDialog.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/GlobalSearchDialog.tsx).
+   - Formulaire dédié : Expéditeur (`from`), Destinataire (`to`), Objet (`subject`), Contenu (`q`), Dossier, Période (`since` / `before`), Pièces jointes, Taille (> 1 Mo, > 5 Mo, > 10 Mo) et filtres d'état rapides.
+   - Sérialiseur et utilitaires isolés dans [`search-utils.ts`](file:///mnt/Externe/Projets/HelloMail/frontend/src/lib/search-utils.ts).
+3. **Spotlight & Multi-comptes fédéré** :
+   - Sélecteur de portée "Tous les comptes" vs compte individuel dans [`GlobalSearchDialog.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/GlobalSearchDialog.tsx).
+   - Pastilles de couleur de compte dans les résultats via [`GlobalSearchResultItem.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/GlobalSearchResultItem.tsx).
+   - Passerelle en 1 clic vers les Dossiers Intelligents (`SmartFolderDialog`).
 4. **Tests automatisés** :
-   - Tests de l'endpoint de recherche unifiée et de la composition des filtres MongoDB.
-   - Tests frontend du dialogue et du constructeur de requêtes.
+   - Tests unitaires complets Vitest backend (`unifiedSearchService.test.ts`, `searchService.test.ts`) et frontend (`AdvancedSearchDialog.test.tsx`, `SearchBar.test.tsx`, `GlobalSearchResultItem.test.tsx`, `search-utils.test.ts`).
 
 ---
 
