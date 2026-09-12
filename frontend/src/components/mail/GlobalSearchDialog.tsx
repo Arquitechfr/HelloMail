@@ -153,7 +153,7 @@ export function GlobalSearchDialog() {
         </div>
 
         {/* Sélecteur de compte multi-comptes + Chips de filtres rapides */}
-        <div className="flex items-center justify-between gap-2 border-b border-border/70 px-4 py-2 bg-muted/10 text-xs overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 border-b border-border/70 px-4 py-2 bg-muted/10 text-xs overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1.5 shrink-0">
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
@@ -196,7 +196,7 @@ export function GlobalSearchDialog() {
         )}
 
         {/* Résultats de recherche ou guide syntaxique */}
-        <div className="max-h-[380px] overflow-y-auto p-2">
+        <div className="max-h-[380px] overflow-y-auto no-scrollbar p-2">
           {!effectiveAccountId ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
               Aucun compte configuré.

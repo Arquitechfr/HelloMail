@@ -18,6 +18,18 @@ interface ShortcutGroup {
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
+    title: "Navigation & Sélection Power User",
+    items: [
+      { key: "J / ↓", description: "Email suivant dans la liste" },
+      { key: "K / ↑", description: "Email précédent dans la liste" },
+      { key: "X", description: "Cocher / décocher pour action groupée" },
+      { key: "Shift + J / K", description: "Étendre la sélection vers le bas / haut" },
+      { key: "Shift + Clic", description: "Sélectionner une plage continue d'emails" },
+      { key: "Cmd + A", description: "Sélectionner tous les emails affichés" },
+      { key: "Esc", description: "Vider la sélection ou fermer le lecteur" },
+    ],
+  },
+  {
     title: "Actions de rédaction",
     items: [
       { key: "C", description: "Rédiger un nouvel email" },
@@ -26,7 +38,6 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "F", description: "Transférer l'email affiché" },
       { key: "Z", description: "Annuler l'envoi en cours (Undo Send)" },
       { key: "P", description: "Imprimer l'email affiché" },
-      { key: "Esc", description: "Fermer le panneau ou dialogue" },
     ],
   },
   {
@@ -41,7 +52,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
-    title: "Navigation & Recherche",
+    title: "Recherche & Aide",
     items: [
       { key: "Cmd + K", description: "Recherche globale et filtres" },
       { key: "/", description: "Activer la barre de recherche" },
@@ -101,12 +112,45 @@ export function KeyboardShortcutsDialog() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [shortcutsDialogOpen, setShortcutsDialogOpen, openCompose, composeOpen, openSearch]);
 
+  const leftGroups = SHORTCUT_GROUPS.slice(0, 2);
+  const rightGroups = SHORTCUT_GROUPS.slice(2);
+
+  const renderGroup = (group: ShortcutGroup) => (
+    <div key={group.title} className="flex flex-col gap-2 rounded-lg border border-border/50 bg-muted/20 p-3.5">
+      <h4 className="text-xs font-semibold text-foreground tracking-wide flex items-center justify-between">
+        <span>{group.title}</span>
+        <span className="text-[10px] text-muted-foreground font-normal">
+          {group.items.length} raccourci{group.items.length > 1 ? "s" : ""}
+        </span>
+      </h4>
+      <div className="flex flex-col gap-1">
+        {group.items.map((item) => (
+          <div
+            key={item.key}
+            className="flex items-center justify-between text-xs py-1 px-1.5 rounded-sm hover:bg-background/80 transition-colors"
+          >
+            <span className="text-muted-foreground hover:text-foreground transition-colors">{item.description}</span>
+            <kbd className="inline-flex h-5 items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[11px] font-medium text-foreground shadow-2xs shrink-0 ml-2">
+              {item.key.includes("Cmd") ? (
+                <>
+                  <Command className="size-3" /> {item.key.replace("Cmd + ", "")}
+                </>
+              ) : (
+                item.key
+              )}
+            </kbd>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={shortcutsDialogOpen} onOpenChange={setShortcutsDialogOpen}>
-      <DialogContent className="sm:max-w-lg border-border bg-card p-6 shadow-2xl">
-        <DialogHeader className="mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <DialogContent className="w-[96vw] sm:max-w-xl md:max-w-3xl lg:max-w-4xl max-h-[88vh] overflow-y-auto no-scrollbar border-border bg-card p-6 shadow-2xl rounded-xl">
+        <DialogHeader className="mb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
               <Keyboard className="size-4" />
             </div>
             <div>
@@ -120,33 +164,14 @@ export function KeyboardShortcutsDialog() {
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5 divide-y divide-border">
-          {SHORTCUT_GROUPS.map((group) => (
-            <div key={group.title} className="pt-3 first:pt-0">
-              <h4 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {group.title}
-              </h4>
-              <div className="flex flex-col gap-1.5">
-                {group.items.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-center justify-between text-xs py-1 px-1 rounded-sm hover:bg-muted/40 transition-colors"
-                  >
-                    <span className="text-foreground">{item.description}</span>
-                    <kbd className="inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[11px] font-medium text-foreground shadow-xs">
-                      {item.key.includes("Cmd") ? (
-                        <>
-                          <Command className="size-3" /> K
-                        </>
-                      ) : (
-                        item.key
-                      )}
-                    </kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        {/* Agencement en deux sections sur écrans md+ et une section sur mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <div className="flex flex-col gap-4">
+            {leftGroups.map(renderGroup)}
+          </div>
+          <div className="flex flex-col gap-4">
+            {rightGroups.map(renderGroup)}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -34,7 +34,7 @@ pnpm --filter frontend dev        # Démarre le frontend (port 3001)
 pnpm --filter frontend build      # Build production Next.js
 pnpm --filter frontend lint       # ESLint
 pnpm --filter frontend typecheck  # tsc --noEmit
-pnpm --filter frontend test       # Vitest + Testing Library (140 tests, 36 fichiers)
+pnpm --filter frontend test       # Vitest + Testing Library (155 tests, 37 fichiers)
 pnpm --filter frontend start      # Démarre en production
 ```
 
@@ -103,8 +103,11 @@ frontend/src/
   - Compatibilité conservée : `/mail/settings/rules`, `/mail/settings/security` et `/mail/contacts` redirigent instantanément vers les sections correspondantes du hub unifié.
 - **Typographie robuste** : pile de polices système moderne assurant un rendu parfait sans risque de glyphes manquants pour les emails internationaux.
 
-## Patterns & Fonctionnalités (Phases 6, 7, 8 & 9)
-
+- **Expérience Power User, Multi-sélection & Modales 2 sections (Phase 18)** :
+  - **Moteur de sélection multiple continue** : `selectRangeUids` dans `uiStore` pour la sélection par plage continue (`Shift + Clic`), bascule unitaire (`Ctrl/Cmd + Clic`), sélection globale (`Cmd + A`) et désélection contextuelle (`Échap`).
+  - **Docks d'actions groupées flottants animés** : `BatchActionBar` et `UnifiedBatchActionBar` transformés en docks flottants avec `framer-motion` (`AnimatePresence`), compteurs en direct, tooltips avec raccourcis clavier associés.
+  - **Navigation & Commandes clavier universelles** : hook `useListNavigationShortcuts` partagé entre les listes de messages standards et unifiées (`J`/`K` ou flèches bas/haut pour circuler, `X` pour cocher, `Shift+J`/`Shift+K` pour étendre la sélection, `Cmd+A` pour tout sélectionner, `Échap` pour vider la sélection ou fermer le lecteur).
+  - **Modales en deux sections & neutralisation des scrollbars** : sur écrans moyens et larges (`md:` ou `lg:`), affichage adaptatif en deux sections/colonnes équilibrées pour les contenus longs (`KeyboardShortcutsDialog`, `RuleDialog` / `RuleForm` via `RuleConditionsSection` et `RuleActionsSection`, `AccountAliasesDialog` via `AccountAliasItem`, `ManageUnifiedFoldersDialog`, `AddAccountDialog` avec paramètres serveurs dépliés, `ScheduledMessagesDialog`), préservation d'une seule colonne compacte pour les contenus courts et suppression globale des scrollbars disgracieuses via `no-scrollbar`.
 - **Performance Réseau, Prefetching & Dynamic Splitting (Phase 17)** : Prefetching prédictif TanStack Query dans `MessageListItem` au survol de la souris (debounce 65 ms, annulation `onMouseLeave`, cache local `staleTime: 60s`, affichage au clic < 5 ms) ; découpage du bundle via `next/dynamic` (`ssr: false`) pour les dialogues modaux lourds (`ImportEmlDialog`, `PgpGenerateKeyDialog`, `PgpImportKeyDialog`).
 - **Mise en sommeil d'emails ("Snooze" - Phase 9 Lot 9.4)** : mise en sommeil différée avec `SnoozeDropdown` dans `MessageToolbar` (4 presets : Plus tard aujourd'hui, Demain matin, Ce week-end, La semaine prochaine, ou sélecteur datetime-local sur mesure) ; toast de confirmation avec bouton "Annuler" immédiat ; exclusion automatique des boîtes standards et dossier virtuel dédié "En sommeil" dans `AccountSidebar` ; badge visuel d'échéance `snoozedUntil` dans `MessageListItem` ; réveil automatique temps réel par le sync worker (`message:new`).
 - **Modèles d'emails & Réponses types (Phase 9 Lot 9.3)** : composant `TemplateInsertDropdown` avec recherche en direct, raccourcis clavier et aperçu rapide, intégré directement dans `ComposeActions` (ComposeForm plein écran) et `QuickReplyBar` (réponse rapide fil de discussion) ; insertion fluide du sujet et du corps HTML/texte avec conservation du curseur ; gestionnaire d'administration complet `TemplateManager` dans `/mail/settings` (création, édition, suppression, affectation globale ou par compte IMAP, gestion des raccourcis).

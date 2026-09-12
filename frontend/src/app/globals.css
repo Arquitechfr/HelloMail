@@ -246,7 +246,7 @@
   66% { transform: translate(-3vw, 6vw) scale(0.95); }
 }
 
-/* Scrollbar minimale et élégante */
+/* Scrollbar minimale et utilitaire sans scrollbar pour les modales */
 @layer base {
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -256,6 +256,29 @@
     opacity: 0.2;
   }
   ::-webkit-scrollbar-thumb:hover { opacity: 0.4; }
+
+  /* Masquage total des scrollbars sur les modales et dialogues */
+  [data-slot="dialog-content"],
+  [data-slot="dialog-content"] * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  [data-slot="dialog-content"]::-webkit-scrollbar,
+  [data-slot="dialog-content"] *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* --- 7. Éditeur de texte riche (TipTap) --- */

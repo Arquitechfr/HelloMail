@@ -126,4 +126,81 @@ describe("useEmailShortcuts", () => {
 
     expect(onReply).not.toHaveBeenCalled();
   });
+
+  it("déclenche la navigation descendante sur 'j' et 'ArrowDown', ascendante sur 'k' et 'ArrowUp'", () => {
+    const onNavigateNext = vi.fn();
+    const onNavigatePrev = vi.fn();
+
+    renderHook(() =>
+      useEmailShortcuts({
+        enabled: true,
+        onNavigateNext,
+        onNavigatePrev,
+      }),
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "j" }));
+    expect(onNavigateNext).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    expect(onNavigateNext).toHaveBeenCalledTimes(2);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k" }));
+    expect(onNavigatePrev).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    expect(onNavigatePrev).toHaveBeenCalledTimes(2);
+  });
+
+  it("déclenche onToggleSelectCurrent sur 'x'", () => {
+    const onToggleSelectCurrent = vi.fn();
+
+    renderHook(() =>
+      useEmailShortcuts({
+        enabled: true,
+        onToggleSelectCurrent,
+      }),
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "x" }));
+    expect(onToggleSelectCurrent).toHaveBeenCalledTimes(1);
+  });
+
+  it("déclenche l'extension de sélection avec Shift + 'j' ou Shift + 'k'", () => {
+    const onExtendSelectionDown = vi.fn();
+    const onExtendSelectionUp = vi.fn();
+
+    renderHook(() =>
+      useEmailShortcuts({
+        enabled: true,
+        onExtendSelectionDown,
+        onExtendSelectionUp,
+      }),
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "j", shiftKey: true }));
+    expect(onExtendSelectionDown).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", shiftKey: true }));
+    expect(onExtendSelectionUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("déclenche onSelectAll sur 'Cmd+A' et onClearSelection sur 'Escape'", () => {
+    const onSelectAll = vi.fn();
+    const onClearSelection = vi.fn();
+
+    renderHook(() =>
+      useEmailShortcuts({
+        enabled: true,
+        onSelectAll,
+        onClearSelection,
+      }),
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", metaKey: true }));
+    expect(onSelectAll).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onClearSelection).toHaveBeenCalledTimes(1);
+  });
 });

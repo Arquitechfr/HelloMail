@@ -8,6 +8,7 @@ import { MessageListItem } from "@/components/mail/MessageListItem";
 import { MessageListHeader } from "@/components/mail/MessageListHeader";
 import { BatchActionBar } from "@/components/mail/BatchActionBar";
 import { QuickFilterBar, type QuickFilter } from "@/components/mail/QuickFilterBar";
+import { useListNavigationShortcuts } from "@/lib/hooks/useListNavigationShortcuts";
 import { Loader2, Inbox } from "lucide-react";
 import type { Message } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,6 @@ export function MessageList({ accountId, folder }: MessageListProps) {
   const fetchMoreMutate = fetchMore.mutate;
   const selectedUid = useUIStore((s) => s.selectedUid);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
-  const selectAllUids = useUIStore((s) => s.selectAllUids);
   const parentRef = useRef<HTMLDivElement>(null);
   const [searchResults, setSearchResults] = useState<Message[] | null>(null);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
@@ -187,9 +187,11 @@ export function MessageList({ accountId, folder }: MessageListProps) {
     );
   }
 
-  const handleSelectAll = () => {
-    selectAllUids(filteredMessages.map((m) => m.uid));
-  };
+  const { visibleUids, handleSelectAll } = useListNavigationShortcuts({
+    items: filteredMessages,
+    selectedUid,
+    onSelectUid: setSelectedUid,
+  });
 
   return (
     <div
@@ -248,6 +250,7 @@ export function MessageList({ accountId, folder }: MessageListProps) {
                   message={filteredMessages[item.index]}
                   isSelected={selectedUid === filteredMessages[item.index].uid}
                   onSelect={() => setSelectedUid(filteredMessages[item.index].uid)}
+                  allVisibleUids={visibleUids}
                 />
               </div>
             ))}

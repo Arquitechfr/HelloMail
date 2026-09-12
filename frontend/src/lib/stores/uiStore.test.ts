@@ -45,4 +45,40 @@ describe("uiStore", () => {
     useUIStore.getState().setMobileSidebarOpen(false);
     expect(useUIStore.getState().mobileSidebarOpen).toBe(false);
   });
+
+  it("toggleSelectUid ajoute ou retire un UID et met à jour lastSelectedUid", () => {
+    useUIStore.getState().toggleSelectUid(10);
+    expect(useUIStore.getState().selectedUids).toEqual([10]);
+    expect(useUIStore.getState().lastSelectedUid).toBe(10);
+
+    useUIStore.getState().toggleSelectUid(20);
+    expect(useUIStore.getState().selectedUids).toEqual([10, 20]);
+    expect(useUIStore.getState().lastSelectedUid).toBe(20);
+
+    useUIStore.getState().toggleSelectUid(10);
+    expect(useUIStore.getState().selectedUids).toEqual([20]);
+    expect(useUIStore.getState().lastSelectedUid).toBe(10);
+  });
+
+  it("selectRangeUids sélectionne une plage continue descendante et ascendante", () => {
+    const allUids = [100, 200, 300, 400, 500];
+
+    // Premier clic sur 200
+    useUIStore.getState().toggleSelectUid(200);
+    expect(useUIStore.getState().selectedUids).toEqual([200]);
+
+    // Shift+clic sur 400 (plage descendante : 200, 300, 400)
+    useUIStore.getState().selectRangeUids(allUids, 400);
+    expect(useUIStore.getState().selectedUids).toEqual([200, 300, 400]);
+    expect(useUIStore.getState().lastSelectedUid).toBe(400);
+
+    // Shift+clic vers le haut sur 100 (plage ascendante depuis 400 : 100, 200, 300, 400)
+    useUIStore.getState().selectRangeUids(allUids, 100);
+    expect(useUIStore.getState().selectedUids).toEqual([200, 300, 400, 100]);
+
+    // clearSelectedUids réinitialise tout
+    useUIStore.getState().clearSelectedUids();
+    expect(useUIStore.getState().selectedUids).toEqual([]);
+    expect(useUIStore.getState().lastSelectedUid).toBeNull();
+  });
 });

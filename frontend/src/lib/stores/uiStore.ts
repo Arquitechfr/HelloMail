@@ -23,6 +23,7 @@ interface UIState {
   searchDialogOpen: boolean;
   selectedTag: string | null;
   selectedUids: number[];
+  lastSelectedUid: number | null;
   desktopNotificationsEnabled: boolean;
   notificationSoundEnabled: boolean;
   setSelectedAccount: (accountId: string | null) => void;
@@ -30,6 +31,7 @@ interface UIState {
   setSelectedTag: (tag: string | null) => void;
   setSelectedUid: (uid: number | null) => void;
   toggleSelectUid: (uid: number) => void;
+  selectRangeUids: (allVisibleUids: number[], targetUid: number) => void;
   selectAllUids: (uids: number[]) => void;
   clearSelectedUids: () => void;
   openCompose: (
@@ -57,6 +59,7 @@ export const useUIStore = create<UIState>()(
       selectedTag: null,
       selectedUid: null,
       selectedUids: [],
+      lastSelectedUid: null,
       composeOpen: false,
       composeMode: "new",
       composeReplyTo: null,
@@ -67,20 +70,49 @@ export const useUIStore = create<UIState>()(
       desktopNotificationsEnabled: true,
       notificationSoundEnabled: true,
       setSelectedAccount: (accountId) =>
-        set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [] }),
+        set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
       setSelectedFolder: (folder) =>
-        set({ selectedFolder: folder, selectedTag: null, selectedUid: null, selectedUids: [] }),
+        set({ selectedFolder: folder, selectedTag: null, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
       setSelectedTag: (tag) =>
-        set({ selectedTag: tag, selectedUid: null, selectedUids: [] }),
+        set({ selectedTag: tag, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
       setSelectedUid: (uid) => set({ selectedUid: uid }),
       toggleSelectUid: (uid) =>
         set((state) => ({
           selectedUids: state.selectedUids.includes(uid)
             ? state.selectedUids.filter((id) => id !== uid)
             : [...state.selectedUids, uid],
+          lastSelectedUid: uid,
         })),
-      selectAllUids: (uids) => set({ selectedUids: uids }),
-      clearSelectedUids: () => set({ selectedUids: [] }),
+      selectRangeUids: (allVisibleUids, targetUid) =>
+        set((state) => {
+          const targetIndex = allVisibleUids.indexOf(targetUid);
+          if (targetIndex === -1) return state;
+
+          const lastIndex =
+            state.lastSelectedUid !== null ? allVisibleUids.indexOf(state.lastSelectedUid) : -1;
+
+          if (lastIndex === -1) {
+            return {
+              selectedUids: state.selectedUids.includes(targetUid)
+                ? state.selectedUids
+                : [...state.selectedUids, targetUid],
+              lastSelectedUid: targetUid,
+            };
+          }
+
+          const [start, end] =
+            lastIndex < targetIndex ? [lastIndex, targetIndex] : [targetIndex, lastIndex];
+          const rangeUids = allVisibleUids.slice(start, end + 1);
+          const newSelectedUids = Array.from(new Set([...state.selectedUids, ...rangeUids]));
+
+          return {
+            selectedUids: newSelectedUids,
+            lastSelectedUid: targetUid,
+          };
+        }),
+      selectAllUids: (uids) =>
+        set({ selectedUids: uids, lastSelectedUid: uids[uids.length - 1] ?? null }),
+      clearSelectedUids: () => set({ selectedUids: [], lastSelectedUid: null }),
       openCompose: (mode = "new", replyTo = null, restoredData = null) =>
         set({
           composeOpen: true,

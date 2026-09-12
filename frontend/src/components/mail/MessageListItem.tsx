@@ -23,6 +23,7 @@ interface MessageListItemProps {
   isSelected: boolean;
   onSelect: () => void;
   accountColor?: string;
+  allVisibleUids?: number[];
 }
 
 export function MessageListItem({
@@ -32,12 +33,14 @@ export function MessageListItem({
   isSelected,
   onSelect,
   accountColor,
+  allVisibleUids,
 }: MessageListItemProps) {
   const isUnread = !message.flags.seen;
   const isFlagged = message.flags.flagged;
   const isPinned = Boolean(message.isPinned);
   const selectedUids = useUIStore((s) => s.selectedUids);
   const toggleSelectUid = useUIStore((s) => s.toggleSelectUid);
+  const selectRangeUids = useUIStore((s) => s.selectRangeUids);
   const isBatchSelected = selectedUids.includes(message.uid);
   const hasBatchSelection = selectedUids.length > 0;
 
@@ -91,6 +94,31 @@ export function MessageListItem({
     }
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey && allVisibleUids && allVisibleUids.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      selectRangeUids(allVisibleUids, message.uid);
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSelectUid(message.uid);
+      return;
+    }
+    onSelect();
+  };
+
+  const handleSelectButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (e.shiftKey && allVisibleUids && allVisibleUids.length > 0) {
+      selectRangeUids(allVisibleUids, message.uid);
+    } else {
+      toggleSelectUid(message.uid);
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData(
       "application/json",
@@ -120,7 +148,7 @@ export function MessageListItem({
                 ? "bg-primary/[0.04] hover:bg-primary/[0.07] border-l-2 border-l-primary/70"
                 : "hover:bg-muted/40 border-l-2 border-l-transparent",
         )}
-        onClick={onSelect}
+        onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
         {/* Avatar / logo / initiales + bouton de sélection multiple */}
@@ -142,10 +170,7 @@ export function MessageListItem({
           {/* Bouton de sélection multiple au survol ou actif */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleSelectUid(message.uid);
-            }}
+            onClick={handleSelectButtonClick}
             className={cn(
               "absolute inset-0 z-10 flex items-center justify-center rounded-full border transition-all cursor-pointer",
               isBatchSelected

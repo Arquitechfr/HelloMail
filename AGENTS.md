@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (733 tests, 105 fichiers — 593 backend + 140 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (748 tests, 106 fichiers — 593 backend + 155 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -124,5 +124,12 @@ HelloMail/
   - **Lot 17.3 : Prefetching prédictif TanStack Query** : Préchargement automatique du détail de message dans `MessageListItem` au survol de la souris avec debounce de 65 ms et nettoyage instantané `clearTimeout` sur `onMouseLeave` (élimine les requêtes parasites de scroll rapide), fonction helper `fetchMessageDetail` réutilisée, réduisant la latence d'affichage au clic à moins de 5 ms.
   - **Lot 17.4 : Code-Splitting & Dynamic Imports Next.js** : Utilisation de `next/dynamic` (`ssr: false`) pour le découpage des composants modaux lourds (`ImportEmlDialog` dans `FolderTree`, `PgpGenerateKeyDialog` et `PgpImportKeyDialog` dans `PgpKeyManager`), allégeant le bundle initial tout en maintenant une navigation fluide.
   - Couverture globale : **593 tests Vitest backend (69 fichiers), 140 tests Vitest frontend (36 fichiers) — 733 tests au total, 0 `as any`**.
+- **Phase 18 : Expérience Power User : Multi-sélection, Commandes Clavier & Ergonomie des Modales (Intégralité livrée)** ✅ :
+  - **Lot 18.1 : Moteur de multi-sélection intelligente** : Ajout de `lastSelectedUid` et de l'action `selectRangeUids` dans `uiStore`, sélection par plage continue (`Shift + Clic` sur conteneur et bouton rond), bascule unitaire (`Ctrl/Cmd + Clic`), sélection globale (`Cmd + A`) et désélection (`Échap`).
+  - **Lot 18.2 : Docks d'actions groupées flottants animés** : `BatchActionBar` et `UnifiedBatchActionBar` transformés en barres flottantes animées via `framer-motion` (`AnimatePresence`, `motion.div`), compteurs dynamiques en temps réel et tooltips annotés de raccourcis (`U`, `H`, `!`, `Suppr`, `Échap`, `Ctrl+A`).
+  - **Lot 18.3 : Raccourcis clavier de navigation et de sélection** : Hook réutilisable `useListNavigationShortcuts` partagé entre les vues standard et unifiées, commandes Superhuman/Thunderbird (`J`/`K`/`X`/`Shift+J`/`Shift+K`/`Cmd+A`/`Échap`), documentation interactive dans `KeyboardShortcutsDialog`.
+  - **Lot 18.4 : Ergonomie des modales adaptatives en 2 sections & neutralisation des scrollbars** : Découpage adaptatif en 2 sections sur grand écran pour les modales denses (`KeyboardShortcutsDialog`, `RuleDialog` / `RuleForm` avec `RuleConditionsSection` et `RuleActionsSection`, `AccountAliasesDialog` avec `AccountAliasItem`, `ManageUnifiedFoldersDialog`, `AddAccountDialog`, `ScheduledMessagesDialog`), préservation d'une seule section compacte sur mobile ou contenu court, et masquage global des scrollbars disgracieuses via `.no-scrollbar`.
+  - Couverture globale : **593 tests Vitest backend (69 fichiers), 155 tests Vitest frontend (37 fichiers) — 748 tests au total, 0 `as any`**.
+
 
 

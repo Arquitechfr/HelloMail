@@ -7,6 +7,7 @@ import { useAccounts } from "@/lib/queries/accounts";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { MessageListItem } from "@/components/mail/MessageListItem";
 import { QuickFilterBar, type QuickFilter } from "@/components/mail/QuickFilterBar";
+import { useListNavigationShortcuts } from "@/lib/hooks/useListNavigationShortcuts";
 import { UnifiedBatchActionBar } from "./UnifiedBatchActionBar";
 import { UNIFIED_FOLDER_DEFINITIONS } from "@/lib/unified-utils";
 import type { UnifiedFolderType, Message } from "@/lib/api-types";
@@ -26,7 +27,6 @@ export function UnifiedMessageList({
 }: UnifiedMessageListProps) {
   const selectedTag = useUIStore((s) => s.selectedTag);
   const setSelectedTag = useUIStore((s) => s.setSelectedTag);
-  const selectAllUids = useUIStore((s) => s.selectAllUids);
 
   const { data: accounts } = useAccounts();
   const accountMap = useMemo(() => {
@@ -79,9 +79,24 @@ export function UnifiedMessageList({
     overscan: 10,
   });
 
-  const handleSelectAll = () => {
-    selectAllUids(filteredMessages.map((m) => m.uid));
+  const handleSelectUid = (uid: number | null) => {
+    if (uid === null) {
+      useUIStore.getState().setSelectedUid(null);
+    } else {
+      const targetMsg = filteredMessages.find((m) => m.uid === uid) as
+        | (Message & { accountId: string; folder: string })
+        | undefined;
+      if (targetMsg) {
+        onSelectMessage(targetMsg);
+      }
+    }
   };
+
+  const { visibleUids, handleSelectAll } = useListNavigationShortcuts({
+    items: filteredMessages,
+    selectedUid: selectedMessage?.uid ?? null,
+    onSelectUid: handleSelectUid,
+  });
 
   return (
     <div
@@ -98,32 +113,28 @@ export function UnifiedMessageList({
             <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider font-display truncate">
               {meta?.defaultLabel ?? type}
             </h2>
-            <span className="rounded-full bg-muted px-1.5 py-0.2 font-mono text-[10px] text-muted-foreground border border-border/60 shrink-0">
-              {data?.total ?? messages.length}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {isFetching && (
+              <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            )}
+            <span className="text-xs font-mono text-muted-foreground">
+              {data?.total ?? 0}
             </span>
           </div>
-          {isFetching && (
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 ml-2">
-              <Loader2 className="size-3 animate-spin text-primary" />
-              <span>sync…</span>
-            </span>
-          )}
         </div>
 
-        {/* Filtre par étiquette active */}
+        {/* Filtre par étiquette actif */}
         {selectedTag && (
-          <div className="mt-2 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1 text-xs">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <TagIcon className="size-3 text-primary shrink-0" />
-              <span className="truncate font-medium text-foreground">
-                {selectedTag}
-              </span>
+          <div className="mt-2 flex items-center justify-between gap-1.5 rounded bg-primary/10 px-2 py-1 text-xs text-primary">
+            <div className="flex items-center gap-1.5 truncate">
+              <TagIcon className="size-3 shrink-0" />
+              <span className="truncate">Étiquette : {selectedTag}</span>
             </div>
             <button
-              type="button"
               onClick={() => setSelectedTag(null)}
-              className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
-              title="Effacer le filtre"
+              className="rounded p-0.5 hover:bg-primary/20 transition-colors"
+              title="Supprimer le filtre par étiquette"
             >
               <X className="size-3" />
             </button>
@@ -139,29 +150,21 @@ export function UnifiedMessageList({
         className="border-b border-border/40 bg-muted/20"
       />
 
-      {/* Contenu : liste des messages ou état vide */}
-      {isLoading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : messages.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-muted-foreground">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-muted/60 mb-3 border border-border/60">
-            <Icon className="size-5 text-muted-foreground" />
+      {/* Liste virtualisée */}
+      {filteredMessages.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground p-6 text-center">
+          <div className="flex size-10 items-center justify-center rounded-full bg-muted/50 border border-border">
+            <Inbox className="size-4 opacity-60 text-muted-foreground" />
           </div>
-          <p className="text-xs font-medium text-foreground">Aucun email unifié</p>
-          <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-            Aucun message correspondant dans tous vos comptes synchronisés.
+          <p className="text-xs font-medium text-foreground">
+            {isLoading ? "Chargement des messages…" : "Aucun message"}
           </p>
-        </div>
-      ) : filteredMessages.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-muted-foreground">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-muted/60 mb-3 border border-border/60">
-            <Icon className="size-5 text-muted-foreground" />
-          </div>
-          <p className="text-xs font-medium text-foreground">Aucun message pour ce filtre</p>
-          <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
-            Modifiez ou désactivez le filtre actif pour voir tous vos emails.
+          <p className="text-[11px] text-muted-foreground">
+            {isLoading
+              ? "Veuillez patienter."
+              : selectedTag
+                ? `Aucun message avec l'étiquette « ${selectedTag} »`
+                : "Cette boîte unifiée est vide."}
           </p>
         </div>
       ) : (
@@ -200,6 +203,7 @@ export function UnifiedMessageList({
                     isSelected={isSelected}
                     accountColor={accountMap[msg.accountId]?.color}
                     onSelect={() => onSelectMessage(msg)}
+                    allVisibleUids={visibleUids}
                   />
                 </div>
               );

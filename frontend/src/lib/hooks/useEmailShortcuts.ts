@@ -14,10 +14,18 @@ interface EmailShortcutsOptions {
   onDelete?: () => void;
   onMarkJunk?: () => void;
   onPrint?: () => void;
+  onNavigateNext?: () => void;
+  onNavigatePrev?: () => void;
+  onToggleSelectCurrent?: () => void;
+  onExtendSelectionDown?: () => void;
+  onExtendSelectionUp?: () => void;
+  onSelectAll?: () => void;
+  onClearSelection?: () => void;
 }
 
 /**
- * Hook gérant les raccourcis clavier rapides sur les emails (R, Shift+R, F, U, S, E, !, Suppr, P).
+ * Hook gérant les raccourcis clavier rapides sur les emails (R, F, U, S, E, !, Suppr, P)
+ * ainsi que la navigation et multi-sélection Power User (J, K, X, Shift+J, Shift+K, Cmd+A, Échap).
  * Protégé contre l'interception intempestive lors de la saisie dans un champ texte ou une modale.
  */
 export function useEmailShortcuts({
@@ -32,6 +40,13 @@ export function useEmailShortcuts({
   onDelete,
   onMarkJunk,
   onPrint,
+  onNavigateNext,
+  onNavigatePrev,
+  onToggleSelectCurrent,
+  onExtendSelectionDown,
+  onExtendSelectionUp,
+  onSelectAll,
+  onClearSelection,
 }: EmailShortcutsOptions) {
   useEffect(() => {
     if (!enabled) return;
@@ -55,17 +70,67 @@ export function useEmailShortcuts({
       );
       if (hasModal) return;
 
-      // Raccourcis avec Ctrl / Cmd (ex: Ctrl+P pour imprimer)
+      // Raccourcis avec Ctrl / Cmd (ex: Ctrl+P pour imprimer, Ctrl+A pour tout sélectionner)
       if (e.ctrlKey || e.metaKey) {
         if ((e.key === "p" || e.key === "P") && onPrint) {
           e.preventDefault();
           onPrint();
+        } else if ((e.key === "a" || e.key === "A") && onSelectAll) {
+          e.preventDefault();
+          onSelectAll();
         }
         return;
       }
 
       // Raccourcis directs sans Ctrl / Cmd
       switch (e.key) {
+        case "Escape":
+          if (onClearSelection) {
+            e.preventDefault();
+            onClearSelection();
+          }
+          break;
+
+        case "j":
+        case "J":
+        case "ArrowDown":
+          if (e.shiftKey) {
+            if (onExtendSelectionDown) {
+              e.preventDefault();
+              onExtendSelectionDown();
+            }
+          } else {
+            if (onNavigateNext) {
+              e.preventDefault();
+              onNavigateNext();
+            }
+          }
+          break;
+
+        case "k":
+        case "K":
+        case "ArrowUp":
+          if (e.shiftKey) {
+            if (onExtendSelectionUp) {
+              e.preventDefault();
+              onExtendSelectionUp();
+            }
+          } else {
+            if (onNavigatePrev) {
+              e.preventDefault();
+              onNavigatePrev();
+            }
+          }
+          break;
+
+        case "x":
+        case "X":
+          if (onToggleSelectCurrent) {
+            e.preventDefault();
+            onToggleSelectCurrent();
+          }
+          break;
+
         case "r":
         case "R":
           if (e.shiftKey) {
@@ -161,5 +226,12 @@ export function useEmailShortcuts({
     onDelete,
     onMarkJunk,
     onPrint,
+    onNavigateNext,
+    onNavigatePrev,
+    onToggleSelectCurrent,
+    onExtendSelectionDown,
+    onExtendSelectionUp,
+    onSelectAll,
+    onClearSelection,
   ]);
 }

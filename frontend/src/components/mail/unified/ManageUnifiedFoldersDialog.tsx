@@ -19,7 +19,7 @@ import {
   DEFAULT_UNIFIED_FOLDERS,
 } from "@/lib/unified-utils";
 import type { UnifiedFolderConfig } from "@/lib/api-types";
-import { ChevronUp, ChevronDown, RotateCcw, Sliders, Check } from "lucide-react";
+import { ChevronUp, ChevronDown, RotateCcw, Sliders, Check, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 interface ManageUnifiedFoldersDialogProps {
@@ -96,11 +96,11 @@ export function ManageUnifiedFoldersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-5">
+      <DialogContent className="w-[96vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[88vh] overflow-y-auto no-scrollbar flex flex-col p-5 sm:p-6 gap-4">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Sliders className="size-4" />
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20 shrink-0">
+              <Sliders className="size-4.5" />
             </div>
             <div>
               <DialogTitle className="text-base font-semibold">
@@ -113,98 +113,123 @@ export function ManageUnifiedFoldersDialog({
           </div>
         </DialogHeader>
 
-        {/* Activation globale */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/60 my-2">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-foreground">
-              Activer les dossiers unifiés
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              Affiche la section consolidée en haut de la barre latérale
-            </span>
-          </div>
-          <Checkbox
-            checked={enabledGlobal}
-            onCheckedChange={(checked) => handleToggleGlobal(Boolean(checked))}
-            aria-label="Activer les dossiers unifiés"
-          />
-        </div>
-
-        {/* Liste des dossiers unifiés avec activation et ordonnancement */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 py-1">
-          <div className="flex items-center justify-between px-1 mb-1">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Dossiers disponibles & ordre
-            </span>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handleResetDefaults}
-              className="text-[11px] h-6 px-2 text-muted-foreground hover:text-foreground gap-1"
-            >
-              <RotateCcw className="size-3" />
-              Par défaut
-            </Button>
-          </div>
-
-          {folders.map((folder, index) => {
-            const meta = UNIFIED_FOLDER_DEFINITIONS[folder.id];
-            const Icon = meta?.icon;
-
-            return (
-              <div
-                key={folder.id}
-                className="flex items-center justify-between p-2 rounded-md border border-border/40 hover:bg-muted/30 transition-colors gap-2"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <Checkbox
-                    checked={folder.enabled}
-                    disabled={!enabledGlobal}
-                    onCheckedChange={(checked) =>
-                      handleToggleFolder(folder.id, Boolean(checked))
-                    }
-                    aria-label={`Activer ${folder.label}`}
-                  />
-                  {Icon && <Icon className="size-4 text-muted-foreground shrink-0" />}
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-medium truncate text-foreground">
-                      {folder.label || meta?.defaultLabel}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground truncate">
-                      {meta?.description}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    disabled={!enabledGlobal || index === 0}
-                    onClick={() => handleMove(index, "up")}
-                    title="Monter"
-                    aria-label="Monter"
-                  >
-                    <ChevronUp className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    disabled={!enabledGlobal || index === folders.length - 1}
-                    onClick={() => handleMove(index, "down")}
-                    title="Descendre"
-                    aria-label="Descendre"
-                  >
-                    <ChevronDown className="size-3.5" />
-                  </Button>
-                </div>
+        {/* Agencement en deux sections sur md+ et une section sur mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start pt-1">
+          {/* Section 1 : Activation globale et informations */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between p-3.5 rounded-lg bg-muted/30 border border-border/70 shadow-2xs gap-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-foreground">
+                  Activer les dossiers unifiés
+                </span>
+                <span className="text-[11px] text-muted-foreground leading-relaxed">
+                  Affiche la section consolidée en haut de la barre latérale pour consulter tous vos comptes en un seul endroit.
+                </span>
               </div>
-            );
-          })}
+              <Checkbox
+                checked={enabledGlobal}
+                onCheckedChange={(checked) => handleToggleGlobal(Boolean(checked))}
+                aria-label="Activer les dossiers unifiés"
+                className="mt-0.5"
+              />
+            </div>
+
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3 flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Layers className="size-3.5 text-primary" />
+                <span>Vue multi-comptes intelligente</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Chaque message affiche la pastille de couleur du compte d&apos;origine pour une distinction immédiate.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResetDefaults}
+                className="mt-1 text-xs h-7.5 gap-1.5 self-start text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="size-3" />
+                Rétablir les dossiers par défaut
+              </Button>
+            </div>
+          </div>
+
+          {/* Section 2 : Liste des dossiers unifiés et réorganisation */}
+          <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/15 p-3 sm:p-3.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground pb-1">
+              <span>Dossiers disponibles & ordre</span>
+              <span className="text-[10px] font-normal text-muted-foreground">
+                {folders.filter((f) => f.enabled).length} actif(s)
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto no-scrollbar">
+              {folders.map((folder, index) => {
+                const meta = UNIFIED_FOLDER_DEFINITIONS[folder.id];
+                const Icon = meta?.icon;
+
+                return (
+                  <div
+                    key={folder.id}
+                    className="flex items-center justify-between p-2 rounded-md border border-border/50 bg-background/80 hover:bg-muted/40 transition-colors gap-2 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <Checkbox
+                        checked={folder.enabled}
+                        disabled={!enabledGlobal}
+                        onCheckedChange={(checked) =>
+                          handleToggleFolder(folder.id, Boolean(checked))
+                        }
+                        aria-label={`Activer ${folder.label}`}
+                      />
+                      {Icon && <Icon className="size-4 text-muted-foreground shrink-0" />}
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium truncate text-foreground">
+                          {folder.label || meta?.defaultLabel}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {meta?.description}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={!enabledGlobal || index === 0}
+                        onClick={() => handleMove(index, "up")}
+                        title="Monter"
+                        aria-label="Monter"
+                        className="cursor-pointer"
+                      >
+                        <ChevronUp className="size-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={!enabledGlobal || index === folders.length - 1}
+                        onClick={() => handleMove(index, "down")}
+                        title="Descendre"
+                        aria-label="Descendre"
+                        className="cursor-pointer"
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        <DialogFooter className="mt-3 pt-3 border-t border-border flex items-center justify-between sm:justify-between">
+        <DialogFooter className="mt-2 pt-3 border-t border-border flex items-center justify-between sm:justify-between">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => onOpenChange(false)}
@@ -213,6 +238,7 @@ export function ManageUnifiedFoldersDialog({
             Annuler
           </Button>
           <Button
+            type="button"
             size="sm"
             onClick={handleSave}
             disabled={updatePreferences.isPending}

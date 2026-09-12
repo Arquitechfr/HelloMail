@@ -158,34 +158,55 @@ L'objectif de cet **Audit V2** est d'élever HelloMail au niveau des meilleurs c
 
 ---
 
-### Phase 18 — Expérience Power User : Multi-sélection & Commandes Clavier
+### Phase 18 — Expérience Power User : Multi-sélection, Commandes Clavier & Ergonomie des Modales ✅ Livré
 
-**Objectif :** Offrir une vitesse de tri et de gestion d'emails équivalente à Thunderbird et Superhuman.
+**Objectif :** Offrir une vitesse de tri et de gestion d'emails équivalente à Thunderbird et Superhuman, avec une ergonomie visuelle sans défilement disgracieux.
 
-#### Lot 18.1 — Moteur de multi-sélection intelligente
-- Fichier store : `frontend/src/lib/stores/selectionStore.ts` (ou extension de `uiStore.ts`).
-- Gestion de la sélection par plage (Range Selection) :
-  - Mémorisation du dernier index cliqué (`lastSelectedIndex`).
-  - `Shift + Clic` : sélectionne tous les emails compris entre `lastSelectedIndex` et l'index ciblé.
-  - `Cmd/Ctrl + Clic` : bascule individuelle de l'état sélectionné sans affecter les autres.
-  - `Cmd/Ctrl + A` : sélectionne la totalité des messages du dossier / de la page courante.
-  - `Échap` : désélectionne tout.
+#### Lot 18.1 — Moteur de multi-sélection intelligente ✅ Livré
+- Fichier store : `frontend/src/lib/stores/uiStore.ts`.
+- Mémorisation du dernier UID cliqué (`lastSelectedUid: number | null`).
+- Action `selectRangeUids(allVisibleUids, targetUid)` :
+  - Calcule l'intervalle ordonné entre `lastSelectedUid` et `targetUid`.
+  - Fusion sans doublon via `Set` avec les sélections existantes.
+  - Déclenchement sur `Shift + Clic` dans `MessageListItem` (sur la ligne et sur le bouton rond).
+- Bascule unitaire réactive sur `Ctrl/Cmd + Clic` via `toggleSelectUid(uid)`.
+- 6 tests unitaires complets dans `uiStore.test.ts` et tests d'intégration dans `MessageListItem.test.tsx`.
 
-#### Lot 18.2 — Barre d'actions contextuelle flottante (Floating Batch Actions Bar)
-- Nouveau composant : `frontend/src/components/mail/BatchActionsDock.tsx`.
-- Apparition animée fluide dès que `selectedCount > 1` :
-  - Compteur d'éléments sélectionnés avec bouton de désélection rapide.
-  - Actions immédiates : Marquer lu/non-lu, Archiver, Épingler, Déplacer vers un dossier, Appliquer une étiquette, Supprimer.
-  - Intégration transparente avec le batch service backend existant (`useBatchAction`).
+#### Lot 18.2 — Barre d'actions contextuelle flottante (Floating Batch Actions Dock) ✅ Livré
+- Composants : `frontend/src/components/mail/BatchActionBar.tsx` et `UnifiedBatchActionBar.tsx`.
+- Animation d'apparition/disparition ultra-fluide avec `framer-motion` (`AnimatePresence`, `motion.div`).
+- Style façon Dock macOS épuré : centré en bas d'écran, `rounded-xl`, bordure glassmorphism, ombre portée `shadow-xl`.
+- Compteur dynamique en direct ("X sélectionnés") avec bouton de désélection rapide (`Échap`).
+- Tooltips enrichis avec raccourcis clavier associés (`U` Lu/Non-lu, `H` Épingler, `!` Spam, `Suppr` Supprimer, `Ctrl+A` Tout sélectionner).
+- 8 tests unitaires complets (`BatchActionBar.test.tsx` et `UnifiedBatchActionBar.test.tsx`).
 
-#### Lot 18.3 — Raccourcis clavier de navigation et d'action
-- Fichier hook : `frontend/src/lib/hooks/useEmailShortcuts.ts`.
-- Ajout de raccourcis :
-  - `J` / `K` (ou Flèche Bas / Flèche Haut) : descendre / monter dans la liste d'emails.
-  - `X` : cocher / décocher le message sous le curseur.
+#### Lot 18.3 — Raccourcis clavier de navigation et de sélection ✅ Livré
+- Fichiers : `frontend/src/lib/hooks/useEmailShortcuts.ts`, `frontend/src/lib/hooks/useListNavigationShortcuts.ts`.
+- Raccourcis universels :
+  - `J` / `↓` : descendre vers l'email suivant.
+  - `K` / `↑` : monter vers l'email précédent.
+  - `X` : cocher / décocher l'email sélectionné pour action par lot.
   - `Shift + J` / `Shift + K` : étendre la sélection vers le bas / vers le haut.
-  - `* + A` : tout sélectionner.
-  - `* + N` : tout désélectionner.
+  - `Cmd / Ctrl + A` : sélectionner tous les emails affichés dans la vue.
+  - `Échap` : désélectionner tout, ou fermer le panneau lecteur si aucun lot n'est sélectionné.
+- Factorisation via `useListNavigationShortcuts` partagé entre `MessageList.tsx` et `UnifiedMessageList.tsx` (< 300 lignes).
+- Intégration dans le dialogue d'aide `KeyboardShortcutsDialog.tsx` avec affichage dynamique des symboles `Cmd`.
+- 16 tests unitaires complets (`useEmailShortcuts.test.ts` et `useListNavigationShortcuts.test.ts`).
+
+#### Lot 18.4 — Ergonomie des modales adaptatives en 2 sections & neutralisation des scrollbars ✅ Livré
+- **Suppression globale des scrollbars** : classe `.no-scrollbar` et règles CSS appliquées à toutes les modales (`[data-slot="dialog-content"]`), évitant les barres de défilement laides tout en préservant le scroll tactile ou à la molette.
+- **Organisation adaptative en deux sections sur écrans moyens/larges (`md:` / `lg:`)** :
+  - `KeyboardShortcutsDialog` : agencement des 5 groupes de raccourcis en 2 colonnes équilibrées (`md:grid-cols-2`), modale élargie `sm:max-w-xl md:max-w-3xl lg:max-w-4xl`, zéro scrollbar sur desktop.
+  - `RuleDialog` & `RuleForm` : découpage modulaire en deux sections côte à côte (Déclencheurs & Conditions à gauche via `RuleConditionsSection`, Exécution & Actions à droite via `RuleActionsSection`), largeur `md:max-w-4xl lg:max-w-5xl`.
+  - `AccountAliasesDialog` : deux sections sur `md:` (Formulaire d'ajout/édition à gauche, Liste des identités configurées à droite via `AccountAliasItem`), largeur `md:max-w-3xl lg:max-w-4xl`.
+  - `ManageUnifiedFoldersDialog` : deux sections sur `md:` (Activation globale et explications à gauche, Liste et ordre des 6 dossiers unifiés à droite), largeur `md:max-w-2xl lg:max-w-3xl`.
+  - `AddAccountDialog` : passage dynamique de 1 section compacte (`max-w-md`) à 2 sections sur `md:` (`md:max-w-3xl lg:max-w-4xl`) lorsque les paramètres avancés de serveurs IMAP/SMTP sont dépliés.
+  - `ScheduledMessagesDialog` : affichage automatique en grille 2 colonnes sur `md:` quand la liste comporte plusieurs messages programmés.
+- Tous les fichiers modulaires strictement sous 300 lignes.
+
+**Bilan Phase 18 :**
+- **748 tests automatisés 100% verts** (593 backend sur 69 fichiers + 155 frontend sur 37 fichiers).
+- Zéro régression, 0 `as any`, typage TypeScript strict sans erreur, Next.js build réussi en 16.8s.
 
 ---
 

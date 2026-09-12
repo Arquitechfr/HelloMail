@@ -19,8 +19,9 @@ import {
 } from "@/lib/queries/aliases";
 import { ApiError } from "@/lib/api";
 import type { Account, AccountAlias } from "@/lib/api-types";
-import { Plus, Trash2, Edit2, Star, Check, AlertCircle, Mail } from "lucide-react";
+import { Plus, Check, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { AccountAliasItem } from "./AccountAliasItem";
 
 interface AccountAliasesDialogProps {
   account: Account;
@@ -133,9 +134,15 @@ export function AccountAliasesDialog({
     );
   };
 
+  const isExpandedLayout = formOpen || aliases.length > 2;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md gap-4">
+      <DialogContent
+        className={`w-[96vw] max-h-[85vh] overflow-y-auto no-scrollbar gap-4 p-5 sm:p-6 ${
+          isExpandedLayout ? "sm:max-w-xl md:max-w-3xl lg:max-w-4xl" : "sm:max-w-md md:max-w-lg"
+        }`}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Mail className="size-4 text-primary" />
@@ -146,156 +153,130 @@ export function AccountAliasesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Adresse principale du compte */}
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0 flex-1">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Adresse principale
-              </span>
-              <div className="truncate text-sm font-medium">
-                {account.displayName ? `${account.displayName} <${account.emailAddress}>` : account.emailAddress}
+        {/* Agencement en deux sections sur écrans md+ quand le contenu est long / formulaire ouvert */}
+        <div className={`grid gap-4 ${isExpandedLayout ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+          {/* Section 1 : Adresse principale + Formulaire d'ajout / modification */}
+          <div className="flex flex-col gap-3">
+            {/* Adresse principale du compte */}
+            <div className="rounded-lg border border-border/80 bg-muted/30 p-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Adresse principale
+                  </span>
+                  <div className="truncate text-xs sm:text-sm font-medium text-foreground">
+                    {account.displayName ? `${account.displayName} <${account.emailAddress}>` : account.emailAddress}
+                  </div>
+                </div>
+                {!aliases.some((a) => a.isDefault) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                    <Check className="size-3" /> Par défaut
+                  </span>
+                )}
               </div>
             </div>
-            {!aliases.some((a) => a.isDefault) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                <Check className="size-3" /> Par défaut
-              </span>
+
+            {/* Formulaire ou bouton d'ajout */}
+            {formOpen ? (
+              <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-border/80 p-3.5 bg-card shadow-xs">
+                <div className="font-semibold text-xs text-foreground">
+                  {editingAlias ? "Modifier l'alias" : "Ajouter une identité d'expédition"}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="alias-name" className="text-xs">
+                    Nom d'affichage (optionnel)
+                  </Label>
+                  <Input
+                    id="alias-name"
+                    placeholder="Ex: Support HelloMail"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="alias-email" className="text-xs">
+                    Adresse email
+                  </Label>
+                  <Input
+                    id="alias-email"
+                    type="email"
+                    placeholder="alias@domaine.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={isDefault}
+                    onChange={(e) => setIsDefault(e.target.checked)}
+                    className="size-3.5 rounded border-input text-primary focus:ring-primary accent-primary"
+                  />
+                  <span className="text-xs text-muted-foreground">Définir comme expéditeur par défaut pour ce compte</span>
+                </label>
+                <div className="flex justify-end gap-2 pt-1 border-t border-border/40">
+                  <Button type="button" size="sm" variant="ghost" onClick={resetForm} className="h-7 text-xs">
+                    Annuler
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={createAlias.isPending || updateAlias.isPending}
+                  >
+                    {editingAlias ? "Enregistrer" : "Ajouter"}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormOpen(true)}
+                className="w-full justify-center gap-1.5 h-8.5 text-xs border-dashed hover:border-primary/60"
+              >
+                <Plus className="size-3.5" />
+                Ajouter un alias d'expédition
+              </Button>
             )}
           </div>
-        </div>
 
-        {/* Formulaire d'ajout / modification */}
-        {formOpen ? (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border p-3 bg-card">
-            <div className="font-semibold text-xs">
-              {editingAlias ? "Modifier l'alias" : "Ajouter une identité d'expédition"}
+          {/* Section 2 : Liste des alias configurés */}
+          <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/15 p-3 sm:p-3.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+              <span>Alias configurés ({aliases.length})</span>
+              {aliases.length > 0 && (
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  Sélectionnables dans "De :"
+                </span>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="alias-name" className="text-xs">
-                Nom d'affichage (optionnel)
-              </Label>
-              <Input
-                id="alias-name"
-                placeholder="Ex: Support HelloMail"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="h-8 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="alias-email" className="text-xs">
-                Adresse email
-              </Label>
-              <Input
-                id="alias-email"
-                type="email"
-                placeholder="alias@domaine.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-8 text-xs"
-              />
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer pt-1">
-              <input
-                type="checkbox"
-                checked={isDefault}
-                onChange={(e) => setIsDefault(e.target.checked)}
-                className="size-3.5 rounded border-input text-primary focus:ring-primary"
-              />
-              <span className="text-xs">Définir comme expéditeur par défaut pour ce compte</span>
-            </label>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" size="sm" variant="ghost" onClick={resetForm} className="h-7 text-xs">
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="h-7 text-xs"
-                disabled={createAlias.isPending || updateAlias.isPending}
-              >
-                {editingAlias ? "Enregistrer" : "Ajouter"}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setFormOpen(true)}
-            className="w-full justify-center gap-1.5 h-8 text-xs"
-          >
-            <Plus className="size-3.5" />
-            Ajouter un alias d'expédition
-          </Button>
-        )}
 
-        {/* Liste des alias */}
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-          <div className="text-xs font-semibold text-muted-foreground">
-            Alias configurés ({aliases.length})
+            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto no-scrollbar pt-1">
+              {isLoading ? (
+                <div className="text-xs text-muted-foreground py-4 text-center">Chargement des alias...</div>
+              ) : aliases.length === 0 ? (
+                <div className="text-xs text-muted-foreground py-6 text-center italic">
+                  Aucun alias configuré pour ce compte.
+                </div>
+              ) : (
+                aliases.map((alias) => (
+                  <AccountAliasItem
+                    key={alias._id}
+                    alias={alias}
+                    onSetDefault={handleSetDefault}
+                    onEdit={startEdit}
+                    onDelete={handleDelete}
+                    isDeleting={deleteAlias.isPending}
+                  />
+                ))
+              )}
+            </div>
           </div>
-          {isLoading ? (
-            <div className="text-xs text-muted-foreground py-2 text-center">Chargement des alias...</div>
-          ) : aliases.length === 0 ? (
-            <div className="text-xs text-muted-foreground py-2 text-center italic">
-              Aucun alias configuré pour ce compte.
-            </div>
-          ) : (
-            aliases.map((alias) => (
-              <div
-                key={alias._id}
-                className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs bg-muted/10 hover:bg-muted/30 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium truncate">{alias.email}</span>
-                    {alias.isDefault && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.2 text-[9px] font-semibold text-primary">
-                        <Star className="size-2.5 fill-primary" /> Défaut
-                      </span>
-                    )}
-                  </div>
-                  {alias.name && <div className="text-[11px] text-muted-foreground truncate">{alias.name}</div>}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {!alias.isDefault && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-6 text-muted-foreground hover:text-foreground"
-                      title="Définir par défaut"
-                      onClick={() => handleSetDefault(alias)}
-                    >
-                      <Star className="size-3" />
-                    </Button>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-6 text-muted-foreground hover:text-foreground"
-                    title="Modifier"
-                    onClick={() => startEdit(alias)}
-                  >
-                    <Edit2 className="size-3" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-6 text-destructive/80 hover:text-destructive"
-                    title="Supprimer"
-                    onClick={() => handleDelete(alias._id)}
-                    disabled={deleteAlias.isPending}
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </DialogContent>
     </Dialog>

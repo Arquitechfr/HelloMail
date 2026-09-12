@@ -39,9 +39,15 @@ export function ScheduledMessagesDialog({
     });
   };
 
+  const hasManyMessages = Boolean(messages && messages.length > 2);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent
+        className={`w-[96vw] max-h-[85vh] overflow-y-auto no-scrollbar ${
+          hasManyMessages ? "sm:max-w-lg md:max-w-3xl lg:max-w-4xl" : "sm:max-w-lg"
+        }`}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="size-4 text-primary" />
@@ -52,7 +58,7 @@ export function ScheduledMessagesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-2 py-2 max-h-[60vh] overflow-y-auto">
+        <div className="flex flex-col gap-2 py-2 max-h-[60vh] overflow-y-auto no-scrollbar">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -68,7 +74,7 @@ export function ScheduledMessagesDialog({
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className={`grid gap-2.5 ${hasManyMessages ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
               {messages.map((msg) => {
                 const scheduledDate = new Date(msg.scheduledAt);
                 const toAddresses = msg.payload.to?.join(", ") || "Sans destinataire";
