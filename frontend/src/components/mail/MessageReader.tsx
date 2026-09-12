@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useMessageDetail, useMessageThread } from "@/lib/queries/messages";
+import { useMessageDetail } from "@/lib/queries/messages";
 import { useFolders } from "@/lib/queries/folders";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { generateSmartReplies } from "@/lib/smart-replies";
 import { isDraftFolder } from "@/lib/folder-utils";
 import { EmailIframe } from "@/components/mail/EmailIframe";
 import { AttachmentList } from "@/components/mail/AttachmentList";
-import { MessageThreadView } from "@/components/mail/MessageThreadView";
 import { QuickReplyBar } from "@/components/mail/QuickReplyBar";
 import { MessageMetadataHeader } from "@/components/mail/MessageMetadataHeader";
 import { ReadReceiptBanner } from "@/components/mail/ReadReceiptBanner";
@@ -31,13 +30,13 @@ interface MessageReaderProps {
 }
 
 export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
-  const { data: message, isLoading } = useMessageDetail(accountId, folder, uid);
-  const { data: thread } = useMessageThread(accountId, folder, uid);
+  const selectedMessageFolder = useUIStore((s) => s.selectedMessageFolder);
+  const activeFolder = selectedMessageFolder || folder;
+  const { data: message, isLoading } = useMessageDetail(accountId, activeFolder, uid);
   const { data: folders } = useFolders(accountId);
-  const isDraft = isDraftFolder(folder, folders);
+  const isDraft = isDraftFolder(activeFolder, folders);
   const openCompose = useUIStore((s) => s.openCompose);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
-  const setSelectedFolder = useUIStore((s) => s.setSelectedFolder);
   const smartRepliesEnabled = useUIStore((s) => s.smartRepliesEnabled);
   const [decryptedBody, setDecryptedBody] = useState<string | null>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
@@ -49,21 +48,17 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
 
   useEffect(() => {
     setDecryptedBody(null);
-  }, [uid, folder]);
+  }, [uid, activeFolder]);
 
   const actions = useMessageReaderActions({
     accountId,
-    folder,
+    folder: activeFolder,
     uid,
     message,
     folders,
     isDraft,
   });
 
-  const handleSelectThreadMessage = (itemFolder: string, itemUid: number) => {
-    if (itemFolder !== folder) setSelectedFolder(itemFolder);
-    setSelectedUid(itemUid);
-  };
 
   if (uid === null) {
     return <MessageEmptyState />;
@@ -92,10 +87,26 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         uid === null ? "hidden md:flex" : "flex",
       )}
     >
+      {/* Indicateur de contexte si le message vient d'un autre dossier (ex: réponse envoyée) */}
+      {selectedMessageFolder && selectedMessageFolder !== folder && (
+        <div className="flex items-center justify-between px-4 py-1.5 bg-muted/30 border-b border-border/60 text-xs text-muted-foreground">
+          <span className="truncate">
+            Message de la conversation situé dans : <strong className="text-foreground font-medium">{selectedMessageFolder}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => useUIStore.getState().setSelectedMessageFolder(null)}
+            className="text-primary hover:underline text-[11px] font-medium cursor-pointer shrink-0 ml-2"
+          >
+            Fermer
+          </button>
+        </div>
+      )}
+
       {/* Barre d'actions d'email */}
       <MessageToolbar
         accountId={accountId}
-        folder={folder}
+        folder={activeFolder}
         uid={uid!}
         isFlagged={message.flags.flagged}
         isPinned={Boolean(message.isPinned)}
@@ -116,20 +127,13 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         onFollowUp={() => setFollowUpOpen(true)}
       />
 
-      {/* Fil de discussion de la conversation */}
-      <MessageThreadView
-        thread={thread}
-        currentUid={uid}
-        onSelectMessage={handleSelectThreadMessage}
-      />
-
       {/* En-tête des métadonnées du message */}
-      <MessageMetadataHeader message={message} accountId={accountId} folder={folder} uid={uid!} />
+      <MessageMetadataHeader message={message} accountId={accountId} folder={activeFolder} uid={uid!} />
 
       {/* Bannière de rappel de relance (Follow-Up) */}
       <FollowUpBanner
         accountId={accountId}
-        folder={folder}
+        folder={activeFolder}
         uid={uid!}
         subject={message.subject}
         onReply={actions.handleReply}
@@ -214,7 +218,7 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
         open={followUpOpen}
         onOpenChange={setFollowUpOpen}
         accountId={accountId}
-        folder={folder}
+        folder={activeFolder}
         uid={uid!}
       />
     </div>

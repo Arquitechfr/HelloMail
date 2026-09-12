@@ -120,12 +120,12 @@ export function SmartFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border border-border bg-card sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl p-6 sm:p-7 shadow-2xl rounded-2xl no-scrollbar max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[94vw] sm:!max-w-3xl lg:!max-w-4xl xl:!max-w-5xl border border-border bg-card p-6 sm:p-8 shadow-2xl rounded-2xl no-scrollbar max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4 border-b border-border/60">
           <div className="flex items-center gap-3.5">
             <div
-              className="flex size-11 items-center justify-center rounded-xl border shadow-xs shrink-0 transition-all"
-              style={{ backgroundColor: `${color}20`, borderColor: `${color}40`, color }}
+              className="flex size-12 items-center justify-center rounded-xl border-2 shadow-xs shrink-0 transition-all"
+              style={{ backgroundColor: `${color}20`, borderColor: `${color}60`, color }}
             >
               <SelectedIcon className="size-6 shrink-0" />
             </div>
@@ -141,7 +141,7 @@ export function SmartFolderDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
             {/* Colonne 1 : Identité visuelle & Portée */}
             <div className="space-y-5">
               <div>
@@ -162,7 +162,7 @@ export function SmartFolderDialog({
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                   Icône
                 </Label>
-                <div className="grid grid-cols-6 gap-2 p-2 rounded-xl border border-border bg-muted/20">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5 p-3 rounded-xl border border-border bg-muted/20">
                   {Object.entries(SMART_FOLDER_ICONS).map(([iconKey, IconComponent]) => {
                     const isSelected = icon === iconKey;
                     return (
@@ -171,16 +171,16 @@ export function SmartFolderDialog({
                         type="button"
                         onClick={() => setIcon(iconKey)}
                         className={cn(
-                          "flex h-10 w-full items-center justify-center rounded-lg border transition-all cursor-pointer",
+                          "flex h-11 w-full items-center justify-center rounded-xl border transition-all cursor-pointer shadow-2xs",
                           isSelected
-                            ? "border-primary shadow-xs ring-2 ring-offset-1"
-                            : "border-border/50 bg-background/50 text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground",
+                            ? "border-2 shadow-xs ring-2 ring-offset-1 font-semibold"
+                            : "border-border/70 bg-card text-foreground/80 hover:border-primary/50 hover:bg-muted/80 hover:text-foreground",
                         )}
                         style={
                           isSelected
                             ? {
                                 borderColor: color,
-                                backgroundColor: `${color}25`,
+                                backgroundColor: `${color}20`,
                                 color,
                               }
                             : undefined
@@ -198,14 +198,14 @@ export function SmartFolderDialog({
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                   Couleur
                 </Label>
-                <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap">
                   {COLOR_PALETTE.map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => setColor(c)}
                       className={cn(
-                        "size-7 rounded-full transition-all cursor-pointer flex items-center justify-center border border-black/10 shadow-xs",
+                        "size-8 rounded-full transition-all cursor-pointer flex items-center justify-center border border-black/15 shadow-xs",
                         color === c ? "ring-2 ring-offset-2 ring-foreground scale-110" : "hover:scale-105 opacity-85 hover:opacity-100",
                       )}
                       style={{ backgroundColor: c }}

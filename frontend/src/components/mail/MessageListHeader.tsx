@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Tag as TagIcon, X, Loader2, Trash2 } from "lucide-react";
+import { Tag as TagIcon, X, Loader2, Trash2, MessageSquare } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { DensitySelector } from "./DensitySelector";
 import { isPurgeableFolder, isTrashFolder } from "@/lib/folder-utils";
 import { EmptyFolderDialog } from "./folders/EmptyFolderDialog";
+import { useUIStore } from "@/lib/stores/uiStore";
+import { cn } from "@/lib/utils";
 
 interface MessageListHeaderProps {
   folder: string;
@@ -32,6 +34,8 @@ export function MessageListHeader({
   const isPurgeable = isPurgeableFolder(folder);
   const isTrash = isTrashFolder(folder);
   const showEmptyButton = isPurgeable && !tag && !searching && total > 0;
+  const conversationViewEnabled = useUIStore((s) => s.conversationViewEnabled);
+  const toggleConversationView = useUIStore((s) => s.toggleConversationView);
 
   return (
     <div className="shrink-0 border-b border-border bg-background/60 backdrop-blur-xs">
@@ -82,6 +86,20 @@ export function MessageListHeader({
               <span>sync…</span>
             </span>
           )}
+          <button
+            type="button"
+            onClick={toggleConversationView}
+            className={cn(
+              "p-1.5 rounded-md border transition-colors cursor-pointer flex items-center justify-center",
+              conversationViewEnabled
+                ? "bg-primary/10 text-primary border-primary/30"
+                : "text-muted-foreground hover:text-foreground border-transparent hover:bg-muted/50",
+            )}
+            title={conversationViewEnabled ? "Désactiver le regroupement par conversation" : "Activer le regroupement par conversation"}
+            aria-label={conversationViewEnabled ? "Désactiver le regroupement par conversation" : "Activer le regroupement par conversation"}
+          >
+            <MessageSquare className="size-3.5" />
+          </button>
           <DensitySelector />
         </div>
       </div>

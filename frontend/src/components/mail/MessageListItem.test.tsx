@@ -262,4 +262,40 @@ describe("MessageListItem interactions et sélections Power User", () => {
     fireEvent.click(selectButton, { shiftKey: true });
     expect(mockSelectRangeUids).toHaveBeenCalledWith([100, 456, 200], 456);
   });
+
+  it("affiche le compteur de conversation et les enfants quand le fil est déplié", () => {
+    const onToggleThreadExpandMock = vi.fn();
+    const childMessage: Message = {
+      ...dummyMessage,
+      _id: "msg-child-1",
+      uid: 789,
+      subject: "Re: Rapport de performance",
+      folder: "Sent",
+      from: { name: "Moi", address: "me@test.com" },
+    };
+
+    const { getByTitle, getByText } = render(
+      <QueryClientProvider client={queryClient}>
+        <MessageListItem
+          accountId="acc-test"
+          folder="INBOX"
+          message={dummyMessage}
+          isSelected={false}
+          onSelect={vi.fn()}
+          threadMessages={[dummyMessage, childMessage]}
+          isThreadExpanded={true}
+          onToggleThreadExpand={onToggleThreadExpandMock}
+        />
+      </QueryClientProvider>,
+    );
+
+    // Le bouton de thread doit afficher 2 messages
+    const threadBtn = getByTitle(/2 messages dans cette conversation/);
+    expect(threadBtn).toBeInTheDocument();
+    fireEvent.click(threadBtn);
+    expect(onToggleThreadExpandMock).toHaveBeenCalledTimes(1);
+
+    // L'enfant doit être affiché avec son badge "Envoyé"
+    expect(getByText("Envoyé")).toBeInTheDocument();
+  });
 });

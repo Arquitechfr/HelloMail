@@ -34,10 +34,16 @@ interface UIState {
   swipeLeftAction: SwipeAction;
   attachmentReminderEnabled: boolean;
   smartRepliesEnabled: boolean;
+  selectedMessageFolder: string | null;
+  expandedThreadIds: string[];
+  conversationViewEnabled: boolean;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedFolder: (folder: string) => void;
   setSelectedTag: (tag: string | null) => void;
-  setSelectedUid: (uid: number | null) => void;
+  setSelectedUid: (uid: number | null, messageFolder?: string | null) => void;
+  setSelectedMessageFolder: (folder: string | null) => void;
+  toggleThreadExpanded: (threadId: string) => void;
+  toggleConversationView: () => void;
   setQuickFilter: (filter: QuickFilter) => void;
   toggleSelectUid: (uid: number) => void;
   selectRangeUids: (allVisibleUids: number[], targetUid: number) => void;
@@ -90,13 +96,43 @@ export const useUIStore = create<UIState>()(
       swipeLeftAction: "trash",
       attachmentReminderEnabled: true,
       smartRepliesEnabled: true,
+      selectedMessageFolder: null,
+      expandedThreadIds: [],
+      conversationViewEnabled: true,
       setSelectedAccount: (accountId) =>
-        set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [], lastSelectedUid: null, quickFilter: "all" }),
+        set({
+          selectedAccountId: accountId,
+          selectedUid: null,
+          selectedMessageFolder: null,
+          selectedUids: [],
+          lastSelectedUid: null,
+          quickFilter: "all",
+          expandedThreadIds: [],
+        }),
       setSelectedFolder: (folder) =>
-        set({ selectedFolder: folder, selectedTag: null, selectedUid: null, selectedUids: [], lastSelectedUid: null, quickFilter: "all" }),
+        set({
+          selectedFolder: folder,
+          selectedTag: null,
+          selectedUid: null,
+          selectedMessageFolder: null,
+          selectedUids: [],
+          lastSelectedUid: null,
+          quickFilter: "all",
+          expandedThreadIds: [],
+        }),
       setSelectedTag: (tag) =>
-        set({ selectedTag: tag, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
-      setSelectedUid: (uid) => set({ selectedUid: uid }),
+        set({ selectedTag: tag, selectedUid: null, selectedMessageFolder: null, selectedUids: [], lastSelectedUid: null }),
+      setSelectedUid: (uid, messageFolder = null) =>
+        set({ selectedUid: uid, selectedMessageFolder: messageFolder }),
+      setSelectedMessageFolder: (folder) => set({ selectedMessageFolder: folder }),
+      toggleThreadExpanded: (threadId) =>
+        set((state) => ({
+          expandedThreadIds: state.expandedThreadIds.includes(threadId)
+            ? state.expandedThreadIds.filter((id) => id !== threadId)
+            : [...state.expandedThreadIds, threadId],
+        })),
+      toggleConversationView: () =>
+        set((state) => ({ conversationViewEnabled: !state.conversationViewEnabled })),
       setQuickFilter: (filter) => set({ quickFilter: filter }),
       toggleSelectUid: (uid) =>
         set((state) => ({
@@ -172,6 +208,7 @@ export const useUIStore = create<UIState>()(
         swipeLeftAction: state.swipeLeftAction,
         attachmentReminderEnabled: state.attachmentReminderEnabled,
         smartRepliesEnabled: state.smartRepliesEnabled,
+        conversationViewEnabled: state.conversationViewEnabled,
       }),
     },
   ),

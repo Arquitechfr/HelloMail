@@ -16,7 +16,8 @@ import { MessageQuickActions } from "./MessageQuickActions";
 import { SwipeableMessageItem } from "./SwipeableMessageItem";
 import { useUIStore } from "@/lib/stores/uiStore";
 import type { SwipeAction } from "@/lib/types/display";
-import { Paperclip, Star, Clock, Pin, Check, BellRing } from "lucide-react";
+import { Paperclip, Star, Clock, Pin, Check, BellRing, MessageSquare, ChevronRight, ChevronDown } from "lucide-react";
+import { ThreadChildItem } from "./ThreadChildItem";
 
 interface MessageListItemProps {
   accountId: string;
@@ -26,6 +27,9 @@ interface MessageListItemProps {
   onSelect: () => void;
   accountColor?: string;
   allVisibleUids?: number[];
+  threadMessages?: Message[];
+  isThreadExpanded?: boolean;
+  onToggleThreadExpand?: (e: React.MouseEvent) => void;
 }
 
 export function MessageListItem({
@@ -36,7 +40,13 @@ export function MessageListItem({
   onSelect,
   accountColor,
   allVisibleUids,
+  threadMessages,
+  isThreadExpanded,
+  onToggleThreadExpand,
 }: MessageListItemProps) {
+  const threadCount = threadMessages?.length ?? 1;
+  const selectedUid = useUIStore((s) => s.selectedUid);
+  const setSelectedUid = useUIStore((s) => s.setSelectedUid);
   const isUnread = !message.flags.seen;
   const isFlagged = message.flags.flagged;
   const isPinned = Boolean(message.isPinned);
@@ -147,143 +157,184 @@ export function MessageListItem({
   }, [actions]);
 
   return (
-    <MessageContextMenu accountId={accountId} folder={folder} message={message}>
-      <SwipeableMessageItem
-        swipeRightAction={swipeRightAction}
-        swipeLeftAction={swipeLeftAction}
-        onTriggerAction={handleSwipeTrigger}
-      >
-        <div
-          draggable={true}
-          onDragStart={handleDragStart}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={cn(
-            "group relative flex cursor-pointer transition-colors border-b border-border/40 select-none cursor-grab active:cursor-grabbing",
-            isCompact ? "px-3 py-1.5 gap-2 items-center" : isSpacious ? "px-4 py-3 gap-3 items-start" : "px-3.5 py-2.5 gap-2.5 items-start",
-            isBatchSelected
-              ? "bg-primary/10 text-foreground border-l-2 border-l-primary"
-              : isSelected
-                ? "bg-accent/80 text-accent-foreground border-l-2 border-l-primary"
-                : isPinned
-                  ? "bg-primary/[0.04] hover:bg-primary/[0.07] border-l-2 border-l-primary/70"
-                  : "hover:bg-muted/40 border-l-2 border-l-transparent",
-          )}
-          onClick={handleClick}
-          onDoubleClick={() => isDraft && actions.editDraft()}
+    <div>
+      <MessageContextMenu accountId={accountId} folder={folder} message={message}>
+        <SwipeableMessageItem
+          swipeRightAction={swipeRightAction}
+          swipeLeftAction={swipeLeftAction}
+          onTriggerAction={handleSwipeTrigger}
         >
-          {/* Avatar / logo / initiales + bouton de sélection multiple */}
-          <div className={cn("relative shrink-0", !isCompact && "mt-0.5")}>
-            <EmailAvatar
-              email={message.from.address}
-              name={message.from.name}
-              className={isCompact ? "size-5" : isSpacious ? "size-8" : "size-7"}
-              fallbackClassName={isCompact ? "text-[9px]" : "text-[11px]"}
-            />
-            {accountColor && (
-              <span
-                className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-1.5 ring-background"
-                style={{ backgroundColor: accountColor }}
-                title="Compte associé"
-              />
+          <div
+            draggable={true}
+            onDragStart={handleDragStart}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className={cn(
+              "group relative flex cursor-pointer transition-colors border-b border-border/40 select-none cursor-grab active:cursor-grabbing",
+              isCompact ? "px-3 py-1.5 gap-2 items-center" : isSpacious ? "px-4 py-3 gap-3 items-start" : "px-3.5 py-2.5 gap-2.5 items-start",
+              isBatchSelected
+                ? "bg-primary/10 text-foreground border-l-2 border-l-primary"
+                : isSelected
+                  ? "bg-accent/80 text-accent-foreground border-l-2 border-l-primary"
+                  : isPinned
+                    ? "bg-primary/[0.04] hover:bg-primary/[0.07] border-l-2 border-l-primary/70"
+                    : "hover:bg-muted/40 border-l-2 border-l-transparent",
             )}
-
-            <button
-              type="button"
-              onClick={handleSelectButtonClick}
-              className={cn(
-                "absolute inset-0 z-10 flex items-center justify-center rounded-full border transition-all cursor-pointer",
-                isBatchSelected
-                  ? "opacity-100 border-primary bg-primary text-primary-foreground shadow-2xs"
-                  : hasBatchSelection
-                    ? "opacity-100 border-border bg-card hover:border-primary/60 text-muted-foreground"
-                    : "opacity-0 group-hover:opacity-100 border-border bg-card/95 hover:border-primary/60 text-muted-foreground",
+            onClick={handleClick}
+            onDoubleClick={() => isDraft && actions.editDraft()}
+          >
+            {/* Avatar / logo / initiales + bouton de sélection multiple */}
+            <div className={cn("relative shrink-0", !isCompact && "mt-0.5")}>
+              <EmailAvatar
+                email={message.from.address}
+                name={message.from.name}
+                className={isCompact ? "size-5" : isSpacious ? "size-8" : "size-7"}
+                fallbackClassName={isCompact ? "text-[9px]" : "text-[11px]"}
+              />
+              {accountColor && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-1.5 ring-background"
+                  style={{ backgroundColor: accountColor }}
+                  title="Compte associé"
+                />
               )}
-              title={isBatchSelected ? "Désélectionner" : "Sélectionner"}
-              aria-label={isBatchSelected ? "Désélectionner le message" : "Sélectionner le message"}
-            >
-              {isBatchSelected ? (
-                <Check className="size-3 stroke-[3]" />
-              ) : (
-                <div className="size-1.5 rounded-full border border-muted-foreground/50" />
-              )}
-            </button>
-          </div>
 
-          {/* Contenu */}
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div className="flex items-center justify-between gap-2">
-              <span
+              <button
+                type="button"
+                onClick={handleSelectButtonClick}
                 className={cn(
-                  "truncate text-xs",
-                  isUnread ? "font-bold text-foreground" : "font-medium text-foreground/80",
+                  "absolute inset-0 z-10 flex items-center justify-center rounded-full border transition-all cursor-pointer",
+                  isBatchSelected
+                    ? "opacity-100 border-primary bg-primary text-primary-foreground shadow-2xs"
+                    : hasBatchSelection
+                      ? "opacity-100 border-border bg-card hover:border-primary/60 text-muted-foreground"
+                      : "opacity-0 group-hover:opacity-100 border-border bg-card/95 hover:border-primary/60 text-muted-foreground",
                 )}
+                title={isBatchSelected ? "Désélectionner" : "Sélectionner"}
+                aria-label={isBatchSelected ? "Désélectionner le message" : "Sélectionner le message"}
               >
-                {message.from.name ?? message.from.address}
-              </span>
-              <div className="flex items-center shrink-0">
-                <span className="text-[11px] text-muted-foreground font-mono group-hover:hidden">
-                  {formatRelativeDate(message.date)}
-                </span>
-                <div className="hidden group-hover:flex items-center">
-                  <MessageQuickActions accountId={accountId} folder={folder} message={message} />
+                {isBatchSelected ? (
+                  <Check className="size-3 stroke-[3]" />
+                ) : (
+                  <div className="size-1.5 rounded-full border border-muted-foreground/50" />
+                )}
+              </button>
+            </div>
+
+            {/* Contenu */}
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={cn(
+                      "truncate text-xs",
+                      isUnread ? "font-bold text-foreground" : "font-medium text-foreground/80",
+                    )}
+                  >
+                    {message.from.name ?? message.from.address}
+                  </span>
+
+                  {threadCount > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleThreadExpand?.(e);
+                      }}
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full bg-muted/90 hover:bg-muted text-[10px] font-mono text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
+                      title={`${threadCount} messages dans cette conversation (cliquer pour ${isThreadExpanded ? "replier" : "déplier"})`}
+                    >
+                      <MessageSquare className="size-2.5 text-primary" />
+                      <span>{threadCount}</span>
+                      {isThreadExpanded ? (
+                        <ChevronDown className="size-2.5 ml-0.5" />
+                      ) : (
+                        <ChevronRight className="size-2.5 ml-0.5" />
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center shrink-0">
+                  <span className="text-[11px] text-muted-foreground font-mono group-hover:hidden">
+                    {formatRelativeDate(message.date)}
+                  </span>
+                  <div className="hidden group-hover:flex items-center">
+                    <MessageQuickActions accountId={accountId} folder={folder} message={message} />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className={cn(
-                  "truncate text-xs",
-                  isUnread ? "font-medium text-foreground" : "text-muted-foreground",
-                )}
-              >
-                {message.subject || "(Sans objet)"}
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={cn(
+                    "truncate text-xs",
+                    isUnread ? "font-medium text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {message.subject || "(Sans objet)"}
+                </span>
 
-              <div className="flex shrink-0 items-center gap-1.5 ml-1">
-                {isPinned && <Pin className="size-3 fill-primary text-primary" />}
-                {isFlagged && <Star className="size-3 fill-amber-400 text-amber-400" />}
-                {message.followUpStatus === "triggered" && <BellRing className="size-3 text-amber-500 animate-pulse" />}
-                {message.hasAttachments && <Paperclip className="size-3 text-muted-foreground" />}
-                {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
+                <div className="flex shrink-0 items-center gap-1.5 ml-1">
+                  {isPinned && <Pin className="size-3 fill-primary text-primary" />}
+                  {isFlagged && <Star className="size-3 fill-amber-400 text-amber-400" />}
+                  {message.followUpStatus === "triggered" && <BellRing className="size-3 text-amber-500 animate-pulse" />}
+                  {message.hasAttachments && <Paperclip className="size-3 text-muted-foreground" />}
+                  {isUnread && <span className="size-1.5 rounded-full bg-primary" />}
+                </div>
               </div>
-            </div>
 
-            {/* Badges / Relance / Sommeil (masqués en mode compact pour respecter les 44px) */}
-            {!isCompact && (message.tags?.length || message.snoozedUntil || message.followUpStatus) && (
-              <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                {message.snoozedUntil && (
-                  <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
-                    <Clock className="size-2.5" />
-                    <span>Réveil {formatRelativeDate(message.snoozedUntil)}</span>
-                  </span>
-                )}
-                {message.followUpStatus === "triggered" && (
-                  <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
-                    <BellRing className="size-2.5" />
-                    <span>À relancer</span>
-                  </span>
-                )}
-                {message.followUpStatus === "pending" && (
-                  <span className="flex items-center gap-1 text-[10px] text-primary/80 font-medium bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
-                    <BellRing className="size-2.5" />
-                    <span>Relance prévue</span>
-                  </span>
-                )}
-                {message.tags?.slice(0, 2).map((tag) => (
-                  <TagBadge key={tag} name={tag} color={tagColorMap[tag] || "#3b82f6"} size="sm" />
-                ))}
-                {message.tags && message.tags.length > 2 && (
-                  <span className="text-[10px] text-muted-foreground font-medium">
-                    +{message.tags.length - 2}
-                  </span>
-                )}
-              </div>
-            )}
+              {/* Badges / Relance / Sommeil (masqués en mode compact pour respecter les 44px) */}
+              {!isCompact && (message.tags?.length || message.snoozedUntil || message.followUpStatus) && (
+                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                  {message.snoozedUntil && (
+                    <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                      <Clock className="size-2.5" />
+                      <span>Réveil {formatRelativeDate(message.snoozedUntil)}</span>
+                    </span>
+                  )}
+                  {message.followUpStatus === "triggered" && (
+                    <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                      <BellRing className="size-2.5" />
+                      <span>À relancer</span>
+                    </span>
+                  )}
+                  {message.followUpStatus === "pending" && (
+                    <span className="flex items-center gap-1 text-[10px] text-primary/80 font-medium bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                      <BellRing className="size-2.5" />
+                      <span>Relance prévue</span>
+                    </span>
+                  )}
+                  {message.tags?.slice(0, 2).map((tag) => (
+                    <TagBadge key={tag} name={tag} color={tagColorMap[tag] || "#3b82f6"} size="sm" />
+                  ))}
+                  {message.tags && message.tags.length > 2 && (
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      +{message.tags.length - 2}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+        </SwipeableMessageItem>
+      </MessageContextMenu>
+
+      {/* Enfants de la conversation dépliée */}
+      {isThreadExpanded && threadMessages && threadMessages.length > 1 && (
+        <div className="py-1 px-2 bg-muted/15 border-b border-border/40">
+          {threadMessages.slice(1).map((child) => (
+            <ThreadChildItem
+              key={`thread-child-${child.folder}-${child.uid}`}
+              accountId={accountId}
+              folder={folder}
+              message={child}
+              isSelected={selectedUid === child.uid}
+              onSelect={() => setSelectedUid(child.uid, child.folder)}
+              isCompact={isCompact}
+            />
+          ))}
         </div>
-      </SwipeableMessageItem>
-    </MessageContextMenu>
+      )}
+    </div>
   );
 }

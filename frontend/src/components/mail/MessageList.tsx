@@ -9,6 +9,7 @@ import { MessageListHeader } from "@/components/mail/MessageListHeader";
 import { BatchActionBar } from "@/components/mail/BatchActionBar";
 import { QuickFilterBar } from "@/components/mail/QuickFilterBar";
 import { filterMessages, computeFilterCounts } from "@/lib/quick-filters";
+import { groupMessagesIntoThreads } from "@/lib/threading";
 import { useListNavigationShortcuts } from "@/lib/hooks/useListNavigationShortcuts";
 import { Loader2, Inbox } from "lucide-react";
 import type { Message } from "@/lib/api-types";
@@ -22,29 +23,20 @@ interface MessageListProps {
 export function MessageList({ accountId, folder }: MessageListProps) {
   const selectedTag = useUIStore((s) => s.selectedTag);
   const setSelectedTag = useUIStore((s) => s.setSelectedTag);
-  // limit=100 (max backend) pour afficher un maximum de messages dès le chargement.
-  const { data, isLoading, error, isFetching } = useMessages(
-    accountId,
-    folder,
-    1,
-    100,
-    selectedTag,
-  );
+  const { data, isLoading, error, isFetching } = useMessages(accountId, folder, 1, 100, selectedTag);
   const fetchMore = useFetchMore(accountId);
-  // `mutate` est stable en React Query v5 — ne change pas de référence entre les renders.
   const fetchMoreMutate = fetchMore.mutate;
   const selectedUid = useUIStore((s) => s.selectedUid);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
   const quickFilter = useUIStore((s) => s.quickFilter);
   const setQuickFilter = useUIStore((s) => s.setQuickFilter);
+  const conversationViewEnabled = useUIStore((s) => s.conversationViewEnabled);
+  const expandedThreadIds = useUIStore((s) => s.expandedThreadIds);
+  const toggleThreadExpanded = useUIStore((s) => s.toggleThreadExpanded);
+
   const parentRef = useRef<HTMLDivElement>(null);
   const [searchResults, setSearchResults] = useState<Message[] | null>(null);
 
-  // Garde-fou pagination arrière :
-  // - `hasMoreRef` : false quand le dernier fetch-more a retourné 0 (plus de messages anciens)
-  //   ou quand une erreur s'est produite (429, etc.). Reset quand le dossier change.
-  // - `fetchingRef` : true pendant qu'un fetch-more est en cours.
-  // - `lastFetchTimeRef` : timestamp du dernier fetch-more pour imposer un cooldown (3s).
   const hasMoreRef = useRef(true);
   const fetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
@@ -58,27 +50,33 @@ export function MessageList({ accountId, folder }: MessageListProps) {
     setSearchResults(results as Message[] | null);
   }, []);
 
-  // Utilise les résultats de recherche si présents, sinon les messages du dossier.
   const messages = searchResults ?? data?.data ?? [];
-
   const filteredMessages = useMemo(() => filterMessages(messages, quickFilter), [messages, quickFilter]);
   const filterCounts = useMemo(() => computeFilterCounts(messages), [messages]);
+
+  // Groupement en conversation (désactivé si recherche ou tag actif)
+  const threadGroups = useMemo(() => {
+    if (!conversationViewEnabled || searchResults || selectedTag) return null;
+    return groupMessagesIntoThreads(filteredMessages);
+  }, [conversationViewEnabled, searchResults, selectedTag, filteredMessages]);
+
+  const displayedMessages = useMemo(() => {
+    if (!threadGroups) return filteredMessages;
+    return threadGroups.map((g) => g.rootMessage);
+  }, [threadGroups, filteredMessages]);
 
   const displayDensity = useUIStore((s) => s.displayDensity);
   const estimateItemSize = useCallback(() => {
     switch (displayDensity) {
-      case "compact":
-        return 44;
-      case "spacious":
-        return 92;
+      case "compact": return 44;
+      case "spacious": return 92;
       case "comfortable":
-      default:
-        return 72;
+      default: return 72;
     }
   }, [displayDensity]);
 
   const virtualizer = useVirtualizer({
-    count: filteredMessages.length,
+    count: displayedMessages.length,
     getScrollElement: () => parentRef.current,
     estimateSize: estimateItemSize,
     overscan: 10,
@@ -86,49 +84,35 @@ export function MessageList({ accountId, folder }: MessageListProps) {
 
   useEffect(() => {
     virtualizer.measure();
-  }, [displayDensity, virtualizer]);
+  }, [displayDensity, conversationViewEnabled, expandedThreadIds, virtualizer]);
 
-  // Pagination arrière : déclenche fetchMore quand l'utilisateur scroll near the bottom.
   const virtualItems = virtualizer.getVirtualItems();
-  const isNearBottom = virtualItems.length > 0 && virtualItems[virtualItems.length - 1].index >= messages.length - 5;
+  const isNearBottom = virtualItems.length > 0 && virtualItems[virtualItems.length - 1].index >= displayedMessages.length - 5;
 
   useEffect(() => {
-    // Ne déclenche que hors recherche, avec des messages chargés, pas déjà en cours,
-    // s'il reste potentiellement des messages à fetcher, et après le cooldown (3s).
-    if (
-      isNearBottom &&
-      !searchResults &&
-      messages.length > 0 &&
-      !fetchingRef.current &&
-      hasMoreRef.current &&
-      Date.now() - lastFetchTimeRef.current >= 3000
-    ) {
+    if (isNearBottom && !searchResults && messages.length > 0 && !fetchingRef.current && hasMoreRef.current && Date.now() - lastFetchTimeRef.current >= 3000) {
       fetchingRef.current = true;
       lastFetchTimeRef.current = Date.now();
-      fetchMoreMutate(
-        { folder },
-        {
-          onSuccess: (result) => {
-            fetchingRef.current = false;
-            // Si le backend n'a rien fetché, on marque qu'il n'y a plus de messages anciens.
-            if (result.fetched === 0) {
-              hasMoreRef.current = false;
-            }
-          },
-          onError: () => {
-            fetchingRef.current = false;
-            // Sur erreur (429 rate limit, etc.), on stoppe les tentatives.
-            hasMoreRef.current = false;
-          },
+      fetchMoreMutate({ folder }, {
+        onSuccess: (result) => {
+          fetchingRef.current = false;
+          if (result.fetched === 0) hasMoreRef.current = false;
         },
-      );
+        onError: () => {
+          fetchingRef.current = false;
+          hasMoreRef.current = false;
+        },
+      });
     }
   }, [isNearBottom, searchResults, messages.length, fetchMoreMutate, folder]);
 
   const { visibleUids, handleSelectAll } = useListNavigationShortcuts({
-    items: filteredMessages,
+    items: displayedMessages,
     selectedUid,
-    onSelectUid: setSelectedUid,
+    onSelectUid: (uid) => {
+      const target = displayedMessages.find((m) => m.uid === uid);
+      setSelectedUid(uid, target?.folder ?? null);
+    },
     enabled: !isLoading && !error && messages.length > 0,
   });
 
@@ -223,7 +207,7 @@ export function MessageList({ accountId, folder }: MessageListProps) {
       />
 
       {/* Liste virtualisée */}
-      {filteredMessages.length === 0 ? (
+      {displayedMessages.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-muted-foreground p-6 text-center">
           <div className="flex size-10 items-center justify-center rounded-full bg-muted/50 border border-border">
             <Inbox className="size-4 opacity-60 text-muted-foreground" />
@@ -250,27 +234,41 @@ export function MessageList({ accountId, folder }: MessageListProps) {
       ) : (
         <div ref={parentRef} className="flex-1 overflow-y-auto">
           <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-            {virtualizer.getVirtualItems().map((item) => (
-              <div
-                key={filteredMessages[item.index].uid}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${item.start}px)`,
-                }}
-              >
-                <MessageListItem
-                  accountId={accountId}
-                  folder={folder}
-                  message={filteredMessages[item.index]}
-                  isSelected={selectedUid === filteredMessages[item.index].uid}
-                  onSelect={() => setSelectedUid(filteredMessages[item.index].uid)}
-                  allVisibleUids={visibleUids}
-                />
-              </div>
-            ))}
+            {virtualizer.getVirtualItems().map((item) => {
+              const msg = displayedMessages[item.index];
+              const group = threadGroups ? threadGroups[item.index] : null;
+              const isExpanded = group ? expandedThreadIds.includes(group.threadId) : false;
+              const isSelected =
+                selectedUid === msg.uid ||
+                (!isExpanded && Boolean(group?.messages.some((m) => m.uid === selectedUid)));
+
+              return (
+                <div
+                  key={group ? group.threadId : `${msg.folder}-${msg.uid}`}
+                  data-index={item.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${item.start}px)`,
+                  }}
+                >
+                  <MessageListItem
+                    accountId={accountId}
+                    folder={folder}
+                    message={msg}
+                    isSelected={isSelected}
+                    onSelect={() => setSelectedUid(msg.uid, msg.folder)}
+                    allVisibleUids={visibleUids}
+                    threadMessages={group?.messages}
+                    isThreadExpanded={isExpanded}
+                    onToggleThreadExpand={() => group && toggleThreadExpanded(group.threadId)}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {/* Indicateur de chargement pour la pagination arrière */}
@@ -287,7 +285,7 @@ export function MessageList({ accountId, folder }: MessageListProps) {
       <BatchActionBar
         accountId={accountId}
         folder={folder}
-        totalSelectable={filteredMessages.length}
+        totalSelectable={displayedMessages.length}
         onSelectAll={handleSelectAll}
       />
     </div>

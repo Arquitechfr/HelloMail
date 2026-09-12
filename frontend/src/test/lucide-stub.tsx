@@ -203,4 +203,5 @@ export const AlertOctagon = makeIcon();
 export const RefreshCcw = makeIcon();
 export const FileJson = makeIcon();
 export const ArchiveRestore = makeIcon();
+export const MessageSquare = makeIcon();
 
