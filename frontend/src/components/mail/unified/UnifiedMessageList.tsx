@@ -6,7 +6,8 @@ import { useUnifiedMessages } from "@/lib/queries/unified";
 import { useAccounts } from "@/lib/queries/accounts";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { MessageListItem } from "@/components/mail/MessageListItem";
-import { QuickFilterBar, type QuickFilter } from "@/components/mail/QuickFilterBar";
+import { QuickFilterBar } from "@/components/mail/QuickFilterBar";
+import { filterMessages, computeFilterCounts } from "@/lib/quick-filters";
 import { useListNavigationShortcuts } from "@/lib/hooks/useListNavigationShortcuts";
 import { UnifiedBatchActionBar } from "./UnifiedBatchActionBar";
 import { UNIFIED_FOLDER_DEFINITIONS } from "@/lib/unified-utils";
@@ -27,6 +28,8 @@ export function UnifiedMessageList({
 }: UnifiedMessageListProps) {
   const selectedTag = useUIStore((s) => s.selectedTag);
   const setSelectedTag = useUIStore((s) => s.setSelectedTag);
+  const quickFilter = useUIStore((s) => s.quickFilter);
+  const setQuickFilter = useUIStore((s) => s.setQuickFilter);
 
   const { data: accounts } = useAccounts();
   const accountMap = useMemo(() => {
@@ -44,29 +47,10 @@ export function UnifiedMessageList({
     selectedTag,
   );
 
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
-
   const messages = data?.data ?? [];
 
-  const filteredMessages = useMemo(() => {
-    switch (quickFilter) {
-      case "unread":
-        return messages.filter((m) => !m.flags.seen);
-      case "pinned":
-        return messages.filter((m) => m.isPinned);
-      case "attachments":
-        return messages.filter((m) => m.hasAttachments);
-      default:
-        return messages;
-    }
-  }, [messages, quickFilter]);
-
-  const filterCounts = useMemo(() => ({
-    all: messages.length,
-    unread: messages.filter((m) => !m.flags.seen).length,
-    pinned: messages.filter((m) => m.isPinned).length,
-    attachments: messages.filter((m) => m.hasAttachments).length,
-  }), [messages]);
+  const filteredMessages = useMemo(() => filterMessages(messages, quickFilter), [messages, quickFilter]);
+  const filterCounts = useMemo(() => computeFilterCounts(messages), [messages]);
 
   const meta = UNIFIED_FOLDER_DEFINITIONS[type];
   const Icon = meta?.icon ?? Inbox;
@@ -157,15 +141,37 @@ export function UnifiedMessageList({
             <Inbox className="size-4 opacity-60 text-muted-foreground" />
           </div>
           <p className="text-xs font-medium text-foreground">
-            {isLoading ? "Chargement des messages…" : "Aucun message"}
-          </p>
-          <p className="text-[11px] text-muted-foreground">
             {isLoading
-              ? "Veuillez patienter."
-              : selectedTag
-                ? `Aucun message avec l'étiquette « ${selectedTag} »`
-                : "Cette boîte unifiée est vide."}
+              ? "Chargement des messages…"
+              : messages.length > 0
+                ? quickFilter === "unread"
+                  ? "Aucun message non lu"
+                  : quickFilter === "starred"
+                    ? "Aucun message important"
+                    : quickFilter === "pinned"
+                      ? "Aucun message épinglé"
+                      : quickFilter === "attachments"
+                        ? "Aucun message avec pièce jointe"
+                        : "Aucun message trouvé"
+                : "Aucun message"}
           </p>
+          {messages.length > 0 && filteredMessages.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => setQuickFilter("all")}
+              className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
+            >
+              Afficher tous les messages
+            </button>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              {isLoading
+                ? "Veuillez patienter."
+                : selectedTag
+                  ? `Aucun message avec l'étiquette « ${selectedTag} »`
+                  : "Cette boîte unifiée est vide."}
+            </p>
+          )}
         </div>
       ) : (
         <div ref={parentRef} className="flex-1 overflow-y-auto">

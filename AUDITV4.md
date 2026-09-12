@@ -265,8 +265,8 @@ flowchart TD
 
 ---
 
-### Phase 33 — Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages
-**Priorité : 🟠 HAUTE | Risque : Nul | Effort : Faible**
+### Phase 33 — Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages (LIVRÉE ✅)
+**Priorité : 🟠 HAUTE | Risque : Nul | Effort : Faible | Statut : 100% LIVRÉE**
 1. **Composant QuickFilterBar ergonomique** :
    - Barre de chips interactifs positionnée sous l'en-tête de la liste de messages [`MessageListHeader.tsx`](file:///mnt/Externe/Projets/HelloMail/frontend/src/components/mail/MessageListHeader.tsx).
    - Chips : **Tous**, **Non lus** (`MailUnread`), **Épinglés** (`Pin`), **Importants** (`Star`), **Avec pièces jointes** (`Paperclip`).

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 import type { RestoredComposeData } from "./undoSendStore";
 import type { DisplayDensity, SwipeAction } from "@/lib/types/display";
+import type { QuickFilter } from "@/lib/quick-filters";
 
 /**
  * Store UI — état de l'interface (compte/dossier/message sélectionnés, compose).
@@ -15,6 +16,7 @@ interface UIState {
   selectedAccountId: string | null;
   selectedFolder: string;
   selectedUid: number | null;
+  quickFilter: QuickFilter;
   composeOpen: boolean;
   composeMode: ComposeMode;
   composeReplyTo: { messageId?: string; subject?: string; from?: string; to?: string[]; html?: string } | null;
@@ -36,6 +38,7 @@ interface UIState {
   setSelectedFolder: (folder: string) => void;
   setSelectedTag: (tag: string | null) => void;
   setSelectedUid: (uid: number | null) => void;
+  setQuickFilter: (filter: QuickFilter) => void;
   toggleSelectUid: (uid: number) => void;
   selectRangeUids: (allVisibleUids: number[], targetUid: number) => void;
   selectAllUids: (uids: number[]) => void;
@@ -70,6 +73,7 @@ export const useUIStore = create<UIState>()(
       selectedFolder: "INBOX",
       selectedTag: null,
       selectedUid: null,
+      quickFilter: "all",
       selectedUids: [],
       lastSelectedUid: null,
       composeOpen: false,
@@ -87,12 +91,13 @@ export const useUIStore = create<UIState>()(
       attachmentReminderEnabled: true,
       smartRepliesEnabled: true,
       setSelectedAccount: (accountId) =>
-        set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
+        set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [], lastSelectedUid: null, quickFilter: "all" }),
       setSelectedFolder: (folder) =>
-        set({ selectedFolder: folder, selectedTag: null, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
+        set({ selectedFolder: folder, selectedTag: null, selectedUid: null, selectedUids: [], lastSelectedUid: null, quickFilter: "all" }),
       setSelectedTag: (tag) =>
         set({ selectedTag: tag, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
       setSelectedUid: (uid) => set({ selectedUid: uid }),
+      setQuickFilter: (filter) => set({ quickFilter: filter }),
       toggleSelectUid: (uid) =>
         set((state) => ({
           selectedUids: state.selectedUids.includes(uid)

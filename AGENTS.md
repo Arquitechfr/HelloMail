@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (1037 tests, 158 fichiers — 721 backend + 316 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (1048 tests, 159 fichiers — 721 backend + 327 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-32 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-32 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-33 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-33 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -221,9 +221,16 @@ Mailora/
   - **Lot 32.4 : Frontend — Helpers & Mutation TanStack Query** : Fonctions `isJunkFolder` et `isPurgeableFolder` dans `folder-utils.ts`, mutation `useEmptyFolder` invalidant `folders`, `messages` et `account-quota` dans `queries/folders.ts`, types `UserPreferences` enrichis dans `api-types.ts`.
   - **Lot 32.5 : Frontend — Dialogue modal accessible & Déclencheurs UI** : Dialogue de confirmation `EmptyFolderDialog.tsx` (avertissement destructif, compte de messages, spinner d'attente), bouton contextuel discret "Vider" dans `MessageListHeader.tsx` pour Corbeille et Spams, intégration dans le menu contextuel clic droit `FolderContextMenu.tsx` et le menu 3 points `FolderActionsMenu.tsx` (propagé via `FolderNodeItem.tsx` et `FolderTree.tsx`), 10 tests unitaires frontend validés.
   - Couverture globale : **721 tests Vitest backend (87 fichiers), 316 tests Vitest frontend (71 fichiers) — 1037 tests au total, 0 `as any`**.
+- **Phase 33 : Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages (Intégralité livrée)** ✅ :
+  - **Lot 33.1 : Module Métier Pur & Typage (`quick-filters.ts`)** : Module dédié avec typage `QuickFilter` étendu à 5 filtres (`all`, `unread`, `starred`, `pinned`, `attachments`), configuration `QUICK_FILTERS_CONFIG` (libellés + raccourcis), fonction pure `filterMessages` (support de `m.flags.flagged`, `m.flags.seen`, `m.isPinned`, `m.hasAttachments`), `computeFilterCounts` optimisé en une seule passe de boucle, et cycle circulaire `getNextQuickFilter` / `getQuickFilterByIndex`, 10 tests unitaires validés.
+  - **Lot 33.2 : Store Zustand & Réactivité sans rechargement (`uiStore.ts`)** : État `quickFilter` et action `setQuickFilter` dans `UIState`, réinitialisation automatique à `all` lors des changements de dossier (`setSelectedFolder`) et de compte (`setSelectedAccount`).
+  - **Lot 33.3 : Composant QuickFilterBar ergonomique & Accessible (`QuickFilterBar.tsx`)** : Barre de 5 chips pill stylisés avec icônes distinctives (`Mail`, `MailCheck`, `Star` avec remplissage dynamique, `Pin`, `Paperclip`), badges de comptage réactifs en typographie monospace, atténuation visuelle des filtres sans résultat, attributs ARIA complets (`role="toolbar"`, `aria-label`, `aria-pressed`), infobulles informatives incluant les raccourcis clavier, 4 tests unitaires validés.
+  - **Lot 33.4 : Intégration MessageList & Vues Unifiées (`MessageList.tsx`, `UnifiedMessageList.tsx`)** : Déport de la logique de filtrage vers `quick-filters.ts` allégeant `MessageList.tsx` à 295 lignes (garantie de la règle ≤ 300 lignes), état vide contextualisé par type de filtre avec bouton interactif « Afficher tous les messages », répercussion identique dans `UnifiedMessageList.tsx` (229 lignes).
+  - **Lot 33.5 : Raccourcis Clavier Power User & Aide (`useEmailShortcuts.ts`, `KeyboardShortcutsDialog.tsx`)** : Raccourcis directs `Alt+1` à `Alt+5` et cycle rapide `Alt+F`, immunité totale des zones de saisie et modales, documentation complète dans la modale d'aide des raccourcis sous le groupe dédié « Filtres rapides de messages » (6 groupes équilibrés 3x3), 12 tests validés.
+  - Couverture globale : **721 tests Vitest backend (87 fichiers), 327 tests Vitest frontend (72 fichiers) — 1048 tests au total, 0 `as any`**.
 - **Feuille de route V4 (En cours)** 📋 :
   - **Phase 32** ✅ : Hygiène de Boîte : Purge Automatique (Trash & Spam) & Action « Vider le dossier » en 1 clic.
-  - **Phase 33 (À venir)** : Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages.
+  - **Phase 33** ✅ : Filtres Rapides (« Quick Filter Bar ») dans la Liste de Messages.
   - **Phase 34 (À venir)** : Recherche Avancée Visuelle Multi-Critères (Query Builder) & Recherche Multi-Comptes Fédérée.
   - **Phase 35 (À venir)** : Impression & Export PDF Unifié de Fil de Discussion (Thread Print).
   - **Phase 36 (À venir)** : Optimiseur de Stockage & Nettoyeur Intelligent (« Mailbox Cleaner »).

@@ -203,4 +203,28 @@ describe("useEmailShortcuts", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(onClearSelection).toHaveBeenCalledTimes(1);
   });
+
+  it("bascule les filtres rapides avec Alt+F et Alt+1..5", async () => {
+    const { useUIStore } = await import("@/lib/stores/uiStore");
+    useUIStore.setState({ quickFilter: "all" });
+
+    renderHook(() =>
+      useEmailShortcuts({
+        enabled: true,
+      }),
+    );
+
+    // Alt+F cycle vers unread
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "f", altKey: true }));
+    expect(useUIStore.getState().quickFilter).toBe("unread");
+
+    // Alt+3 passe directement à starred
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "3", altKey: true }));
+    expect(useUIStore.getState().quickFilter).toBe("starred");
+
+    // Alt+1 remet à all
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", altKey: true }));
+    expect(useUIStore.getState().quickFilter).toBe("all");
+  });
 });
+

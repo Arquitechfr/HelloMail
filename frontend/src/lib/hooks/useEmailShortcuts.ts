@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { useUIStore } from "@/lib/stores/uiStore";
+import { getNextQuickFilter, getQuickFilterByIndex } from "@/lib/quick-filters";
 
 interface EmailShortcutsOptions {
   enabled?: boolean;
@@ -80,6 +82,25 @@ export function useEmailShortcuts({
           onSelectAll();
         }
         return;
+      }
+
+      // Raccourcis avec Alt (ex: Alt+1..5 pour filtres rapides, Alt+F pour cycler)
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.key === "f" || e.key === "F") {
+          e.preventDefault();
+          const current = useUIStore.getState().quickFilter;
+          useUIStore.getState().setQuickFilter(getNextQuickFilter(current));
+          return;
+        }
+        const digit = parseInt(e.key, 10);
+        if (!isNaN(digit) && digit >= 1 && digit <= 5) {
+          const targetFilter = getQuickFilterByIndex(digit);
+          if (targetFilter) {
+            e.preventDefault();
+            useUIStore.getState().setQuickFilter(targetFilter);
+            return;
+          }
+        }
       }
 
       // Raccourcis directs sans Ctrl / Cmd

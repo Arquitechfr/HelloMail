@@ -52,6 +52,17 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Filtres rapides de messages",
+    items: [
+      { key: "Alt + F", description: "Filtre suivant (cycle circulaire)" },
+      { key: "Alt + 1", description: "Tous les messages" },
+      { key: "Alt + 2", description: "Messages non lus" },
+      { key: "Alt + 3", description: "Messages importants (étoile)" },
+      { key: "Alt + 4", description: "Messages épinglés" },
+      { key: "Alt + 5", description: "Messages avec pièces jointes" },
+    ],
+  },
+  {
     title: "Recherche & Aide",
     items: [
       { key: "Cmd + K", description: "Recherche globale et filtres" },
@@ -112,8 +123,8 @@ export function KeyboardShortcutsDialog() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [shortcutsDialogOpen, setShortcutsDialogOpen, openCompose, composeOpen, openSearch]);
 
-  const leftGroups = SHORTCUT_GROUPS.slice(0, 2);
-  const rightGroups = SHORTCUT_GROUPS.slice(2);
+  const leftGroups = SHORTCUT_GROUPS.slice(0, 3);
+  const rightGroups = SHORTCUT_GROUPS.slice(3);
 
   const renderGroup = (group: ShortcutGroup) => (
     <div key={group.title} className="flex flex-col gap-2 rounded-lg border border-border/50 bg-muted/20 p-3.5">

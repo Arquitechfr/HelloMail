@@ -7,7 +7,8 @@ import { useUIStore } from "@/lib/stores/uiStore";
 import { MessageListItem } from "@/components/mail/MessageListItem";
 import { MessageListHeader } from "@/components/mail/MessageListHeader";
 import { BatchActionBar } from "@/components/mail/BatchActionBar";
-import { QuickFilterBar, type QuickFilter } from "@/components/mail/QuickFilterBar";
+import { QuickFilterBar } from "@/components/mail/QuickFilterBar";
+import { filterMessages, computeFilterCounts } from "@/lib/quick-filters";
 import { useListNavigationShortcuts } from "@/lib/hooks/useListNavigationShortcuts";
 import { Loader2, Inbox } from "lucide-react";
 import type { Message } from "@/lib/api-types";
@@ -34,9 +35,10 @@ export function MessageList({ accountId, folder }: MessageListProps) {
   const fetchMoreMutate = fetchMore.mutate;
   const selectedUid = useUIStore((s) => s.selectedUid);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
+  const quickFilter = useUIStore((s) => s.quickFilter);
+  const setQuickFilter = useUIStore((s) => s.setQuickFilter);
   const parentRef = useRef<HTMLDivElement>(null);
   const [searchResults, setSearchResults] = useState<Message[] | null>(null);
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
 
   // Garde-fou pagination arrière :
   // - `hasMoreRef` : false quand le dernier fetch-more a retourné 0 (plus de messages anciens)
@@ -59,25 +61,8 @@ export function MessageList({ accountId, folder }: MessageListProps) {
   // Utilise les résultats de recherche si présents, sinon les messages du dossier.
   const messages = searchResults ?? data?.data ?? [];
 
-  const filteredMessages = useMemo(() => {
-    switch (quickFilter) {
-      case "unread":
-        return messages.filter((m) => !m.flags.seen);
-      case "pinned":
-        return messages.filter((m) => m.isPinned);
-      case "attachments":
-        return messages.filter((m) => m.hasAttachments);
-      default:
-        return messages;
-    }
-  }, [messages, quickFilter]);
-
-  const filterCounts = useMemo(() => ({
-    all: messages.length,
-    unread: messages.filter((m) => !m.flags.seen).length,
-    pinned: messages.filter((m) => m.isPinned).length,
-    attachments: messages.filter((m) => m.hasAttachments).length,
-  }), [messages]);
+  const filteredMessages = useMemo(() => filterMessages(messages, quickFilter), [messages, quickFilter]);
+  const filterCounts = useMemo(() => computeFilterCounts(messages), [messages]);
 
   const displayDensity = useUIStore((s) => s.displayDensity);
   const estimateItemSize = useCallback(() => {
@@ -239,14 +224,28 @@ export function MessageList({ accountId, folder }: MessageListProps) {
 
       {/* Liste virtualisée */}
       {filteredMessages.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground p-6 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-muted-foreground p-6 text-center">
           <div className="flex size-10 items-center justify-center rounded-full bg-muted/50 border border-border">
             <Inbox className="size-4 opacity-60 text-muted-foreground" />
           </div>
-          <p className="text-xs font-medium text-foreground">Aucun message pour ce filtre</p>
-          <p className="text-[11px] text-muted-foreground">
-            Modifiez le filtre actif pour afficher vos messages.
+          <p className="text-xs font-medium text-foreground">
+            {quickFilter === "unread"
+              ? "Aucun message non lu"
+              : quickFilter === "starred"
+                ? "Aucun message important"
+                : quickFilter === "pinned"
+                  ? "Aucun message épinglé"
+                  : quickFilter === "attachments"
+                    ? "Aucun message avec pièce jointe"
+                    : "Aucun message trouvé"}
           </p>
+          <button
+            type="button"
+            onClick={() => setQuickFilter("all")}
+            className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
+          >
+            Afficher tous les messages
+          </button>
         </div>
       ) : (
         <div ref={parentRef} className="flex-1 overflow-y-auto">
