@@ -14,59 +14,16 @@ import { Label } from "@/components/ui/label";
 import { useCreateSmartFolder, useUpdateSmartFolder } from "@/lib/queries/smartFolders";
 import { useAccounts } from "@/lib/queries/accounts";
 import type { SmartFolder } from "@/lib/api-types";
-import {
-  Sparkles,
-  Inbox,
-  Star,
-  Bookmark,
-  FileText,
-  Receipt,
-  Tag,
-  AlertCircle,
-  Zap,
-  Clock,
-  Flame,
-  Shield,
-  Loader2,
-  Filter,
-} from "lucide-react";
+import { Sparkles, Loader2, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  SMART_FOLDER_ICONS,
+  COLOR_PALETTE,
+  QUERY_HELPERS,
+} from "@/lib/smart-folder-constants";
 
-export const SMART_FOLDER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Sparkles,
-  Inbox,
-  Star,
-  Bookmark,
-  FileText,
-  Receipt,
-  Tag,
-  AlertCircle,
-  Zap,
-  Clock,
-  Flame,
-  Shield,
-};
-
-const COLOR_PALETTE = [
-  "#3b82f6", // Bleu
-  "#6366f1", // Indigo
-  "#8b5cf6", // Violet
-  "#ec4899", // Rose
-  "#ef4444", // Rouge
-  "#f59e0b", // Ambre
-  "#10b981", // Émeraude
-  "#06b6d4", // Cyan
-];
-
-const QUERY_HELPERS = [
-  { label: "+ Non lus", snippet: "is:unread" },
-  { label: "+ Épinglés", snippet: "is:pinned" },
-  { label: "+ Important", snippet: "is:flagged" },
-  { label: "+ Avec PJ", snippet: "has:attachment" },
-  { label: "+ De...", snippet: "from:@" },
-  { label: "+ Sujet...", snippet: "subject:" },
-];
+export { SMART_FOLDER_ICONS };
 
 interface SmartFolderDialogProps {
   open: boolean;
@@ -159,22 +116,21 @@ export function SmartFolderDialog({
     }
   };
 
+  const SelectedIcon = SMART_FOLDER_ICONS[icon] || Sparkles;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border border-border bg-card max-w-2xl p-6 shadow-2xl rounded-xl no-scrollbar">
-        <DialogHeader className="pb-3 border-b border-border/60">
-          <div className="flex items-center gap-2.5">
+      <DialogContent className="border border-border bg-card sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl p-6 sm:p-7 shadow-2xl rounded-2xl no-scrollbar max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-4 border-b border-border/60">
+          <div className="flex items-center gap-3.5">
             <div
-              className="flex size-9 items-center justify-center rounded-lg"
-              style={{ backgroundColor: `${color}20`, color }}
+              className="flex size-11 items-center justify-center rounded-xl border shadow-xs shrink-0 transition-all"
+              style={{ backgroundColor: `${color}20`, borderColor: `${color}40`, color }}
             >
-              {(() => {
-                const SelectedIcon = SMART_FOLDER_ICONS[icon] || Sparkles;
-                return <SelectedIcon className="size-5" />;
-              })()}
+              <SelectedIcon className="size-6 shrink-0" />
             </div>
             <div>
-              <DialogTitle className="text-base font-semibold font-display">
+              <DialogTitle className="text-base sm:text-lg font-semibold font-display text-foreground">
                 {isEditing ? "Modifier le dossier intelligent" : "Créer un dossier intelligent"}
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -184,11 +140,10 @@ export function SmartFolderDialog({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          {/* Contenu adaptatif : 2 colonnes sur écran moyen+, 1 colonne sur mobile */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-            {/* Colonne 1 : Identité & Portée */}
-            <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+            {/* Colonne 1 : Identité visuelle & Portée */}
+            <div className="space-y-5">
               <div>
                 <Label htmlFor="smart-name" className="text-xs font-semibold text-foreground mb-1.5 block">
                   Nom du dossier
@@ -198,7 +153,7 @@ export function SmartFolderDialog({
                   placeholder="Ex : Factures urgentes, Clients VIP..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-9 text-xs"
+                  className="h-9 text-xs bg-muted/20"
                   autoFocus
                 />
               </div>
@@ -207,23 +162,35 @@ export function SmartFolderDialog({
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                   Icône
                 </Label>
-                <div className="grid grid-cols-6 gap-1.5 p-1.5 rounded-lg border border-border bg-muted/20">
-                  {Object.entries(SMART_FOLDER_ICONS).map(([iconKey, IconComponent]) => (
-                    <button
-                      key={iconKey}
-                      type="button"
-                      onClick={() => setIcon(iconKey)}
-                      className={cn(
-                        "flex items-center justify-center p-2 rounded-md transition-all cursor-pointer",
-                        icon === iconKey
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                      )}
-                      title={iconKey}
-                    >
-                      <IconComponent className="size-4" />
-                    </button>
-                  ))}
+                <div className="grid grid-cols-6 gap-2 p-2 rounded-xl border border-border bg-muted/20">
+                  {Object.entries(SMART_FOLDER_ICONS).map(([iconKey, IconComponent]) => {
+                    const isSelected = icon === iconKey;
+                    return (
+                      <button
+                        key={iconKey}
+                        type="button"
+                        onClick={() => setIcon(iconKey)}
+                        className={cn(
+                          "flex h-10 w-full items-center justify-center rounded-lg border transition-all cursor-pointer",
+                          isSelected
+                            ? "border-primary shadow-xs ring-2 ring-offset-1"
+                            : "border-border/50 bg-background/50 text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground",
+                        )}
+                        style={
+                          isSelected
+                            ? {
+                                borderColor: color,
+                                backgroundColor: `${color}25`,
+                                color,
+                              }
+                            : undefined
+                        }
+                        title={iconKey}
+                      >
+                        <IconComponent className="size-5 shrink-0" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -231,15 +198,15 @@ export function SmartFolderDialog({
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                   Couleur
                 </Label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   {COLOR_PALETTE.map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => setColor(c)}
                       className={cn(
-                        "size-6 rounded-full transition-transform cursor-pointer flex items-center justify-center",
-                        color === c ? "scale-115 ring-2 ring-foreground/20 ring-offset-1" : "hover:scale-105",
+                        "size-7 rounded-full transition-all cursor-pointer flex items-center justify-center border border-black/10 shadow-xs",
+                        color === c ? "ring-2 ring-offset-2 ring-foreground scale-110" : "hover:scale-105 opacity-85 hover:opacity-100",
                       )}
                       style={{ backgroundColor: c }}
                       title={c}
@@ -261,7 +228,7 @@ export function SmartFolderDialog({
                   <option value="all">Tous les comptes (Unifié)</option>
                   {accounts.map((acc) => (
                     <option key={acc._id} value={acc._id}>
-                      {acc.emailAddress}
+                      {acc.displayName ? `${acc.displayName} (${acc.emailAddress})` : acc.emailAddress}
                     </option>
                   ))}
                 </select>
@@ -269,7 +236,7 @@ export function SmartFolderDialog({
             </div>
 
             {/* Colonne 2 : Requête & Filtres rapides */}
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
                 <Label htmlFor="smart-query" className="text-xs font-semibold text-foreground mb-1.5 flex items-center justify-between">
                   <span>Critères de recherche</span>
@@ -280,7 +247,7 @@ export function SmartFolderDialog({
                   placeholder="Ex : is:unread from:stripe.com"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="h-9 text-xs font-mono"
+                  className="h-9 text-xs font-mono bg-muted/20"
                 />
               </div>
 
@@ -294,7 +261,7 @@ export function SmartFolderDialog({
                       key={helper.label}
                       type="button"
                       onClick={() => addQuerySnippet(helper.snippet)}
-                      className="px-2 py-1 rounded border border-border/80 bg-muted/40 hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground font-mono transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded-md border border-border/80 bg-muted/40 hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground font-mono transition-colors cursor-pointer"
                     >
                       {helper.label}
                     </button>
@@ -302,25 +269,25 @@ export function SmartFolderDialog({
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg border border-border/60 bg-muted/30 text-xs text-muted-foreground space-y-1">
+              <div className="p-3.5 rounded-xl border border-border/60 bg-muted/30 text-xs text-muted-foreground space-y-1.5">
                 <span className="font-semibold text-foreground block">Opérateurs supportés :</span>
-                <p className="text-[11px]">
-                  <code className="font-mono text-primary">is:unread</code>,{" "}
-                  <code className="font-mono text-primary">is:pinned</code>,{" "}
-                  <code className="font-mono text-primary">is:flagged</code>,{" "}
-                  <code className="font-mono text-primary">has:attachment</code>,{" "}
-                  <code className="font-mono text-primary">tag:nom</code>,{" "}
-                  <code className="font-mono text-primary">from:email</code>,{" "}
-                  <code className="font-mono text-primary">subject:mot</code>
+                <p className="text-[11px] leading-relaxed">
+                  <code className="font-mono text-primary font-medium">is:unread</code>,{" "}
+                  <code className="font-mono text-primary font-medium">is:pinned</code>,{" "}
+                  <code className="font-mono text-primary font-medium">is:flagged</code>,{" "}
+                  <code className="font-mono text-primary font-medium">has:attachment</code>,{" "}
+                  <code className="font-mono text-primary font-medium">larger:5M</code>,{" "}
+                  <code className="font-mono text-primary font-medium">from:email</code>,{" "}
+                  <code className="font-mono text-primary font-medium">subject:mot</code>
                 </p>
-                <p className="text-[10px] text-muted-foreground/80 italic">
-                  Les dossiers Corbeille et Spams sont automatiquement exclus.
+                <p className="text-[10px] text-muted-foreground/80 italic pt-1 border-t border-border/40">
+                  Les dossiers Corbeille et Spams sont automatiquement exclus de la recherche.
                 </p>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="pt-3 border-t border-border/60 flex items-center justify-end gap-2">
+          <DialogFooter className="pt-4 border-t border-border/60 flex items-center justify-end gap-2.5">
             <Button
               type="button"
               variant="outline"
@@ -330,7 +297,7 @@ export function SmartFolderDialog({
             >
               Annuler
             </Button>
-            <Button type="submit" size="sm" disabled={isSubmitting}>
+            <Button type="submit" size="sm" disabled={isSubmitting} className="min-w-28">
               {isSubmitting ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin mr-1.5" />
