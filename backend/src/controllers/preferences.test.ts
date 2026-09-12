@@ -154,4 +154,28 @@ describe('User Preferences API (Lot 9.2)', () => {
       .send({ swipeRightAction: 'explode' });
     expect(resSwipe.status).toBe(400);
   });
+
+  it('PATCH /preferences met à jour attachmentReminderEnabled et smartRepliesEnabled → 200', async () => {
+    const token = await registerAndGetToken();
+
+    const res = await request(app)
+      .patch('/api/auth/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        attachmentReminderEnabled: false,
+        smartRepliesEnabled: false,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.preferences.attachmentReminderEnabled).toBe(false);
+    expect(res.body.user.preferences.smartRepliesEnabled).toBe(false);
+
+    const meRes = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.user.preferences.attachmentReminderEnabled).toBe(false);
+    expect(meRes.body.user.preferences.smartRepliesEnabled).toBe(false);
+  });
 });

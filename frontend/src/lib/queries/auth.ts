@@ -135,7 +135,8 @@ export function useUpdatePreferences() {
         setAuth(accessToken, data.user);
       }
       if (data.user?.preferences) {
-        const { displayDensity, swipeRightAction, swipeLeftAction } = data.user.preferences;
+        const { displayDensity, swipeRightAction, swipeLeftAction, attachmentReminderEnabled, smartRepliesEnabled } =
+          data.user.preferences;
         const ui = useUIStore.getState();
         if (displayDensity && displayDensity !== ui.displayDensity) {
           ui.setDisplayDensity(displayDensity);
@@ -145,6 +146,12 @@ export function useUpdatePreferences() {
         }
         if (swipeLeftAction && swipeLeftAction !== ui.swipeLeftAction) {
           ui.setSwipeLeftAction(swipeLeftAction);
+        }
+        if (attachmentReminderEnabled !== undefined && attachmentReminderEnabled !== ui.attachmentReminderEnabled) {
+          ui.setAttachmentReminderEnabled(attachmentReminderEnabled);
+        }
+        if (smartRepliesEnabled !== undefined && smartRepliesEnabled !== ui.smartRepliesEnabled) {
+          ui.setSmartRepliesEnabled(smartRepliesEnabled);
         }
       }
       qc.invalidateQueries({ queryKey: authKeys.me });

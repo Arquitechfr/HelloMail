@@ -5,6 +5,7 @@ import { UndoSendSettings } from "@/components/mail/UndoSendSettings";
 import { AutoContactsSettings } from "@/components/mail/AutoContactsSettings";
 import { DisplayDensitySettings } from "@/components/mail/settings/DisplayDensitySettings";
 import { SwipeActionsSettings } from "@/components/mail/settings/SwipeActionsSettings";
+import { SmartAssistanceSettings } from "@/components/mail/settings/SmartAssistanceSettings";
 import { Sliders, SunMoon, Radio } from "lucide-react";
 
 export function SettingsAppearanceSection() {
@@ -71,6 +72,9 @@ export function SettingsAppearanceSection() {
         <UndoSendSettings />
         <div className="border-t border-border/40">
           <AutoContactsSettings />
+        </div>
+        <div className="border-t border-border/40">
+          <SmartAssistanceSettings />
         </div>
       </div>
 

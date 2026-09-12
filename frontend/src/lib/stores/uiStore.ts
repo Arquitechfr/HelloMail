@@ -30,6 +30,8 @@ interface UIState {
   displayDensity: DisplayDensity;
   swipeRightAction: SwipeAction;
   swipeLeftAction: SwipeAction;
+  attachmentReminderEnabled: boolean;
+  smartRepliesEnabled: boolean;
   setSelectedAccount: (accountId: string | null) => void;
   setSelectedFolder: (folder: string) => void;
   setSelectedTag: (tag: string | null) => void;
@@ -57,6 +59,8 @@ interface UIState {
   setSwipeRightAction: (action: SwipeAction) => void;
   setSwipeLeftAction: (action: SwipeAction) => void;
   setSwipeActions: (actions: { swipeRightAction?: SwipeAction; swipeLeftAction?: SwipeAction }) => void;
+  setAttachmentReminderEnabled: (enabled: boolean) => void;
+  setSmartRepliesEnabled: (enabled: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -80,6 +84,8 @@ export const useUIStore = create<UIState>()(
       displayDensity: "comfortable",
       swipeRightAction: "toggle_read",
       swipeLeftAction: "trash",
+      attachmentReminderEnabled: true,
+      smartRepliesEnabled: true,
       setSelectedAccount: (accountId) =>
         set({ selectedAccountId: accountId, selectedUid: null, selectedUids: [], lastSelectedUid: null }),
       setSelectedFolder: (folder) =>
@@ -146,6 +152,8 @@ export const useUIStore = create<UIState>()(
       setSwipeRightAction: (action) => set({ swipeRightAction: action }),
       setSwipeLeftAction: (action) => set({ swipeLeftAction: action }),
       setSwipeActions: (actions) => set((state) => ({ ...state, ...actions })),
+      setAttachmentReminderEnabled: (enabled) => set({ attachmentReminderEnabled: enabled }),
+      setSmartRepliesEnabled: (enabled) => set({ smartRepliesEnabled: enabled }),
     }),
     {
       name: "mailora-ui",
@@ -157,6 +165,8 @@ export const useUIStore = create<UIState>()(
         displayDensity: state.displayDensity,
         swipeRightAction: state.swipeRightAction,
         swipeLeftAction: state.swipeLeftAction,
+        attachmentReminderEnabled: state.attachmentReminderEnabled,
+        smartRepliesEnabled: state.smartRepliesEnabled,
       }),
     },
   ),

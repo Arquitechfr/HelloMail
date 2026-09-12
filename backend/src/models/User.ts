@@ -26,6 +26,8 @@ export interface IUserPreferences {
   displayDensity?: DisplayDensity; // compact, comfortable, spacious (défaut: comfortable)
   swipeRightAction?: SwipeAction; // toggle_read, archive, star, none (défaut: toggle_read)
   swipeLeftAction?: SwipeAction; // trash, junk, archive, none (défaut: trash)
+  attachmentReminderEnabled?: boolean; // détection d'oubli de pièces jointes (défaut: true)
+  smartRepliesEnabled?: boolean; // suggestions de réponses rapides (défaut: true)
 }
 
 export interface IUserDocument extends Document {
@@ -130,6 +132,14 @@ const userSchema = new Schema<IUserDocument>(
         type: String,
         enum: ['toggle_read', 'archive', 'star', 'trash', 'junk', 'none'],
         default: 'trash',
+      },
+      attachmentReminderEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      smartRepliesEnabled: {
+        type: Boolean,
+        default: true,
       },
     },
     defaultsSeededAt: {

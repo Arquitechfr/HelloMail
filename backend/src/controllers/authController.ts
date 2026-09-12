@@ -93,6 +93,8 @@ export const updatePreferences = asyncHandler(async (req: AuthenticatedRequest, 
   if (req.body.displayDensity !== undefined) update['preferences.displayDensity'] = req.body.displayDensity;
   if (req.body.swipeRightAction !== undefined) update['preferences.swipeRightAction'] = req.body.swipeRightAction;
   if (req.body.swipeLeftAction !== undefined) update['preferences.swipeLeftAction'] = req.body.swipeLeftAction;
+  if (req.body.attachmentReminderEnabled !== undefined) update['preferences.attachmentReminderEnabled'] = req.body.attachmentReminderEnabled;
+  if (req.body.smartRepliesEnabled !== undefined) update['preferences.smartRepliesEnabled'] = req.body.smartRepliesEnabled;
 
   const user = await UserModel.findByIdAndUpdate(
     req.user.id,

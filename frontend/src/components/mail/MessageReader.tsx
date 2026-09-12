@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useMessageDetail, useMessageThread } from "@/lib/queries/messages";
 import { useFolders } from "@/lib/queries/folders";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { generateSmartReplies } from "@/lib/smart-replies";
 import { isDraftFolder } from "@/lib/folder-utils";
 import { EmailIframe } from "@/components/mail/EmailIframe";
 import { AttachmentList } from "@/components/mail/AttachmentList";
@@ -37,8 +38,14 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
   const openCompose = useUIStore((s) => s.openCompose);
   const setSelectedUid = useUIStore((s) => s.setSelectedUid);
   const setSelectedFolder = useUIStore((s) => s.setSelectedFolder);
+  const smartRepliesEnabled = useUIStore((s) => s.smartRepliesEnabled);
   const [decryptedBody, setDecryptedBody] = useState<string | null>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
+
+  const smartReplies = useMemo(() => {
+    if (!smartRepliesEnabled || !message || isDraft) return [];
+    return generateSmartReplies(message.subject, message.text || message.html);
+  }, [smartRepliesEnabled, message, isDraft]);
 
   useEffect(() => {
     setDecryptedBody(null);
@@ -178,6 +185,16 @@ export function MessageReader({ accountId, folder, uid }: MessageReaderProps) {
           senderLabel={message.from.name || message.from.address}
           hasMultipleRecipients={message.to.length + (message.cc?.length ?? 0) > 1}
           accountId={accountId}
+          smartReplies={smartReplies}
+          onSelectSmartReply={(replyText) =>
+            openCompose("reply", {
+              messageId: message.messageId,
+              subject: message.subject,
+              from: message.from.address,
+              to: [message.from.address],
+              html: `<p>${replyText}</p>`,
+            })
+          }
           onSelectTemplate={(template) =>
             openCompose("reply", {
               messageId: message.messageId,

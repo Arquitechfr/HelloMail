@@ -20,6 +20,9 @@ import { FollowUpDialog } from "@/components/mail/reminders/FollowUpDialog";
 import { useScheduleSend } from "@/lib/hooks/useScheduleSend";
 import { useComposeSignature } from "@/lib/hooks/useComposeSignature";
 import { useComposePgp } from "@/lib/hooks/useComposePgp";
+import { useAttachmentReminder } from "@/lib/hooks/useAttachmentReminder";
+import { MissingAttachmentDialog } from "@/components/mail/MissingAttachmentDialog";
+import { useUIStore } from "@/lib/stores/uiStore";
 import { toast } from "sonner";
 import type { SendEmailInput } from "@/lib/api-types";
 import type { EmailTemplate } from "@/lib/types/templates";
@@ -179,18 +182,10 @@ export function ComposeForm({
     }
   };
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!to.trim()) {
-      toast.error("Veuillez saisir au moins un destinataire");
-      return;
-    }
-    if (!subject.trim()) {
-      toast.error("Veuillez saisir un sujet");
-      return;
-    }
+  const attachmentReminderEnabled = useUIStore((s) => s.attachmentReminderEnabled);
+
+  const proceedSend = useCallback(async () => {
     setSubmitting(true);
-    // Anti-double-submit.
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
     let payload = buildPayload();
@@ -211,7 +206,6 @@ export function ComposeForm({
 
     if (undoSendDelay > 0) {
       setSubmitting(false);
-      // Fermeture immédiate du panneau de composition
       onClose();
 
       const recipientText = payload.to[0] + (payload.to.length > 1 ? ` (+${payload.to.length - 1})` : "");
@@ -243,6 +237,27 @@ export function ComposeForm({
     } finally {
       setSubmitting(false);
     }
+  }, [buildPayload, pgpEncrypt, pgpSign, processPgpPayload, body, undoSendDelay, onClose, accountId, mode, replyTo, draftUid, attachments, queueSend, sendEmail, deleteDraft, onSent]);
+
+  const {
+    missingAttachmentOpen, setMissingAttachmentOpen,
+    checkAttachmentAndSend, confirmSendWithoutAttachment,
+  } = useAttachmentReminder({
+    subject, body, hasAttachments: attachments.length > 0,
+    enabled: attachmentReminderEnabled, onProceedSend: proceedSend,
+  });
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!to.trim()) {
+      toast.error("Veuillez saisir au moins un destinataire");
+      return;
+    }
+    if (!subject.trim()) {
+      toast.error("Veuillez saisir un sujet");
+      return;
+    }
+    checkAttachmentAndSend(e);
   };
 
   const handleSelectTemplate = (template: EmailTemplate) => {
@@ -298,44 +313,32 @@ export function ComposeForm({
       />
 
       <ComposeActions
-        submitting={submitting}
-        savingDraft={savingDraft}
-        requestReadReceipt={requestReadReceipt}
-        onRequestReadReceiptChange={setRequestReadReceipt}
-        onSaveDraft={handleSaveDraft}
-        onCancel={onClose}
-        accountId={accountId}
+        submitting={submitting} savingDraft={savingDraft}
+        requestReadReceipt={requestReadReceipt} onRequestReadReceiptChange={setRequestReadReceipt}
+        onSaveDraft={handleSaveDraft} onCancel={onClose} accountId={accountId}
         onSelectTemplate={handleSelectTemplate}
         onOpenSchedule={() => setScheduleDialogOpen(true)}
         onOpenScheduledList={() => setScheduledListDialogOpen(true)}
-        onOpenFollowUp={() => setFollowUpOpen(true)}
-        hasFollowUp={Boolean(followUp)}
-        pgpEncrypt={pgpEncrypt}
-        onPgpEncryptChange={setPgpEncrypt}
-        pgpSign={pgpSign}
-        onPgpSignChange={setPgpSign}
+        onOpenFollowUp={() => setFollowUpOpen(true)} hasFollowUp={Boolean(followUp)}
+        pgpEncrypt={pgpEncrypt} onPgpEncryptChange={setPgpEncrypt}
+        pgpSign={pgpSign} onPgpSignChange={setPgpSign}
       />
 
       <ScheduleSendDialog
-        open={scheduleDialogOpen}
-        onOpenChange={setScheduleDialogOpen}
+        open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}
         onSchedule={(date) => scheduleSend(date, buildPayload())}
       />
       <ScheduledMessagesDialog
-        open={scheduledListDialogOpen}
-        onOpenChange={setScheduledListDialogOpen}
-        accountId={accountId}
+        open={scheduledListDialogOpen} onOpenChange={setScheduledListDialogOpen} accountId={accountId}
       />
       <FollowUpDialog
-        open={followUpOpen}
-        onOpenChange={setFollowUpOpen}
-        accountId={accountId}
-        folder="Sent"
-        uid={0}
-        initialRemindAt={followUp?.remindAt}
-        initialNote={followUp?.note}
-        onSelect={(remindAt, note) => setFollowUp({ remindAt, note })}
-        onClear={() => setFollowUp(null)}
+        open={followUpOpen} onOpenChange={setFollowUpOpen} accountId={accountId} folder="Sent" uid={0}
+        initialRemindAt={followUp?.remindAt} initialNote={followUp?.note}
+        onSelect={(remindAt, note) => setFollowUp({ remindAt, note })} onClear={() => setFollowUp(null)}
+      />
+      <MissingAttachmentDialog
+        open={missingAttachmentOpen} onOpenChange={setMissingAttachmentOpen}
+        onAddAttachment={() => setMissingAttachmentOpen(false)} onConfirmSend={confirmSendWithoutAttachment}
       />
     </form>
   );

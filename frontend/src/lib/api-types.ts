@@ -36,6 +36,8 @@ export interface UserPreferences {
   displayDensity?: "compact" | "comfortable" | "spacious";
   swipeRightAction?: "toggle_read" | "archive" | "star" | "trash" | "junk" | "none";
   swipeLeftAction?: "toggle_read" | "archive" | "star" | "trash" | "junk" | "none";
+  attachmentReminderEnabled?: boolean;
+  smartRepliesEnabled?: boolean;
 }
 
 export interface User {

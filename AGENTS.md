@@ -34,7 +34,7 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 - **300 lignes max par fichier** (350 toléré si impossible à découper).
 - **Messages d'erreur en français** côté API.
 - **Conventional Commits** : `type(scope): description`.
-- **Tests obligatoires** : Vitest (954 tests, 140 fichiers — 677 backend + 277 frontend). Ne pas livrer sans `pnpm test`.
+- **Tests obligatoires** : Vitest (974 tests, 144 fichiers — 678 backend + 296 frontend). Ne pas livrer sans `pnpm test`.
 - **Design frontend centralisé** : `frontend/src/app/globals.css` est l'unique source de vérité pour le design. Aucune couleur hardcodée dans les composants.
 - **Header fixe, Hub de réglages Master-Detail, Rédaction & Recherche universelles** : Header permanent unifié (`AppHeader`), navigation modulaire responsive avec détection de résolution d'écran (`/mail/settings`), fenêtre de rédaction universelle flottante (`ComposePanel`), recherche globale Spotlight (`GlobalSearchDialog` Cmd+K) et autoconfiguration email épurée (`AddAccountDialog`).
 
@@ -42,8 +42,8 @@ pnpm --filter frontend typecheck    # tsc --noEmit frontend
 
 ```
 Mailora/
-├── backend/     # API REST (Express + MongoDB) — Phases 1-27 livrées
-├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-27 livrées
+├── backend/     # API REST (Express + MongoDB) — Phases 1-28 livrées
+├── frontend/    # Web client (Next.js + shadcn/ui) — Phases 1-28 livrées
 └── pnpm-workspace.yaml
 ```
 
@@ -187,4 +187,10 @@ Mailora/
   - **Lot 27.4 : Adaptabilité graphique & Virtualisation de `MessageListItem`** : `estimateSize` dynamique dans `MessageList.tsx` (44px / 72px / 92px) avec remesure automatique TanStack Virtual `virtualizer.measure()`, adaptation des espacements, de la taille des avatars et des badges dans `MessageListItem.tsx` garantissant la tenue stricte du layout sous 300 lignes (289 lignes).
   - **Lot 27.5 : Gestes tactiles de balayage (`SwipeableMessageItem`)** : Wrapper `SwipeableMessageItem.tsx` sous `framer-motion` avec détection tactile exclusive (immunité totale du Drag & Drop natif HTML5 vers les dossiers sur desktop), verrouillage directionnel `pan-y` et seuil d'activation 80px avec micro-vibration haptique (`navigator.vibrate`), révélation d'arrières-plans colorés et icônes animées, déclenchement immédiat de `useMessageActions` au relâchement.
   - Couverture globale : **677 tests Vitest backend (79 fichiers), 277 tests Vitest frontend (61 fichiers) — 954 tests au total, 0 `as any`**.
+- **Phase 28 : Réponses Intelligentes ("Smart Replies") & Détection d'Oubli de Pièces Jointes (Intégralité livrée)** ✅ :
+  - **Lot 28.1 : Backend — Persistance des préférences d'assistance** : Champs `attachmentReminderEnabled` et `smartRepliesEnabled` sur `IUserPreferences` et schéma Mongoose dans `User.ts` (valeurs par défaut `true`), validation Zod dans `authSchemas.ts`, contrôleur `authController.ts` étendu, 10 tests unitaires validés dans `preferences.test.ts`.
+  - **Lot 28.2 : Frontend — Moteurs heuristiques d'analyse & Typage** : Module `attachment-detector.ts` (détection regex multi-mots clés bilingue FR/EN, strip automatique du balisage HTML, citations `>` et négations explicites) ; module `smart-replies.ts` (génération locale sans appel externe de 3 réponses rapides et pertinentes selon le type de message : confirmation, questions ouvertes/fermées, invitation, négation/rejet) ; 13 tests unitaires dédiés.
+  - **Lot 28.3 : Frontend — Composants UI & Panneau de réglages** : Composant `MissingAttachmentDialog.tsx` (dialogue accessible de prévention avant soumission), composant `SmartRepliesChips.tsx` (chips arrondis avec icône `Sparkles`), composant `SmartAssistanceSettings.tsx` (interrupteurs d'activation/désactivation avec badges de statut et mise à jour optimiste via TanStack Mutation) intégré dans `/mail/settings?section=appearance`.
+  - **Lot 28.4 : Intégration Compose & Lecteur d'emails** : Hook découplé `useAttachmentReminder.ts` maintenant `ComposeForm.tsx` strictement sous 350 lignes (345 lignes), dialogue d'interception avec options « Ajouter une pièce jointe » ou « Envoyer quand même », suggestions Smart Replies réactives intégrées au-dessus de `QuickReplyBar.tsx` et passage de réponse pré-remplie au clic vers le formulaire de réponse dans `MessageReader.tsx`.
+  - Couverture globale : **678 tests Vitest backend (79 fichiers), 296 tests Vitest frontend (65 fichiers) — 974 tests au total, 0 `as any`**.
 

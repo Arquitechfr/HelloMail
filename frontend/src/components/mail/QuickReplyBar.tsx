@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Reply, ReplyAll } from "lucide-react";
 import { TemplateInsertDropdown } from "@/components/mail/TemplateInsertDropdown";
+import { SmartRepliesChips } from "@/components/mail/SmartRepliesChips";
 import type { EmailTemplate } from "@/lib/types/templates";
 
 interface QuickReplyBarProps {
@@ -12,6 +13,8 @@ interface QuickReplyBarProps {
   onReplyAll: () => void;
   accountId?: string;
   onSelectTemplate?: (template: EmailTemplate) => void;
+  smartReplies?: string[];
+  onSelectSmartReply?: (reply: string) => void;
 }
 
 export function QuickReplyBar({
@@ -21,12 +24,21 @@ export function QuickReplyBar({
   onReplyAll,
   accountId,
   onSelectTemplate,
+  smartReplies,
+  onSelectSmartReply,
 }: QuickReplyBarProps) {
   return (
-    <div className="border-t border-border bg-background/60 p-3 shrink-0 flex items-center justify-between gap-2 no-print">
-      <button
-        type="button"
-        onClick={onReply}
+    <div className="border-t border-border bg-background/60 p-3 shrink-0 flex flex-col gap-2 no-print">
+      {smartReplies && smartReplies.length > 0 && onSelectSmartReply && (
+        <SmartRepliesChips
+          replies={smartReplies}
+          onSelectReply={onSelectSmartReply}
+        />
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onReply}
         className="flex-1 flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground bg-muted/30 hover:bg-muted/60 rounded-md border border-border/70 transition-colors text-left cursor-pointer"
       >
         <Reply className="size-3.5" />
@@ -52,6 +64,7 @@ export function QuickReplyBar({
           <span>Tous</span>
         </Button>
       )}
+      </div>
     </div>
   );
 }

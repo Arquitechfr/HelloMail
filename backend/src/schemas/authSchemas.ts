@@ -54,6 +54,8 @@ export const updatePreferencesSchema = z.object({
   displayDensity: z.enum(['compact', 'comfortable', 'spacious']).optional(),
   swipeRightAction: z.enum(['toggle_read', 'archive', 'star', 'trash', 'junk', 'none']).optional(),
   swipeLeftAction: z.enum(['toggle_read', 'archive', 'star', 'trash', 'junk', 'none']).optional(),
+  attachmentReminderEnabled: z.boolean().optional(),
+  smartRepliesEnabled: z.boolean().optional(),
 });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 
